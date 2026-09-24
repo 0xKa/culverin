@@ -1,6 +1,6 @@
 # Counter result semantics
 
-Culverin counts selected in-memory files with Tokei 15.0.0. The deterministic result contract is [`schemas/analysis-result-v1.schema.json`](../schemas/analysis-result-v1.schema.json); `counter/src/lib.rs` produces it and `extension/src/counter/result.ts` validates its structure and cross-field invariants. Results identify Tokei, wrapper version `1`, the `source-v1` rules profile, rules version `1`, and coverage policy version `1`. They are Tokei results. They are not normalized to `cloc` or GitHub Linguist, which use different recognition and counting policies.
+Culverin counts selected in-memory files with Tokei 15.0.0. The deterministic result contract is [`schemas/analysis-result-v1.schema.json`](../schemas/analysis-result-v1.schema.json); the `counter/src` Rust modules produce it and `extension/src/counter/result.ts` validates its structure and cross-field invariants. Results identify Tokei, wrapper version `1`, the `source-v1` rules profile, rules version `1`, and coverage policy version `1`. They are Tokei results. They are not normalized to `cloc` or GitHub Linguist, which use different recognition and counting policies.
 
 ## Input and attribution
 

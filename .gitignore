@@ -1,0 +1,10 @@
+.local*
+.agents
+agents.md
+.bun/
+node_modules/
+target/
+extension/dist/
+extension/src/wasm/generated/
+dist/
+playwright-report/

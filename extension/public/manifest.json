@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "description": "Early bootstrap of a browser-local GitHub code statistics extension. Analysis is planned, not yet available.",
   "minimum_chrome_version": "120",
-  "permissions": ["storage"],
+  "permissions": ["storage", "offscreen"],
   "host_permissions": [
     "https://github.com/*",
     "https://api.github.com/*",

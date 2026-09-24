@@ -3,9 +3,11 @@ import {
   type CounterFile,
   type CounterRules,
 } from "../counter/runner";
+import { handleFeasibility } from "../analysis/coordinator";
 
 chrome.runtime.onMessage.addListener(
   (message: unknown, sender, sendResponse) => {
+    if (handleFeasibility(message, sender, sendResponse)) return true;
     if (
       sender.id !== chrome.runtime.id ||
       typeof message !== "object" ||
@@ -30,6 +32,7 @@ chrome.runtime.onMessage.addListener(
     }
     if (
       message.type === "counter.analyze" &&
+      sender.url === chrome.runtime.getURL("test-harness.html") &&
       "rules" in message &&
       "files" in message &&
       Array.isArray(message.files)

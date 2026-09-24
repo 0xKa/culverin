@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Culverin",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Early bootstrap of a browser-local GitHub code statistics extension. Analysis is planned, not yet available.",
   "minimum_chrome_version": "120",
   "permissions": ["storage"],

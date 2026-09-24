@@ -11,6 +11,7 @@ const LAST = "feasibility.last";
 type Active = {
   id: string;
   owner: string;
+  navigationId: string;
   timer: ReturnType<typeof setInterval>;
   deadline: ReturnType<typeof setTimeout>;
   finish: (outcome: JobOutcome) => void;
@@ -63,7 +64,17 @@ async function reconcile(): Promise<void> {
     if (await hostExists())
       await sendHost("host.reconcile").catch(() => undefined);
     await chrome.storage.session.remove(MARKER);
-    await chrome.storage.session.set({ [LAST]: { state: "interrupted" } });
+    const marker = stored[MARKER] as {
+      owner?: unknown;
+      navigationId?: unknown;
+    };
+    await chrome.storage.session.set({
+      [LAST]: {
+        owner: marker.owner,
+        navigationId: marker.navigationId,
+        state: "interrupted",
+      },
+    });
   } else if (await hostExists()) {
     await sendHost("host.reconcile").catch(() => undefined);
   }
@@ -156,10 +167,19 @@ export function handleFeasibility(
   if (request.type === "feasibility.status") {
     void ready.then(async () => {
       const stored = await chrome.storage.session.get(LAST);
+      const last = stored[LAST] as
+        (JobOutcome & { owner?: string; navigationId?: string }) | undefined;
+      const current = active;
       reply(
-        active
+        current &&
+          current.owner === sender.documentId &&
+          current.navigationId === request.navigationId
           ? { state: "running" }
-          : ((stored[LAST] as JobOutcome | undefined) ?? { state: "idle" }),
+          : last &&
+              last.owner === sender.documentId &&
+              last.navigationId === request.navigationId
+            ? last
+            : { state: "idle" },
       );
     });
     return true;
@@ -169,6 +189,7 @@ export function handleFeasibility(
       if (
         !active ||
         active.owner !== sender.documentId ||
+        active.navigationId !== request.navigationId ||
         request.targetRequestId !== active.id
       ) {
         reply({ state: "idle" });
@@ -181,7 +202,13 @@ export function handleFeasibility(
       active = undefined;
       await sendHost("host.cancel", id).catch(() => undefined);
       await chrome.storage.session.remove(MARKER);
-      await chrome.storage.session.set({ [LAST]: { state: "canceled" } });
+      await chrome.storage.session.set({
+        [LAST]: {
+          owner: sender.documentId,
+          navigationId: request.navigationId,
+          state: "canceled",
+        },
+      });
       reply({ state: "canceled" });
     });
     return true;
@@ -201,6 +228,7 @@ export function handleFeasibility(
       const job: Active = {
         id,
         owner: sender.documentId ?? "",
+        navigationId: request.navigationId as string,
         finish: reply,
         timer: setInterval(() => {
           void sendHost("host.renew", id).catch(() => undefined);
@@ -212,7 +240,12 @@ export function handleFeasibility(
           void sendHost("host.cancel", id).catch(() => undefined);
           void chrome.storage.session.remove(MARKER);
           void chrome.storage.session.set({
-            [LAST]: { state: "failed", error: "deadline_exceeded" },
+            [LAST]: {
+              owner: job.owner,
+              navigationId: job.navigationId,
+              state: "failed",
+              error: "deadline_exceeded",
+            },
           });
           job.finish({ state: "failed", error: "deadline_exceeded" });
         }, JOB_DEADLINE_MS),
@@ -221,6 +254,7 @@ export function handleFeasibility(
       await chrome.storage.session.set({
         [MARKER]: {
           id,
+          owner: job.owner,
           navigationId: request.navigationId,
           startedAt: Date.now(),
         },
@@ -240,7 +274,11 @@ export function handleFeasibility(
         active = undefined;
         await chrome.storage.session.remove(MARKER);
         await chrome.storage.session.set({
-          [LAST]: { state: outcome?.state ?? "interrupted" },
+          [LAST]: {
+            owner: job.owner,
+            navigationId: job.navigationId,
+            state: outcome?.state ?? "interrupted",
+          },
         });
         reply(outcome);
         setTimeout(() => {
@@ -253,7 +291,13 @@ export function handleFeasibility(
         clearTimeout(job.deadline);
         active = undefined;
         await chrome.storage.session.remove(MARKER);
-        await chrome.storage.session.set({ [LAST]: { state: "interrupted" } });
+        await chrome.storage.session.set({
+          [LAST]: {
+            owner: job.owner,
+            navigationId: job.navigationId,
+            state: "interrupted",
+          },
+        });
         reply({ state: "interrupted" });
       }
     });

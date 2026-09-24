@@ -249,6 +249,10 @@ try {
       input: { ...input, fixtureDelayMs: 800 },
     });
     await new Promise((resolve) => setTimeout(resolve, 100));
+    const unrelatedCancel = await send("feasibility.cancel", {
+      navigationId: "other-nav",
+      targetRequestId: delayed.requestId,
+    }).response;
     const canceledDelayed = await send("feasibility.cancel", {
       targetRequestId: delayed.requestId,
     }).response;
@@ -256,6 +260,9 @@ try {
     const afterDelay = await send("feasibility.start", { input }).response;
     await new Promise((resolve) => setTimeout(resolve, 850));
     const statusAfterDelay = await send("feasibility.status").response;
+    const unrelatedStatus = await send("feasibility.status", {
+      navigationId: "other-nav",
+    }).response;
     return {
       baseline,
       slowMs,
@@ -263,9 +270,11 @@ try {
       cancelMs,
       next,
       canceledDelayed,
+      unrelatedCancel,
       delayedOriginal,
       afterDelay,
       statusAfterDelay,
+      unrelatedStatus,
     };
   });
   assert.equal(feasibility.baseline.state, "completed");
@@ -276,9 +285,11 @@ try {
   );
   assert.equal(feasibility.next.state, "completed");
   assert.equal(feasibility.canceledDelayed.state, "canceled");
+  assert.equal(feasibility.unrelatedCancel.state, "idle");
   assert.equal(feasibility.delayedOriginal.state, "canceled");
   assert.equal(feasibility.afterDelay.state, "completed");
   assert.equal(feasibility.statusAfterDelay.state, "completed");
+  assert.equal(feasibility.unrelatedStatus.state, "idle");
   console.log(
     `Slow real counter call ${feasibility.slowMs.toFixed(2)} ms; cancellation ${feasibility.cancelMs.toFixed(2)} ms; next job completed`,
   );

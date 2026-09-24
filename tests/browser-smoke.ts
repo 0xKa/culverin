@@ -87,6 +87,29 @@ try {
   await harness.goto(
     `chrome-extension://${new URL(worker.url()).host}/test-harness.html`,
   );
+  const capabilities = await harness.evaluate(() => {
+    let gzip: boolean;
+    try {
+      new DecompressionStream("gzip");
+      gzip = true;
+    } catch {
+      gzip = false;
+    }
+    return {
+      gzip,
+      session:
+        typeof chrome.storage.session.get === "function" &&
+        typeof chrome.storage.session.setAccessLevel === "function",
+      contexts: typeof chrome.runtime.getContexts === "function",
+      offscreen: typeof chrome.offscreen.createDocument === "function",
+    };
+  });
+  assert.deepEqual(capabilities, {
+    gzip: true,
+    session: true,
+    contexts: true,
+    offscreen: true,
+  });
   const outcome = await harness.evaluate(async () => {
     const rules = { repositoryId: "1", commitSha: "a".repeat(40) };
     const files = [

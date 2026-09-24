@@ -1,0 +1,7 @@
+bun.lock
+Cargo.lock
+.*/
+extension/src/wasm/generated/
+extension/dist/
+dist/
+target/

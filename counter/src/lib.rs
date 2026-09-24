@@ -348,7 +348,12 @@ impl CounterAnalyzer {
         rules.exclusions.dedup();
         let canonical = serde_json::to_vec(&("source-v1", RULES_VERSION, &rules.exclusions))
             .map_err(|e| e.to_string())?;
-        let hash = format!("{:x}", Sha256::digest(canonical));
+        let mut hash = String::with_capacity(64);
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        for byte in Sha256::digest(canonical) {
+            hash.push(char::from(HEX[(byte >> 4) as usize]));
+            hash.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
         let skipped_by_reason = [
             "excluded_by_rule",
             "unsupported_language",

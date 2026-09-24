@@ -8,3 +8,4 @@ extension/dist/
 extension/src/wasm/generated/
 dist/
 playwright-report/
+extension/src/wasm/instance/

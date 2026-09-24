@@ -15,3 +15,6 @@ cargo build --locked --release --target wasm32-unknown-unknown -p culverin-count
 mkdir -p extension/src/wasm/generated
 wasm-bindgen --target web --out-dir extension/src/wasm/generated \
   target/wasm32-unknown-unknown/release/culverin_counter.wasm
+
+mkdir -p extension/src/wasm/instance
+python3 scripts/prepare-counter-glue.py

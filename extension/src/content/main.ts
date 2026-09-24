@@ -4,7 +4,7 @@ chrome.runtime.sendMessage({ type: "bootstrap.ping" }, (response: unknown) => {
     typeof response === "object" &&
     response !== null &&
     "version" in response &&
-    response.version === "0.1.0"
+    response.version === "15.0.0"
   ) {
     document.documentElement.dataset.culverinBootstrap = "loaded";
   }

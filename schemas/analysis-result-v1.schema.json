@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culverin.local/schemas/analysis-result-v1.schema.json",
+  "title": "Culverin analysis result v1",
+  "description": "Cross-field sums and canonical ordering are enforced by the matching TypeScript validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        }
+      },
+      "required": ["id"]
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commitSha": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      },
+      "required": ["commitSha"]
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "tokei"
+        },
+        "version": {
+          "const": "15.0.0"
+        },
+        "wrapperVersion": {
+          "const": "1"
+        },
+        "rulesProfile": {
+          "const": "source-v1"
+        },
+        "rulesVersion": {
+          "const": "1"
+        },
+        "rulesHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "coveragePolicyVersion": {
+          "const": "1"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "wrapperVersion",
+        "rulesProfile",
+        "rulesVersion",
+        "rulesHash",
+        "coveragePolicyVersion"
+      ]
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "comments": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "blanks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": ["files", "lines", "code", "comments", "blanks"]
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "type": "string",
+            "minLength": 1
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "code": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "comments": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "blanks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["language", "files", "lines", "code", "comments", "blanks"]
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "regularFiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "countedFiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "analyzedBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "skippedFiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "skippedByReason": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "excluded_by_rule": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "unsupported_language": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "binary_content": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "oversized_source": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "excluded_by_rule",
+            "unsupported_language",
+            "binary_content",
+            "oversized_source"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "incompleteReasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["oversized_source", "counter_inaccurate"]
+          }
+        }
+      },
+      "required": [
+        "regularFiles",
+        "countedFiles",
+        "analyzedBytes",
+        "skippedFiles",
+        "skippedByReason",
+        "complete",
+        "incompleteReasons"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "repository",
+    "revision",
+    "engine",
+    "totals",
+    "languages",
+    "coverage"
+  ]
+}

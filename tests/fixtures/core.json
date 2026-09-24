@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "repositoryId": "123",
+    "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "exclusions": ["custom"]
+  },
+  "files": [
+    {
+      "path": "src/main.rs",
+      "bytes": [
+        47, 47, 32, 104, 105, 10, 102, 110, 32, 109, 97, 105, 110, 40, 41, 32,
+        123, 125, 10, 10
+      ]
+    },
+    {
+      "path": "src/app.ts",
+      "bytes": [99, 111, 110, 115, 116, 32, 120, 32, 61, 32, 49, 59, 10]
+    },
+    { "path": "vendor/no.rs", "bytes": [100, 105, 115, 99, 97, 114, 100, 10] },
+    { "path": "custom/a.rs", "bytes": [100, 105, 115, 99, 97, 114, 100, 10] },
+    { "path": "src/empty.py", "bytes": [] },
+    {
+      "path": "Makefile",
+      "bytes": [97, 108, 108, 58, 10, 9, 101, 99, 104, 111, 32, 111, 107, 10]
+    },
+    { "path": "mystery.unknown", "bytes": [104, 101, 108, 108, 111, 10] }
+  ]
+}

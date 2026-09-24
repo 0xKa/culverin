@@ -1,6 +1,6 @@
 .local*
 .agents
-agents.md
+AGENTS.md
 .bun/
 node_modules/
 target/

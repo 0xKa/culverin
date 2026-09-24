@@ -15,9 +15,9 @@ self.onmessage = (event: MessageEvent<JobInput>) => {
   self.postMessage({ stage: "counting" });
   if (blockMs) {
     const until = performance.now() + blockMs;
-    while (performance.now() < until) {
-      /* deliberately synchronous fixture */
-    }
+    let ticks = 0;
+    while (performance.now() < until) ticks += 1;
+    void ticks;
   }
   void runCounter(rules, input, trap).then((outcome) =>
     self.postMessage(outcome),

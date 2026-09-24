@@ -4,10 +4,12 @@ import {
   type CounterRules,
 } from "../counter/runner";
 import { handleFeasibility } from "../analysis/coordinator";
+import { handleGithub } from "./github";
 
 chrome.runtime.onMessage.addListener(
   (message: unknown, sender, sendResponse) => {
     if (handleFeasibility(message, sender, sendResponse)) return true;
+    if (handleGithub(message, sender, sendResponse)) return true;
     if (
       sender.id !== chrome.runtime.id ||
       typeof message !== "object" ||

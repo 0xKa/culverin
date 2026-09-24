@@ -20,6 +20,8 @@ assert.deepEqual(readdirSync(directory).sort(), [
   "manifest.json",
   "offscreen.html",
   "offscreen.js",
+  "options.html",
+  "options.js",
 ]);
 assert.deepEqual(readdirSync(resolve(directory, "icons")).sort(), [
   "icon-128.png",
@@ -31,7 +33,12 @@ assert.deepEqual(
   readdirSync(resolve(directory, "assets"))
     .map((name) => name.replace(/-[A-Za-z0-9_-]+(?=\.)/, "-HASH"))
     .sort(),
-  ["culverin_counter_bg-HASH.wasm", "protocol-HASH.js", "worker-HASH.js"],
+  [
+    "culverin_counter_bg-HASH.wasm",
+    "pending-HASH.js",
+    "protocol-HASH.js",
+    "worker-HASH.js",
+  ],
 );
 const manifest = JSON.parse(
   readFileSync(resolve(directory, "manifest.json"), "utf8"),
@@ -50,6 +57,22 @@ assert.equal(
   manifest.content_security_policy.extension_pages,
   "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.github.com https://codeload.github.com https://github.com",
 );
+for (const file of ["options.js", "content.js", "offscreen.js"]) {
+  assert.equal(
+    readFileSync(resolve(directory, file), "utf8").includes("github.active"),
+    false,
+  );
+}
+for (const file of readdirSync(resolve(directory, "assets")).filter((name) =>
+  name.endsWith(".js"),
+)) {
+  assert.equal(
+    readFileSync(resolve(directory, "assets", file), "utf8").includes(
+      "github.active",
+    ),
+    false,
+  );
+}
 const profile = mkdtempSync(resolve(tmpdir(), "culverin-browser-"));
 const packageCopy = resolve(profile, "extension");
 cpSync(directory, packageCopy, { recursive: true });
@@ -87,6 +110,90 @@ try {
   await harness.goto(
     `chrome-extension://${new URL(worker.url()).host}/test-harness.html`,
   );
+  const options = await context.newPage();
+  await options.goto(
+    `chrome-extension://${new URL(worker.url()).host}/options.html`,
+  );
+  await options.getByText("No token connected.").waitFor();
+  const optionsState = await options.evaluate(async () => {
+    const send = (type: string) =>
+      new Promise<{ state: string; connected?: boolean }>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type,
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+          },
+          resolve,
+        ),
+      );
+    const initial = await send("auth.status");
+    const disconnected = await send("auth.disconnect");
+    const after = await send("auth.status");
+    return {
+      initial,
+      disconnected,
+      after,
+      storage: await chrome.storage.session.get([
+        "github.active",
+        "github.pending",
+      ]),
+    };
+  });
+  assert.equal(optionsState.initial.connected, false);
+  assert.equal(optionsState.disconnected.state, "disconnected");
+  assert.equal(optionsState.after.connected, false);
+  assert.deepEqual(optionsState.storage, {});
+  if (process.env.CULVERIN_LIVE_PUBLIC === "1") {
+    const requests: {
+      origin: string;
+      authorization: boolean;
+      cookie: boolean;
+    }[] = [];
+    context.on("request", (request) => {
+      const origin = new URL(request.url()).origin;
+      if (
+        origin === "https://api.github.com" ||
+        origin === "https://codeload.github.com"
+      ) {
+        const headers = request.headers();
+        requests.push({
+          origin,
+          authorization: Boolean(headers.authorization),
+          cookie: Boolean(headers.cookie),
+        });
+      }
+    });
+    await options.locator("#owner").fill("octocat");
+    await options.locator("#name").fill("Hello-World");
+    await options.locator("#lookup").click();
+    await options
+      .getByText(/public default branch/)
+      .waitFor({ timeout: 30_000 });
+    assert.equal(
+      requests.filter(
+        (request) => request.origin === "https://codeload.github.com",
+      ).length,
+      0,
+    );
+    await options.locator("#download").click();
+    await options
+      .getByText(/Downloaded and discarded/)
+      .waitFor({ timeout: 30_000 });
+    assert.ok(
+      requests.some((request) => request.origin === "https://api.github.com"),
+    );
+    assert.ok(
+      requests.some(
+        (request) => request.origin === "https://codeload.github.com",
+      ),
+    );
+    assert.ok(
+      requests.every((request) => !request.authorization && !request.cookie),
+    );
+    console.log(`Live public acquisition passed: ${JSON.stringify(requests)}`);
+  }
   const capabilities = await harness.evaluate(() => {
     let gzip: boolean;
     try {

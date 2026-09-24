@@ -13,6 +13,7 @@ export default defineConfig({
         background: resolve(import.meta.dirname, "src/background/main.ts"),
         content: resolve(import.meta.dirname, "src/content/main.ts"),
         offscreen: resolve(import.meta.dirname, "offscreen.html"),
+        options: resolve(import.meta.dirname, "options.html"),
       },
       output: {
         entryFileNames: "[name].js",

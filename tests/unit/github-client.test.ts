@@ -79,7 +79,9 @@ test("resolves canonical identity and SHA with bounded no-store requests", async
 
 test("rejects invalid repository components and oversized metadata", async () => {
   expect(validRepository("../owner", "repo")).toBe(false);
-  expect(validRepository("owner", "repo.git")).toBe(false);
+  expect(validRepository("owner", ".github")).toBe(true);
+  expect(validRepository("owner", "repo.git")).toBe(true);
+  expect(validRepository("owner", "..")).toBe(false);
   const fetcher = (async () =>
     response(metadata(), "https://api.github.com/repos/owner/canonical", 200, {
       "content-length": "1048577",

@@ -35,15 +35,15 @@ export class AcquisitionError extends Error {
   }
 }
 
-const component = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/;
+const ownerPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const repositoryPattern = /^[A-Za-z0-9._-]{1,100}$/;
 
 export function validRepository(owner: string, name: string): boolean {
   return (
-    component.test(owner) &&
-    component.test(name) &&
-    !owner.includes("..") &&
-    !name.includes("..") &&
-    !name.endsWith(".git")
+    ownerPattern.test(owner) &&
+    repositoryPattern.test(name) &&
+    name !== "." &&
+    name !== ".."
   );
 }
 

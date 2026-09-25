@@ -285,6 +285,16 @@ describe("incremental tar parser", () => {
     await rejects(padded, "archive_invalid");
     await rejects(valid.subarray(0, 512), "archive_invalid");
     await rejects(valid.subarray(0, valid.length - 512), "archive_invalid");
+    const hiddenName = valid.slice();
+    hiddenName[20] = 0;
+    hiddenName[21] = 65;
+    checksum(hiddenName);
+    await rejects(hiddenName, "archive_invalid");
+    const hiddenSize = valid.slice();
+    hiddenSize[130] = 0;
+    hiddenSize[131] = 49;
+    checksum(hiddenSize);
+    await rejects(hiddenSize, "archive_invalid");
   });
 
   test("rejects unknown and oversized PAX metadata", async () => {

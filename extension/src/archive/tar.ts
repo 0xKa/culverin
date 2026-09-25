@@ -88,6 +88,8 @@ function decode(bytes: Uint8Array): string {
 function field(block: Uint8Array, start: number, length: number): Uint8Array {
   const bytes = block.subarray(start, start + length);
   const end = bytes.indexOf(0);
+  if (end >= 0 && bytes.subarray(end + 1).some((byte) => byte !== 0))
+    return invalid();
   return end < 0 ? bytes : bytes.subarray(0, end);
 }
 
@@ -102,7 +104,10 @@ function numberField(bytes: Uint8Array): number {
     }
     return value;
   }
-  const value = decode(bytes).replace(/\0.*$/s, "").trim();
+  const raw = decode(bytes);
+  const end = raw.indexOf("\0");
+  if (end >= 0 && !/^[\0 ]*$/.test(raw.slice(end))) return invalid();
+  const value = (end >= 0 ? raw.slice(0, end) : raw).trim();
   if (!value) return 0;
   if (!/^[0-7]+$/.test(value)) return invalid();
   const parsed = Number.parseInt(value, 8);

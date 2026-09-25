@@ -1,0 +1,279 @@
+import { validateResult, type AnalysisResultV1 } from "../counter/result";
+import { validRepository, type Resolution } from "./client";
+
+export const PUBLIC_VERSION = 1;
+export const PUBLIC_PORT = "culverin.public";
+
+export type PublicRequest = {
+  protocolVersion: 1;
+  type:
+    | "repository.lookup"
+    | "analysis.request"
+    | "analysis.cancel"
+    | "analysis.status";
+  requestId: string;
+  navigationId: string;
+  repository?: { owner: string; name: string };
+  targetRequestId?: string;
+};
+
+export type ResolutionEnvelope = Resolution & { resolvedAt: number };
+export type PublicErrorCode =
+  | "invalid_repository"
+  | "unsupported_page"
+  | "repository_unavailable"
+  | "repository_empty"
+  | "repository_forbidden"
+  | "rate_limited"
+  | "authentication_required"
+  | "authentication_invalid"
+  | "metadata_limit_exceeded"
+  | "network_unavailable"
+  | "download_failed"
+  | "compressed_limit_exceeded"
+  | "decompressed_limit_exceeded"
+  | "entry_limit_exceeded"
+  | "file_limit_exceeded"
+  | "archive_invalid"
+  | "archive_unsupported"
+  | "analysis_timeout"
+  | "analysis_interrupted"
+  | "analysis_busy"
+  | "analysis_canceled"
+  | "counter_failed"
+  | "internal_error";
+
+export type PublicReply = {
+  protocolVersion: 1;
+  requestId: string;
+  navigationId: string;
+} & (
+  | { type: "repository.cache_miss"; resolution: ResolutionEnvelope }
+  | {
+      type: "analysis.completed";
+      resolution: ResolutionEnvelope;
+      result: AnalysisResultV1;
+      fromCache: false;
+    }
+  | {
+      type: "analysis.failed";
+      code: PublicErrorCode;
+      retryAt?: number;
+      limit?: string;
+    }
+  | { type: "analysis.canceled"; targetRequestId: string }
+  | { type: "analysis.status"; state: "idle" | "running" | "interrupted" }
+  | {
+      type: "analysis.progress";
+      phase: "resolving" | "downloading" | "decompressing" | "counting";
+      processedBytes?: number;
+    }
+);
+
+type WithoutCorrelation<T> = T extends unknown
+  ? Omit<T, "protocolVersion" | "requestId" | "navigationId">
+  : never;
+export type PublicPayload = WithoutCorrelation<PublicReply>;
+
+const record = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const exact = (value: Record<string, unknown>, keys: string[]) =>
+  Object.keys(value).sort().join("|") === keys.sort().join("|");
+export const validId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+
+export function validPublicRequest(value: unknown): value is PublicRequest {
+  if (!record(value) || value.protocolVersion !== PUBLIC_VERSION) return false;
+  if (!validId(value.requestId) || !validId(value.navigationId)) return false;
+  if (value.type === "repository.lookup" || value.type === "analysis.request") {
+    if (
+      !exact(value, [
+        "protocolVersion",
+        "type",
+        "requestId",
+        "navigationId",
+        "repository",
+      ]) ||
+      !record(value.repository)
+    )
+      return false;
+    const repository = value.repository;
+    return (
+      exact(repository, ["owner", "name"]) &&
+      typeof repository.owner === "string" &&
+      typeof repository.name === "string" &&
+      validRepository(repository.owner, repository.name)
+    );
+  }
+  if (value.type === "analysis.cancel")
+    return (
+      exact(value, [
+        "protocolVersion",
+        "type",
+        "requestId",
+        "navigationId",
+        "targetRequestId",
+      ]) && validId(value.targetRequestId)
+    );
+  return (
+    value.type === "analysis.status" &&
+    exact(value, ["protocolVersion", "type", "requestId", "navigationId"])
+  );
+}
+
+export function validEnvelope(value: unknown): value is ResolutionEnvelope {
+  if (
+    !record(value) ||
+    !exact(value, [
+      "repositoryId",
+      "owner",
+      "name",
+      "defaultBranch",
+      "visibility",
+      "sha",
+      "resolvedAt",
+    ])
+  )
+    return false;
+  return (
+    typeof value.repositoryId === "string" &&
+    /^[1-9][0-9]*$/.test(value.repositoryId) &&
+    typeof value.owner === "string" &&
+    typeof value.name === "string" &&
+    validRepository(value.owner, value.name) &&
+    typeof value.defaultBranch === "string" &&
+    value.defaultBranch.length > 0 &&
+    value.defaultBranch.length <= 255 &&
+    (value.visibility === "public" || value.visibility === "private") &&
+    typeof value.sha === "string" &&
+    /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.sha) &&
+    Number.isSafeInteger(value.resolvedAt) &&
+    (value.resolvedAt as number) > 0 &&
+    (value.resolvedAt as number) <= Date.now() + 60_000
+  );
+}
+
+const codes: PublicErrorCode[] = [
+  "invalid_repository",
+  "unsupported_page",
+  "repository_unavailable",
+  "repository_empty",
+  "repository_forbidden",
+  "rate_limited",
+  "authentication_required",
+  "authentication_invalid",
+  "metadata_limit_exceeded",
+  "network_unavailable",
+  "download_failed",
+  "compressed_limit_exceeded",
+  "decompressed_limit_exceeded",
+  "entry_limit_exceeded",
+  "file_limit_exceeded",
+  "archive_invalid",
+  "archive_unsupported",
+  "analysis_timeout",
+  "analysis_interrupted",
+  "analysis_busy",
+  "analysis_canceled",
+  "counter_failed",
+  "internal_error",
+];
+
+export function publicFailure(
+  code: unknown,
+  retryAt?: unknown,
+  limit?: unknown,
+): Pick<
+  Extract<PublicReply, { type: "analysis.failed" }>,
+  "code" | "retryAt" | "limit"
+> {
+  return {
+    code: codes.includes(code as PublicErrorCode)
+      ? (code as PublicErrorCode)
+      : "internal_error",
+    ...(Number.isSafeInteger(retryAt) &&
+    (retryAt as number) > 0 &&
+    (retryAt as number) < Date.now() + 7 * 24 * 60 * 60 * 1000
+      ? { retryAt: retryAt as number }
+      : {}),
+    ...(typeof limit === "string" && /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(limit)
+      ? { limit }
+      : {}),
+  };
+}
+
+export function validPublicReply(
+  value: unknown,
+  requestId: string,
+  navigationId: string,
+): value is PublicReply {
+  if (
+    !record(value) ||
+    value.protocolVersion !== 1 ||
+    value.requestId !== requestId ||
+    value.navigationId !== navigationId
+  )
+    return false;
+  const base = ["protocolVersion", "type", "requestId", "navigationId"];
+  if (value.type === "repository.cache_miss")
+    return (
+      exact(value, [...base, "resolution"]) &&
+      validEnvelope(value.resolution) &&
+      value.resolution.visibility === "public"
+    );
+  if (value.type === "analysis.completed")
+    return (
+      exact(value, [...base, "resolution", "result", "fromCache"]) &&
+      value.fromCache === false &&
+      validEnvelope(value.resolution) &&
+      value.resolution.visibility === "public" &&
+      validateResult(value.result) &&
+      value.result.repository.id === value.resolution.repositoryId &&
+      value.result.revision.commitSha === value.resolution.sha
+    );
+  if (value.type === "analysis.failed")
+    return (
+      exact(value, [
+        ...base,
+        "code",
+        ...(value.retryAt === undefined ? [] : ["retryAt"]),
+        ...(value.limit === undefined ? [] : ["limit"]),
+      ]) &&
+      codes.includes(value.code as PublicErrorCode) &&
+      (value.retryAt === undefined ||
+        (Number.isSafeInteger(value.retryAt) &&
+          (value.retryAt as number) > 0)) &&
+      (value.limit === undefined ||
+        (typeof value.limit === "string" &&
+          /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(value.limit)))
+    );
+  if (value.type === "analysis.canceled")
+    return (
+      exact(value, [...base, "targetRequestId"]) &&
+      validId(value.targetRequestId)
+    );
+  if (value.type === "analysis.status")
+    return (
+      exact(value, [...base, "state"]) &&
+      ["idle", "running", "interrupted"].includes(value.state as string)
+    );
+  if (value.type === "analysis.progress")
+    return (
+      exact(value, [
+        ...base,
+        "phase",
+        ...(value.processedBytes === undefined ? [] : ["processedBytes"]),
+      ]) &&
+      ["resolving", "downloading", "decompressing", "counting"].includes(
+        value.phase as string,
+      ) &&
+      (value.processedBytes === undefined ||
+        (Number.isSafeInteger(value.processedBytes) &&
+          (value.processedBytes as number) >= 0 &&
+          (value.processedBytes as number) <= 50 * 1024 * 1024))
+    );
+  return false;
+}

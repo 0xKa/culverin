@@ -318,6 +318,21 @@ describe("incremental tar parser", () => {
       ),
       "archive_invalid",
     );
+    const exactPath = `repo/${"a".repeat(ARCHIVE_LIMITS.pathBytes - 5)}`;
+    const exact = archive(
+      entry("PaxHeader", pax("path", exactPath), "x"),
+      entry("repo/base.rs", encoder.encode("x")),
+    );
+    expect((await analyzeTar(stream(exact, 4096), sink())).regularFiles).toBe(
+      1,
+    );
+    await rejects(
+      archive(
+        entry("PaxHeader", pax("path", `${exactPath}a`), "x"),
+        entry("repo/base.rs", encoder.encode("x")),
+      ),
+      "archive_invalid",
+    );
     await rejects(
       archive(
         ...Array.from({ length: 33 }, () =>
@@ -352,6 +367,69 @@ describe("incremental tar parser", () => {
     } catch (error) {
       expect((error as ArchiveError).code).toBe("file_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("regularFiles");
+    }
+  });
+
+  test("accepts the entry boundary and rejects one additional entry", async () => {
+    const make = (index: number) =>
+      entry(`repo/d${index}`, new Uint8Array(0), "5");
+    const target = sink();
+    const exact = await analyzeTar(
+      generatedEntries(ARCHIVE_LIMITS.entries, make),
+      target,
+    );
+    expect(exact.entries).toBe(ARCHIVE_LIMITS.entries);
+    try {
+      await analyzeTar(
+        generatedEntries(ARCHIVE_LIMITS.entries + 1, make),
+        sink(),
+      );
+      throw new Error("expected entry limit");
+    } catch (error) {
+      expect((error as ArchiveError).code).toBe("entry_limit_exceeded");
+      expect((error as ArchiveError).limit).toBe("entries");
+    }
+  });
+
+  test("bounds total bytes passed to WASM", async () => {
+    const chunk = new Uint8Array(64 * 1024);
+    let file = 0;
+    let remaining = 0;
+    let ended = false;
+    const input = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (file === 26) {
+          if (ended) controller.close();
+          else {
+            controller.enqueue(new Uint8Array(1024));
+            ended = true;
+          }
+          return;
+        }
+        if (remaining > 0) {
+          controller.enqueue(chunk);
+          remaining -= chunk.length;
+          if (remaining === 0) file++;
+          return;
+        }
+        const block = entry(`repo/${file}.rs`, new Uint8Array(0));
+        block.fill(0, 124, 136);
+        octal(block, 124, 12, ARCHIVE_LIMITS.file);
+        checksum(block);
+        controller.enqueue(block);
+        remaining = ARCHIVE_LIMITS.file;
+      },
+    });
+    try {
+      await analyzeTar(input, {
+        classify: () => "counted",
+        addFile: () => undefined,
+        skipFile: () => undefined,
+      });
+      throw new Error("expected WASM byte limit");
+    } catch (error) {
+      expect((error as ArchiveError).code).toBe("file_limit_exceeded");
+      expect((error as ArchiveError).limit).toBe("wasmBytes");
     }
   });
 

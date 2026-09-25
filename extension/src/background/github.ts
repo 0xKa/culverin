@@ -54,6 +54,7 @@ type Active = {
 };
 
 let active: Active | undefined;
+let validating = false;
 const seen = new Map<string, number>();
 
 function validRequest(value: unknown): value is Request {
@@ -144,6 +145,12 @@ export function handleGithub(
         reply({ state: "failed", code: "invalid_repository" });
         return;
       }
+      if (validating) {
+        await removePending(request.submissionId);
+        reply({ state: "busy" });
+        return;
+      }
+      validating = true;
       let payload: Record<string, unknown>;
       try {
         const result = await activatePending(request.submissionId, fetch);
@@ -155,7 +162,11 @@ export function handleGithub(
         const code = safeFailure(error, new AbortController().signal).code;
         payload = { state: "failed", code };
       } finally {
-        await removePending(request.submissionId);
+        try {
+          await removePending(request.submissionId);
+        } finally {
+          validating = false;
+        }
       }
       reply(payload);
       return;

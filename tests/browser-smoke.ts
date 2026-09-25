@@ -129,10 +129,14 @@ try {
         ),
       );
     const initial = await send("auth.status");
+    const idle = await send("analysis.status");
+    const cleared = await send("auth.clear-private-session");
     const disconnected = await send("auth.disconnect");
     const after = await send("auth.status");
     return {
       initial,
+      idle,
+      cleared,
       disconnected,
       after,
       storage: await chrome.storage.session.get([
@@ -142,6 +146,8 @@ try {
     };
   });
   assert.equal(optionsState.initial.connected, false);
+  assert.equal(optionsState.idle.state, "idle");
+  assert.equal(optionsState.cleared.state, "cleared");
   assert.equal(optionsState.disconnected.state, "disconnected");
   assert.equal(optionsState.after.connected, false);
   assert.deepEqual(optionsState.storage, {});
@@ -483,9 +489,42 @@ try {
         }),
     );
   assert.equal(await probeHost(), true);
+  const acquisitionNavigationId = await options.evaluate(async () => {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ["TAB"],
+      documentUrls: [location.href],
+    });
+    const documentId = contexts[0]?.documentId;
+    if (!documentId) throw new Error("Options document identity unavailable");
+    const navigationId = crypto.randomUUID();
+    await chrome.storage.session.set({
+      "github.job": { documentId, navigationId },
+    });
+    return navigationId;
+  });
   await cdp.send("ServiceWorker.stopWorker", { versionId });
   await new Promise((resolve) => setTimeout(resolve, 3_500));
   assert.equal(await probeHost(), false, "orphan lease terminated the worker");
+  const acquisitionStatus = await options.evaluate(
+    (navigationId) =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.status",
+            requestId: crypto.randomUUID(),
+            navigationId,
+          },
+          resolve,
+        ),
+      ),
+    acquisitionNavigationId,
+  );
+  assert.equal(acquisitionStatus.state, "interrupted");
+  assert.deepEqual(
+    await options.evaluate(() => chrome.storage.session.get("github.job")),
+    {},
+  );
   const recoveredStatus = await harness.evaluate(
     () =>
       new Promise<Record<string, unknown>>((resolve) =>

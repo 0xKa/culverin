@@ -143,3 +143,22 @@ export async function disconnect(): Promise<string> {
     return generation;
   });
 }
+
+export async function clearPrivateSession(): Promise<string> {
+  return mutate(async () => {
+    const state = await chrome.storage.session.get(ACTIVE);
+    const active = state[ACTIVE] as Active | undefined;
+    const generation = crypto.randomUUID();
+    await chrome.storage.session.set({
+      [TRANSITION]: true,
+      [GENERATION]: generation,
+    });
+    await chrome.storage.session.remove([ACTIVE, PENDING]);
+    if (typeof active?.token === "string")
+      await chrome.storage.session.set({
+        [ACTIVE]: { token: active.token, generation },
+      });
+    await chrome.storage.session.remove(TRANSITION);
+    return generation;
+  });
+}

@@ -11,6 +11,8 @@ The extension currently provides a minimal acquisition test on its options page.
 
 The status shows the visibility, default branch, commit SHA, downloaded byte count, and final origin. A canceled, timed-out, or failed transfer must never show **Downloaded and discarded**.
 
+**Check job status** reports running, interrupted, or idle for the current options page. **Clear private session** invalidates private work while retaining the connected token; **Disconnect GitHub** removes it.
+
 ## Public check
 
 With no token connected, enter `octocat` and `Hello-World`. Resolve it, then download it. The final origin should be `https://codeload.github.com`. The automated public browser check can be run with `CULVERIN_LIVE_PUBLIC=1 bun run test:browser`; it needs live GitHub access and is excluded from the default smoke run.

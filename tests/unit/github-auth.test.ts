@@ -3,6 +3,7 @@ import {
   activatePending,
   activeToken,
   authStatus,
+  clearPrivateSession,
   disconnect,
   initializeSession,
 } from "../../extension/src/auth/session";
@@ -133,6 +134,10 @@ test("successful activation is session-only and restart transition clears it", a
   expect((await activatePending(submissionId, fetcher)).connected).toBe(true);
   expect((await activeToken()).token).toBe("test-token");
   expect(values.has(pendingKey)).toBe(false);
+  const beforeClear = (await authStatus()).generation;
+  await clearPrivateSession();
+  expect((await activeToken()).token).toBe("test-token");
+  expect((await authStatus()).generation).not.toBe(beforeClear);
   await session.set({ "github.transition": true });
   await initializeSession();
   expect((await activeToken()).token).toBeUndefined();

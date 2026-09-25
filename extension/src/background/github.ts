@@ -2,6 +2,7 @@ import {
   activatePending,
   activeToken,
   authStatus,
+  clearPrivateSession,
   disconnect,
   initializeSession,
   removePending,
@@ -15,7 +16,23 @@ import {
 
 const VERSION = 1;
 const OPTIONS_URL = chrome.runtime.getURL("options.html");
-const ready = initializeSession();
+const MARKER = "github.job";
+const LAST = "github.last";
+const ready = initializeSession().then(async () => {
+  const state = await chrome.storage.session.get(MARKER);
+  const marker = state[MARKER] as
+    { documentId?: unknown; navigationId?: unknown } | undefined;
+  if (marker) {
+    await chrome.storage.session.remove(MARKER);
+    await chrome.storage.session.set({
+      [LAST]: {
+        state: "interrupted",
+        documentId: marker.documentId,
+        navigationId: marker.navigationId,
+      },
+    });
+  }
+});
 
 type Request = {
   protocolVersion: 1;
@@ -49,9 +66,11 @@ function validRequest(value: unknown): value is Request {
       "auth.status",
       "auth.submit",
       "auth.disconnect",
+      "auth.clear-private-session",
       "repository.lookup",
       "analysis.request",
       "analysis.cancel",
+      "analysis.status",
     ].includes(request.type) &&
     typeof request.requestId === "string" &&
     /^[0-9a-f-]{36}$/.test(request.requestId) &&
@@ -106,7 +125,15 @@ export function handleGithub(
     if (request.type === "auth.disconnect") {
       const generation = await disconnect();
       active?.controller.abort("disconnect");
+      await chrome.storage.session.remove(LAST);
       reply({ state: "disconnected", generation });
+      return;
+    }
+    if (request.type === "auth.clear-private-session") {
+      const generation = await clearPrivateSession();
+      active?.controller.abort("disconnect");
+      await chrome.storage.session.remove(LAST);
+      reply({ state: "cleared", generation });
       return;
     }
     if (request.type === "auth.submit") {
@@ -146,6 +173,30 @@ export function handleGithub(
       } else reply({ state: "idle" });
       return;
     }
+    if (request.type === "analysis.status") {
+      const job = active;
+      if (
+        job &&
+        job.documentId === documentId &&
+        job.navigationId === request.navigationId
+      ) {
+        reply({ state: "running" });
+        return;
+      }
+      const state = await chrome.storage.session.get(LAST);
+      const last = state[LAST] as
+        | { state?: unknown; documentId?: unknown; navigationId?: unknown }
+        | undefined;
+      reply({
+        state:
+          last?.documentId === documentId &&
+          last?.navigationId === request.navigationId &&
+          last.state === "interrupted"
+            ? "interrupted"
+            : "idle",
+      });
+      return;
+    }
     if (
       (request.type === "repository.lookup" ||
         request.type === "analysis.request") &&
@@ -171,6 +222,9 @@ export function handleGithub(
         request.type === "analysis.request" ? 25_000 : 10_000,
       );
       try {
+        await chrome.storage.session.set({
+          [MARKER]: { documentId, navigationId: request.navigationId },
+        });
         const auth = await activeToken();
         job.generation = auth.generation;
         const resolution = await resolveRepository(
@@ -205,6 +259,7 @@ export function handleGithub(
         reply({ state: "failed", ...safeFailure(error, controller.signal) });
       } finally {
         clearTimeout(timer);
+        await chrome.storage.session.remove(MARKER);
         if (active === job) active = undefined;
       }
       return;

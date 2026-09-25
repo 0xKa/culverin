@@ -112,8 +112,14 @@ document.querySelector("#cancel")!.addEventListener("click", async () => {
   if (!activeRequestId) return;
   display(await send("analysis.cancel", { targetRequestId: activeRequestId }));
 });
+document.querySelector("#job-status")!.addEventListener("click", async () => {
+  display(await send("analysis.status"));
+});
 document.querySelector("#disconnect")!.addEventListener("click", async () => {
   display(await send("auth.disconnect"));
+});
+document.querySelector("#clear")!.addEventListener("click", async () => {
+  display(await send("auth.clear-private-session"));
 });
 document.querySelector("#connect")!.addEventListener("click", async () => {
   const target = repository();

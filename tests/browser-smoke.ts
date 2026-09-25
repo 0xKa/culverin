@@ -148,10 +148,18 @@ try {
       body: "<!doctype html><html><body><main id='repository-container-header'>Fixture</main></body></html>",
     }),
   );
-  await page.goto("https://github.com/culverin/bootstrap-fixture");
+  await page.goto("https://github.com/culverin/bootstrap-fixture#readme");
   await page.getByRole("button", { name: "Analyze repository" }).waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await page.getByText(/Ready to analyze main at/).waitFor({ timeout: 15_000 });
+  assert.equal(fixtureArchiveRequests, 0);
+  const beforeFragmentApiRequests = fixtureApiRequests;
+  await page.evaluate(() => {
+    location.hash = "usage";
+  });
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  assert.equal(fixtureApiRequests, beforeFragmentApiRequests);
   assert.equal(fixtureArchiveRequests, 0);
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page
@@ -180,6 +188,12 @@ try {
   await page.getByText(/Ready to analyze main at/).waitFor();
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await started;
+  await page.evaluate(() => {
+    location.hash = "readme";
+  });
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  assert.equal(await page.getByRole("button", { name: "Cancel" }).count(), 1);
   await page.getByRole("button", { name: "Cancel" }).click();
   await page.getByText("Analysis canceled.").waitFor();
   await page.waitForTimeout(1700);

@@ -30,7 +30,14 @@ test("accepts only GitHub repository overview routes", () => {
     name: "repo",
   });
   for (const url of [
+    "https://github.com/owner/repo#readme",
+    "https://github.com/owner/repo/#usage",
+    "https://github.com/owner/repo#",
+  ])
+    expect(pageRepository(url)).toEqual({ owner: "owner", name: "repo" });
+  for (const url of [
     "https://github.com/owner/repo/issues",
+    "https://github.com/owner/repo/issues#readme",
     "https://github.com/owner/repo/tree/main",
     "https://github.com/owner/repo/pulls",
     "https://github.com/owner/repo?tab=code",

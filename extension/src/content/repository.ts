@@ -18,6 +18,6 @@ export function pageRepository(url: string): PageRepository | undefined {
   const parts = /^\/([^/]+)\/([^/]+)\/?$/.exec(parsed.pathname);
   if (!parts || !validRepository(parts[1] ?? "", parts[2] ?? ""))
     return undefined;
-  if (parsed.search || parsed.hash) return undefined;
+  if (parsed.search) return undefined;
   return { owner: parts[1]!, name: parts[2]! };
 }

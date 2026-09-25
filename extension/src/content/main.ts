@@ -75,10 +75,14 @@ function setStatus(current: View, text: string): void {
   current.status.textContent = text;
 }
 
+function routeUrl(): string {
+  return location.origin + location.pathname + location.search;
+}
+
 function currentView(candidate: View): boolean {
   return (
     view === candidate &&
-    candidate.url === location.href &&
+    candidate.url === routeUrl() &&
     candidate.root.isConnected
   );
 }
@@ -300,7 +304,7 @@ function mount(): void {
     detach();
     return;
   }
-  if (view?.url === location.href && view.root.isConnected) return;
+  if (view?.url === routeUrl() && view.root.isConnected) return;
   detach();
   const root = element("section");
   root.dataset.culverinRoot = "";
@@ -326,7 +330,7 @@ function mount(): void {
     document.body;
   anchor.prepend(root);
   const current: View = {
-    url: location.href,
+    url: routeUrl(),
     navigationId: crypto.randomUUID(),
     repository,
     root,

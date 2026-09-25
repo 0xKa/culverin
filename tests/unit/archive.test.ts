@@ -311,6 +311,59 @@ describe("incremental tar parser", () => {
     await rejects(hiddenSize, "archive_invalid");
   });
 
+  test("rejects malformed numeric fields before counting", async () => {
+    for (const [offset, width] of [
+      [100, 8],
+      [108, 8],
+      [116, 8],
+      [136, 12],
+      [329, 8],
+      [337, 8],
+    ] as const) {
+      const member = entry("repo/a.rs", encoder.encode("x"));
+      member.fill(0, offset, offset + width);
+      member[offset] = 56;
+      checksum(member);
+      const target = sink();
+      try {
+        await analyzeTar(stream(archive(member), 17), target);
+        throw new Error("expected malformed numeric field rejection");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ArchiveError);
+        expect((error as ArchiveError).code).toBe("archive_invalid");
+      }
+      expect(target.counted).toEqual([]);
+    }
+  });
+
+  test("rejects negative and overflowing metadata numbers on ignored entries", async () => {
+    for (const firstByte of [0xc0, 0x80]) {
+      const member = entry("repo/", new Uint8Array(0), "5");
+      member.fill(0xff, 136, 148);
+      member[136] = firstByte;
+      checksum(member);
+      await rejects(archive(member), "archive_invalid");
+    }
+    const paxHeader = entry("PaxHeader", pax("path", "repo/a.rs"), "x");
+    paxHeader[108] = 56;
+    checksum(paxHeader);
+    await rejects(
+      archive(paxHeader, entry("repo/a.rs", encoder.encode("x"))),
+      "archive_invalid",
+    );
+  });
+
+  test("accepts a positive base-256 mode and empty optional device numbers", async () => {
+    const member = entry("repo/a.rs", encoder.encode("x"));
+    member.fill(0, 100, 108);
+    member[100] = 0x80;
+    member[107] = 0o644;
+    checksum(member);
+    const target = sink();
+    await analyzeTar(stream(archive(member), 17), target);
+    expect(target.counted).toEqual(["a.rs"]);
+  });
+
   test("rejects unknown and oversized PAX metadata", async () => {
     await rejects(
       archive(entry("PaxHeader", pax("GNU.sparse.map", "0,1"), "x")),

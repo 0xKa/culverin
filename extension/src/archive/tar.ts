@@ -127,6 +127,12 @@ function header(block: Uint8Array): {
   if (sum !== expected) return invalid();
   const magic = decode(field(block, 257, 6));
   if (magic !== "ustar") throw new ArchiveError("archive_unsupported");
+  numberField(block.subarray(100, 108));
+  numberField(block.subarray(108, 116));
+  numberField(block.subarray(116, 124));
+  numberField(block.subarray(136, 148));
+  numberField(block.subarray(329, 337));
+  numberField(block.subarray(337, 345));
   const name = decode(field(block, 0, 100));
   const prefix = decode(field(block, 345, 155));
   return {

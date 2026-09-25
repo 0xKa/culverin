@@ -221,12 +221,12 @@ export async function resolveRepository(
   };
 }
 
-export async function downloadArchive(
+export async function openArchive(
   fetcher: Fetcher,
   resolution: Resolution,
   token: string | undefined,
   signal: AbortSignal,
-): Promise<{ bytes: number; finalOrigin: "https://codeload.github.com" }> {
+): Promise<ReadableStream<Uint8Array>> {
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(resolution.sha))
     throw new AcquisitionError("download_failed");
   const response = await fetcher(
@@ -255,7 +255,18 @@ export async function downloadArchive(
     throw new AcquisitionError("compressed_limit_exceeded");
   }
   if (!response.body) throw new AcquisitionError("download_failed");
-  const reader = response.body.getReader();
+  return response.body;
+}
+
+export async function downloadArchive(
+  fetcher: Fetcher,
+  resolution: Resolution,
+  token: string | undefined,
+  signal: AbortSignal,
+): Promise<{ bytes: number; finalOrigin: "https://codeload.github.com" }> {
+  const reader = (
+    await openArchive(fetcher, resolution, token, signal)
+  ).getReader();
   let bytes = 0;
   try {
     for (;;) {

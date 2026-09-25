@@ -8,11 +8,12 @@ import {
   removePending,
 } from "../auth/session";
 import {
-  downloadArchive,
   resolveRepository,
   safeFailure,
   validRepository,
 } from "../github/client";
+import { analyzeArchive } from "../archive/bridge";
+import { ArchiveError } from "../archive/tar";
 
 const VERSION = 1;
 const OPTIONS_URL = chrome.runtime.getURL("options.html");
@@ -254,20 +255,27 @@ export function handleGithub(
           reply({ state: "resolved", resolution });
           return;
         }
-        const archive = await downloadArchive(
-          fetch,
+        const analysis = await analyzeArchive(
           resolution,
           auth.token,
           controller.signal,
+          request.requestId,
         );
         if (controller.signal.aborted) throw controller.signal.reason;
         if ((await authStatus()).generation !== auth.generation) {
           reply({ state: "stale" });
           return;
         }
-        reply({ state: "downloaded", resolution, archive });
+        reply({ state: "analyzed", resolution, ...analysis });
       } catch (error) {
-        reply({ state: "failed", ...safeFailure(error, controller.signal) });
+        reply({
+          state: "failed",
+          ...(controller.signal.aborted
+            ? safeFailure(error, controller.signal)
+            : error instanceof ArchiveError
+              ? { code: error.code, limit: error.limit }
+              : safeFailure(error, controller.signal)),
+        });
       } finally {
         clearTimeout(timer);
         await chrome.storage.session.remove(MARKER);

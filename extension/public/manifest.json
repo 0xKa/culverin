@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Culverin",
   "version": "0.0.1",
-  "description": "Early bootstrap of a browser-local GitHub code statistics extension. Analysis is planned, not yet available.",
+  "description": "Browser-local GitHub repository code analysis in development.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "offscreen"],
   "host_permissions": [

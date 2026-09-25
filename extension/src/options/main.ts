@@ -14,7 +14,11 @@ type Reply = {
   connected?: boolean;
   generation?: string;
   resolution?: { sha: string; visibility: string; defaultBranch: string };
-  archive?: { bytes: number; finalOrigin: string };
+  result?: {
+    totals: { files: number; lines: number };
+    coverage: { complete: boolean };
+  };
+  transport?: { compressedBytes: number; decompressedBytes: number };
   retryAt?: number;
 };
 
@@ -59,12 +63,13 @@ function display(reply: Reply): void {
       `${reply.resolution.visibility} default branch ${reply.resolution.defaultBranch} at ${reply.resolution.sha}`,
     );
   } else if (
-    reply.state === "downloaded" &&
+    reply.state === "analyzed" &&
     reply.resolution &&
-    reply.archive
+    reply.result &&
+    reply.transport
   ) {
     show(
-      `Downloaded and discarded ${reply.archive.bytes} bytes for ${reply.resolution.sha}. Final origin: ${reply.archive.finalOrigin}`,
+      `Analyzed ${reply.result.totals.files} files and ${reply.result.totals.lines} lines for ${reply.resolution.sha}. Coverage: ${reply.result.coverage.complete ? "complete" : "partial"}. Compressed ${reply.transport.compressedBytes} bytes; decompressed ${reply.transport.decompressedBytes} bytes.`,
     );
   } else if (reply.state === "failed") {
     show(

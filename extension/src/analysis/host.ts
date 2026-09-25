@@ -1,5 +1,10 @@
 import { validateResult } from "../counter/result";
 import {
+  archiveHostActive,
+  handleArchiveHost,
+  stopArchive,
+} from "../archive/host";
+import {
   HOST_LEASE_MS,
   JOB_DEADLINE_MS,
   PROTOCOL_VERSION,
@@ -22,7 +27,7 @@ probe.onmessage = (event: MessageEvent<unknown>) => {
     probe.postMessage({
       type: "probe.reply",
       id: value.id,
-      active: Boolean(active),
+      active: Boolean(active) || archiveHostActive(),
     });
 };
 
@@ -46,6 +51,7 @@ function renew(): void {
 }
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
+  if (handleArchiveHost(message, sender, respond, Boolean(active))) return true;
   if (
     sender.id !== chrome.runtime.id ||
     sender.url !== chrome.runtime.getURL("background.js") ||
@@ -64,7 +70,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     typeof command.jobId === "string" &&
     validInput(command.input)
   ) {
-    if (active) {
+    if (active || archiveHostActive()) {
       respond({ state: "failed", error: "counter_failed" });
       return false;
     }
@@ -127,6 +133,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   }
   if (command.type === "host.reconcile") {
     stop({ state: "interrupted" });
+    stopArchive();
     respond({ ok: true });
     return false;
   }

@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   type JobOutcome,
 } from "./protocol";
+import { archiveBridgeActive } from "../archive/bridge";
 
 const MARKER = "feasibility.active";
 const LAST = "feasibility.last";
@@ -75,7 +76,7 @@ async function reconcile(): Promise<void> {
         state: "interrupted",
       },
     });
-  } else if (await hostExists()) {
+  } else if ((await hostExists()) && !archiveBridgeActive()) {
     await sendHost("host.reconcile").catch(() => undefined);
   }
 }
@@ -282,7 +283,7 @@ export function handleFeasibility(
         });
         reply(outcome);
         setTimeout(() => {
-          if (!active)
+          if (!active && !archiveBridgeActive())
             void chrome.offscreen.closeDocument().catch(() => undefined);
         }, 1_000);
       } catch {

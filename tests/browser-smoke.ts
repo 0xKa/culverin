@@ -36,7 +36,8 @@ assert.deepEqual(
   [
     "culverin_counter_bg-HASH.wasm",
     "pending-HASH.js",
-    "protocol-HASH.js",
+    "tar-HASH.js",
+    "worker-HASH.js",
     "worker-HASH.js",
   ],
 );
@@ -184,9 +185,7 @@ try {
       0,
     );
     await options.locator("#download").click();
-    await options
-      .getByText(/Downloaded and discarded/)
-      .waitFor({ timeout: 30_000 });
+    await options.getByText(/Analyzed .* files/).waitFor({ timeout: 30_000 });
     assert.ok(
       requests.some((request) => request.origin === "https://api.github.com"),
     );
@@ -270,6 +269,169 @@ try {
   assert.deepEqual(trapped, { ok: false, error: "counter_failed" });
   assert.equal(recovered.ok, true);
   assert.deepEqual(first, recovered);
+  const archiveFixture = [
+    ...readFileSync("tests/fixtures/archive-source.tar.gz"),
+  ];
+  const archived = await harness.evaluate(
+    (bytes) =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          { type: "archive.fixture", requestId: crypto.randomUUID(), bytes },
+          resolve,
+        ),
+      ),
+    archiveFixture,
+  );
+  assert.equal(archived.state, "analyzed");
+  const archivedResult = archived.result as {
+    totals: { files: number; lines: number; code: number };
+    coverage: {
+      regularFiles: number;
+      skippedByReason: { unsupported_language: number };
+      complete: boolean;
+    };
+  };
+  assert.equal(archivedResult.totals.files, 1);
+  assert.equal(archivedResult.totals.lines, 1);
+  assert.equal(archivedResult.totals.code, 1);
+  assert.equal(archivedResult.coverage.regularFiles, 2);
+  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 1);
+  assert.equal(archivedResult.coverage.complete, true);
+  const archiveTransport = archived.transport as {
+    compressedBytes: number;
+    decompressedBytes: number;
+  };
+  assert.equal(archiveTransport.compressedBytes, archiveFixture.length);
+  assert.ok(archiveTransport.decompressedBytes > archiveFixture.length);
+  const archiveCancellation = await harness.evaluate(async (bytes) => {
+    const requestId = crypto.randomUUID();
+    const pending = new Promise<Record<string, unknown>>((resolve) =>
+      chrome.runtime.sendMessage(
+        { type: "archive.fixture", requestId, bytes, chunkDelayMs: 100 },
+        resolve,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const canceled = await new Promise<Record<string, unknown>>((resolve) =>
+      chrome.runtime.sendMessage(
+        { type: "archive.fixture.cancel", targetRequestId: requestId },
+        resolve,
+      ),
+    );
+    return { canceled, outcome: await pending };
+  }, archiveFixture);
+  assert.equal(archiveCancellation.canceled.state, "canceled");
+  assert.equal(archiveCancellation.outcome.state, "failed");
+  assert.equal(archiveCancellation.outcome.code, "analysis_canceled");
+  const afterArchiveCancel = await harness.evaluate(
+    (bytes) =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          { type: "archive.fixture", requestId: crypto.randomUUID(), bytes },
+          resolve,
+        ),
+      ),
+    archiveFixture,
+  );
+  assert.equal(afterArchiveCancel.state, "analyzed");
+  const largeArchive = [...readFileSync("tests/fixtures/archive-large.tar.gz")];
+  const largeRuns = await harness.evaluate(async (bytes) => {
+    const measurements: {
+      state: unknown;
+      files: unknown;
+      lines: unknown;
+      wasmBytes: unknown;
+      wasmLinearMemoryBytes: unknown;
+      elapsedMs: number;
+    }[] = [];
+    for (let index = 0; index < 3; index++) {
+      const started = performance.now();
+      const outcome = await new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          { type: "archive.fixture", requestId: crypto.randomUUID(), bytes },
+          resolve,
+        ),
+      );
+      const result = outcome.result as {
+        totals?: { files?: unknown; lines?: unknown };
+      };
+      const transport = outcome.transport as { wasmBytes?: unknown };
+      measurements.push({
+        state: outcome.state,
+        files: result?.totals?.files,
+        lines: result?.totals?.lines,
+        wasmBytes: transport?.wasmBytes,
+        wasmLinearMemoryBytes: outcome.wasmLinearMemoryBytes,
+        elapsedMs: performance.now() - started,
+      });
+    }
+    return measurements;
+  }, largeArchive);
+  for (const run of largeRuns) {
+    assert.equal(run.state, "analyzed");
+    assert.equal(run.files, 1);
+    assert.equal(run.lines, 800_000);
+    assert.equal(run.wasmBytes, 8_000_000);
+    assert.ok(typeof run.wasmLinearMemoryBytes === "number");
+    assert.ok(run.wasmLinearMemoryBytes < 64 * 1024 * 1024);
+  }
+  assert.ok(
+    largeRuns.every(
+      (run) =>
+        run.wasmLinearMemoryBytes === largeRuns[0]?.wasmLinearMemoryBytes,
+    ),
+  );
+  console.log(`Repeated large archive jobs: ${JSON.stringify(largeRuns)}`);
+  const archiveCountCancellation = await harness.evaluate(async (bytes) => {
+    const requestId = crypto.randomUUID();
+    const counting = new Promise<void>((resolve) => {
+      const listener = (message: unknown) => {
+        if (
+          message &&
+          typeof message === "object" &&
+          "type" in message &&
+          message.type === "archive.counting" &&
+          "requestId" in message &&
+          message.requestId === requestId
+        ) {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.runtime.onMessage.addListener(listener);
+    });
+    const pending = new Promise<Record<string, unknown>>((resolve) =>
+      chrome.runtime.sendMessage(
+        { type: "archive.fixture", requestId, bytes, countBlockMs: 5_000 },
+        resolve,
+      ),
+    );
+    await Promise.race([
+      counting,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Counting did not start")), 5_000),
+      ),
+    ]);
+    const canceledAt = performance.now();
+    const canceled = await new Promise<Record<string, unknown>>((resolve) =>
+      chrome.runtime.sendMessage(
+        { type: "archive.fixture.cancel", targetRequestId: requestId },
+        resolve,
+      ),
+    );
+    return {
+      canceled,
+      outcome: await pending,
+      cancelMs: performance.now() - canceledAt,
+    };
+  }, largeArchive);
+  assert.equal(archiveCountCancellation.canceled.state, "canceled");
+  assert.equal(archiveCountCancellation.outcome.state, "failed");
+  assert.equal(archiveCountCancellation.outcome.code, "analysis_canceled");
+  assert.ok(archiveCountCancellation.cancelMs < 1_000);
+  console.log(
+    `Archive worker cancellation ${archiveCountCancellation.cancelMs.toFixed(2)} ms`,
+  );
   const embedded = JSON.parse(
     readFileSync("tests/fixtures/embedded.json", "utf8"),
   );
@@ -578,6 +740,45 @@ try {
         })
       ).length === 0,
   );
+  await harness.evaluate(async (bytes) => {
+    const requestId = crypto.randomUUID();
+    const counting = new Promise<void>((resolve) => {
+      const listener = (message: unknown) => {
+        if (
+          message &&
+          typeof message === "object" &&
+          "type" in message &&
+          message.type === "archive.counting" &&
+          "requestId" in message &&
+          message.requestId === requestId
+        ) {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.runtime.onMessage.addListener(listener);
+    });
+    chrome.runtime.sendMessage(
+      { type: "archive.fixture", requestId, bytes, countBlockMs: 10_000 },
+      () => undefined,
+    );
+    await counting;
+  }, largeArchive);
+  assert.equal(await probeHost(), true);
+  await cdp.send("ServiceWorker.stopWorker", { versionId });
+  await new Promise((resolve) => setTimeout(resolve, 3_500));
+  assert.equal(await probeHost(), false);
+  const afterArchiveRestart = await harness.evaluate(
+    (bytes) =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          { type: "archive.fixture", requestId: crypto.randomUUID(), bytes },
+          resolve,
+        ),
+      ),
+    archiveFixture,
+  );
+  assert.equal(afterArchiveRestart.state, "analyzed");
   await cdp.detach();
   console.log(
     `Browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,

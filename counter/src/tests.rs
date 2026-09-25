@@ -206,3 +206,27 @@ fn oversized_source_is_partial_and_file_is_skipped() {
     assert_eq!(result.coverage.counted_files, 0);
     assert_eq!(result.coverage.incomplete_reasons, ["oversized_source"]);
 }
+
+#[test]
+fn streamed_skip_records_only_valid_classification() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    analyzer
+        .skip_file("large.rs", b"fn ", "oversized_source")
+        .unwrap();
+    analyzer
+        .skip_file("unknown.xyz", b"text", "unsupported_language")
+        .unwrap();
+    assert_eq!(
+        analyzer
+            .skip_file("another.rs", b"fn ", "excluded_by_rule")
+            .err()
+            .unwrap(),
+        "invalid skip reason"
+    );
+    let result = analyzer.finish().unwrap();
+    assert_eq!(result.coverage.regular_files, 2);
+    assert_eq!(result.coverage.skipped_files, 2);
+    assert_eq!(result.coverage.skipped_by_reason["oversized_source"], 1);
+    assert_eq!(result.coverage.skipped_by_reason["unsupported_language"], 1);
+    assert_eq!(result.coverage.incomplete_reasons, ["oversized_source"]);
+}

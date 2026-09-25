@@ -72,6 +72,20 @@ impl CounterAnalyzer {
             .ok_or("counter overflow")?;
         Ok(classification)
     }
+    pub fn skip_file(&mut self, path: &str, prefix: &[u8], reason: &str) -> Result<(), String> {
+        let classification = self.classify_path(path, prefix)?;
+        if classification.kind != reason
+            && !(classification.kind == "counted" && reason == "oversized_source")
+        {
+            return Err("invalid skip reason".into());
+        }
+        self.coverage.regular_files = self
+            .coverage
+            .regular_files
+            .checked_add(1)
+            .ok_or("counter overflow")?;
+        self.record_skip(reason)
+    }
     fn record_skip(&mut self, reason: &str) -> Result<(), String> {
         self.coverage.skipped_files = self
             .coverage

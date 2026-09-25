@@ -11,6 +11,7 @@ export const ARCHIVE_LIMITS = {
   paxTotal: 2 * 1024 * 1024,
   retainedPaths: 8 * 1024 * 1024,
   chunk: 64 * 1024,
+  browserChunk: 1024 * 1024,
 } as const;
 
 export type ArchiveErrorCode =
@@ -203,8 +204,8 @@ class ByteReader {
       this.bytes += value.byteLength;
       if (this.bytes > ARCHIVE_LIMITS.decompressed)
         throw new ArchiveError("decompressed_limit_exceeded", "decompressed");
-      if (value.byteLength > 1024 * 1024)
-        throw new ArchiveError("metadata_limit_exceeded", "chunk");
+      if (value.byteLength > ARCHIVE_LIMITS.browserChunk)
+        throw new ArchiveError("metadata_limit_exceeded", "browserChunk");
       this.chunk = value;
       this.offset = 0;
     }

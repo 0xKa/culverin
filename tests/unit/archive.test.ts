@@ -184,6 +184,20 @@ describe("incremental tar parser", () => {
     }
   });
 
+  test("rejects an oversized browser stream chunk before retaining it", async () => {
+    const input = stream(
+      new Uint8Array(ARCHIVE_LIMITS.browserChunk + 1),
+      ARCHIVE_LIMITS.browserChunk + 1,
+    );
+    try {
+      await analyzeTar(input, sink());
+      throw new Error("expected chunk limit");
+    } catch (error) {
+      expect((error as ArchiveError).code).toBe("metadata_limit_exceeded");
+      expect((error as ArchiveError).limit).toBe("browserChunk");
+    }
+  });
+
   test("applies local PAX path once", async () => {
     const bytes = archive(
       entry("repo/", new Uint8Array(0), "5"),

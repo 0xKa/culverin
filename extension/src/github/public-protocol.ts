@@ -50,10 +50,15 @@ export type PublicReply = {
 } & (
   | { type: "repository.cache_miss"; resolution: ResolutionEnvelope }
   | {
+      type: "repository.cache_hit";
+      resolution: ResolutionEnvelope;
+      result: AnalysisResultV1;
+    }
+  | {
       type: "analysis.completed";
       resolution: ResolutionEnvelope;
       result: AnalysisResultV1;
-      fromCache: false;
+      fromCache: boolean;
     }
   | {
       type: "analysis.failed";
@@ -62,10 +67,14 @@ export type PublicReply = {
       limit?: string;
     }
   | { type: "analysis.canceled"; targetRequestId: string }
-  | { type: "analysis.status"; state: "idle" | "running" | "interrupted" }
+  | {
+      type: "analysis.status";
+      state: "idle" | "queued" | "running" | "interrupted";
+    }
   | {
       type: "analysis.progress";
-      phase: "resolving" | "downloading" | "decompressing" | "counting";
+      phase:
+        "queued" | "resolving" | "downloading" | "decompressing" | "counting";
       processedBytes?: number;
     }
 );
@@ -224,13 +233,25 @@ export function validPublicReply(
       validEnvelope(value.resolution) &&
       value.resolution.visibility === "public"
     );
-  if (value.type === "analysis.completed")
+  if (
+    value.type === "repository.cache_hit" ||
+    value.type === "analysis.completed"
+  )
     return (
-      exact(value, [...base, "resolution", "result", "fromCache"]) &&
-      value.fromCache === false &&
+      exact(value, [
+        ...base,
+        "resolution",
+        "result",
+        ...(value.type === "analysis.completed" ? ["fromCache"] : []),
+      ]) &&
+      (value.type !== "analysis.completed" ||
+        typeof value.fromCache === "boolean") &&
       validEnvelope(value.resolution) &&
       value.resolution.visibility === "public" &&
       validateResult(value.result) &&
+      (value.type === "analysis.completed" && value.fromCache === false
+        ? true
+        : value.result.coverage.complete) &&
       value.result.repository.id === value.resolution.repositoryId &&
       value.result.revision.commitSha === value.resolution.sha
     );
@@ -258,7 +279,9 @@ export function validPublicReply(
   if (value.type === "analysis.status")
     return (
       exact(value, [...base, "state"]) &&
-      ["idle", "running", "interrupted"].includes(value.state as string)
+      ["idle", "queued", "running", "interrupted"].includes(
+        value.state as string,
+      )
     );
   if (value.type === "analysis.progress")
     return (
@@ -267,9 +290,13 @@ export function validPublicReply(
         "phase",
         ...(value.processedBytes === undefined ? [] : ["processedBytes"]),
       ]) &&
-      ["resolving", "downloading", "decompressing", "counting"].includes(
-        value.phase as string,
-      ) &&
+      [
+        "queued",
+        "resolving",
+        "downloading",
+        "decompressing",
+        "counting",
+      ].includes(value.phase as string) &&
       (value.processedBytes === undefined ||
         (Number.isSafeInteger(value.processedBytes) &&
           (value.processedBytes as number) >= 0 &&

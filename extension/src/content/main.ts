@@ -140,7 +140,10 @@ function showFailure(
 
 function renderResult(
   current: View,
-  reply: Extract<PublicReply, { type: "analysis.completed" }>,
+  reply: Extract<
+    PublicReply,
+    { type: "analysis.completed" | "repository.cache_hit" }
+  >,
 ): void {
   const { result, resolution } = reply;
   current.result.replaceChildren();
@@ -183,7 +186,12 @@ function renderResult(
     );
   setStatus(
     current,
-    result.coverage.complete ? "Analyzed locally." : "Partial local analysis.",
+    reply.type === "repository.cache_hit" ||
+      (reply.type === "analysis.completed" && reply.fromCache)
+      ? "Cached local analysis. Repository visibility was checked within the last minute."
+      : result.coverage.complete
+        ? "Analyzed locally."
+        : "Partial local analysis.",
   );
 }
 
@@ -214,7 +222,13 @@ async function lookup(current: View): Promise<void> {
         current,
         `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. Analysis downloads a source snapshot directly from GitHub and runs locally.`,
       );
-    else if (reply.type === "analysis.failed") showFailure(current, reply);
+    else if (reply.type === "repository.cache_hit") {
+      const hash = await effectiveRulesHash([]);
+      if (!currentView(current) || current.lookupRequestId !== requestId)
+        return;
+      if (reply.result.engine.rulesHash === hash) renderResult(current, reply);
+      else setStatus(current, errorText.internal_error);
+    } else if (reply.type === "analysis.failed") showFailure(current, reply);
   } catch {
     if (currentView(current) && current.lookupRequestId === requestId)
       setStatus(current, errorText.analysis_interrupted);
@@ -245,7 +259,7 @@ async function analyze(current: View): Promise<void> {
         targetRequestId: requestId,
       }).response.catch(() => undefined);
     }
-  }, 30_000);
+  }, 60_000);
   try {
     const reply = await response;
     if (!currentView(current) || current.activeRequestId !== requestId) return;

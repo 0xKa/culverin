@@ -153,6 +153,53 @@ test("validates envelope, correlation, and safe errors", () => {
   expect(validPublicReply(completed, requestId, navigationId)).toBe(true);
   expect(
     validPublicReply(
+      { ...completed, type: "repository.cache_hit", fromCache: undefined },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(false);
+  const hit = {
+    protocolVersion: 1,
+    type: "repository.cache_hit",
+    requestId,
+    navigationId,
+    resolution: envelope,
+    result,
+  };
+  expect(validPublicReply(hit, requestId, navigationId)).toBe(true);
+  expect(
+    validPublicReply(
+      {
+        ...hit,
+        result: {
+          ...result,
+          coverage: {
+            ...result.coverage,
+            complete: false,
+            incompleteReasons: ["counter_inaccurate"],
+          },
+        },
+      },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(false);
+  expect(
+    validPublicReply(
+      { ...completed, fromCache: true },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(true);
+  expect(
+    validPublicReply(
+      { ...completed, fromCache: "yes" },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(false);
+  expect(
+    validPublicReply(
       {
         ...completed,
         result: { ...result, revision: { commitSha: "c".repeat(40) } },

@@ -7,6 +7,10 @@ const name = document.querySelector<HTMLInputElement>("#name")!;
 const token = document.querySelector<HTMLInputElement>("#token")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 let activeRequestId: string | undefined;
+let optionsPort = chrome.runtime.connect({ name: "culverin.options" });
+optionsPort.onDisconnect.addListener(() => {
+  optionsPort = chrome.runtime.connect({ name: "culverin.options" });
+});
 
 type Reply = {
   state?: string;
@@ -125,6 +129,9 @@ document.querySelector("#disconnect")!.addEventListener("click", async () => {
 });
 document.querySelector("#clear")!.addEventListener("click", async () => {
   display(await send("auth.clear-private-session"));
+});
+document.querySelector("#clear-public")!.addEventListener("click", async () => {
+  display(await send("cache.clear-public"));
 });
 document.querySelector("#connect")!.addEventListener("click", async () => {
   const target = repository();

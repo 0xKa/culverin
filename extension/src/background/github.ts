@@ -74,6 +74,7 @@ let active: Active | undefined;
 let validating = false;
 const seen = new Map<string, number>();
 const publicPorts = new Map<string, chrome.runtime.Port>();
+let publicRateLimitedUntil = 0;
 
 function senderRepository(
   sender: chrome.runtime.MessageSender,
@@ -287,6 +288,14 @@ function handlePublic(
       reply({ type: "analysis.failed", code: "analysis_busy" });
       return;
     }
+    if (Date.now() < publicRateLimitedUntil) {
+      reply({
+        type: "analysis.failed",
+        code: "rate_limited",
+        retryAt: publicRateLimitedUntil,
+      });
+      return;
+    }
     const controller = new AbortController();
     const job: Active = {
       id: request.requestId,
@@ -362,6 +371,13 @@ function handlePublic(
           : error instanceof ArchiveError
             ? { code: error.code, limit: error.limit }
             : safeFailure(error, controller.signal);
+        if (failure.code === "rate_limited")
+          publicRateLimitedUntil =
+            "retryAt" in failure &&
+            typeof failure.retryAt === "number" &&
+            failure.retryAt > Date.now()
+              ? failure.retryAt
+              : Date.now() + 60_000;
         reply({
           type: "analysis.failed",
           ...publicFailure(

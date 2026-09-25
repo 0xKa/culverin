@@ -93,17 +93,118 @@ const context = await chromium.launchPersistentContext(profile, {
 
 try {
   const page = await context.newPage();
+  const publicSha = "a".repeat(40);
+  let fixtureArchiveRequests = 0;
+  let fixtureApiRequests = 0;
+  let fixtureMode: "ok" | "empty" | "rate" | "slow" | "private" = "ok";
+  let slowArchiveStarted: (() => void) | undefined;
+  await context.route(
+    "https://api.github.com/repos/culverin/bootstrap-fixture**",
+    (route) => {
+      const url = new URL(route.request().url());
+      fixtureApiRequests++;
+      if (fixtureMode === "rate")
+        return route.fulfill({
+          status: 403,
+          headers: {
+            "x-ratelimit-remaining": "0",
+            "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600),
+          },
+        });
+      if (url.pathname.endsWith(`/commits/main`)) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ sha: publicSha }),
+        });
+      }
+      if (url.pathname.endsWith(`/tarball/${publicSha}`)) {
+        fixtureArchiveRequests++;
+        if (fixtureMode === "slow") {
+          slowArchiveStarted?.();
+          return new Promise<void>((resolve) => setTimeout(resolve, 1500)).then(
+            () => route.fulfill({ status: 404 }).catch(() => undefined),
+          );
+        }
+        return route.fulfill({ status: 404 });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: 1,
+          name: "bootstrap-fixture",
+          owner: { login: "culverin" },
+          private: fixtureMode === "private",
+          default_branch: fixtureMode === "empty" ? null : "main",
+        }),
+      });
+    },
+  );
   await page.route("https://github.com/culverin/bootstrap-fixture", (route) =>
     route.fulfill({
       status: 200,
       contentType: "text/html",
-      body: "<!doctype html><html><body>Fixture</body></html>",
+      body: "<!doctype html><html><body><main id='repository-container-header'>Fixture</main></body></html>",
     }),
   );
   await page.goto("https://github.com/culverin/bootstrap-fixture");
-  await page.waitForFunction(
-    () => document.documentElement.dataset.culverinBootstrap === "loaded",
+  await page.getByRole("button", { name: "Analyze repository" }).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  await page.getByText(/Ready to analyze main at/).waitFor({ timeout: 15_000 });
+  assert.equal(fixtureArchiveRequests, 0);
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await page
+    .getByText("Repository unavailable or access is restricted.")
+    .waitFor({ timeout: 15_000 });
+  assert.equal(fixtureArchiveRequests, 1);
+  await page.reload();
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(fixtureArchiveRequests, 1);
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture/issues");
+    document.body.append(document.createElement("div"));
+  });
+  await page.locator("[data-culverin-root]").waitFor({ state: "detached" });
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture");
+    document.body.append(document.createElement("div"));
+  });
+  await page.getByRole("button", { name: "Analyze repository" }).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  assert.equal(fixtureArchiveRequests, 1);
+  fixtureMode = "slow";
+  const started = new Promise<void>((resolve) => {
+    slowArchiveStarted = resolve;
+  });
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await started;
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByText("Analysis canceled.").waitFor();
+  await page.waitForTimeout(1700);
+  assert.equal(await page.getByText(/code lines across/).count(), 0);
+  fixtureMode = "empty";
+  await page.reload();
+  await page
+    .getByText("This repository has no default-branch commit to analyze.")
+    .waitFor();
+  fixtureMode = "private";
+  await page.reload();
+  await page
+    .getByText("Repository unavailable or access is restricted.")
+    .waitFor();
+  assert.equal(fixtureArchiveRequests, 2);
+  fixtureMode = "ok";
+  await page.route("https://github.com/settings/profile", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><html><body><main>Settings</main></body></html>",
+    }),
   );
+  await page.goto("https://github.com/settings/profile");
+  assert.equal(await page.locator("[data-culverin-root]").count(), 0);
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker"));
@@ -116,6 +217,67 @@ try {
     `chrome-extension://${new URL(worker.url()).host}/options.html`,
   );
   await options.getByText("No token connected.").waitFor();
+  const publicFixtureBytes = [
+    ...readFileSync("tests/fixtures/archive-source.tar.gz"),
+  ];
+  await worker.evaluate(
+    ({ bytes, sha }) => {
+      const scope = globalThis as typeof globalThis & {
+        fixtureOriginalFetch?: typeof fetch;
+        fixtureFetchCount?: number;
+      };
+      scope.fixtureOriginalFetch = fetch;
+      scope.fixtureFetchCount = 0;
+      globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`)) {
+          scope.fixtureFetchCount = (scope.fixtureFetchCount ?? 0) + 1;
+          const response = new Response(Uint8Array.from(bytes), {
+            status: 200,
+            headers: { "content-type": "application/gzip" },
+          });
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
+        return scope.fixtureOriginalFetch!(input, init);
+      }) as typeof fetch;
+    },
+    { bytes: publicFixtureBytes, sha: publicSha },
+  );
+  await page.goto("https://github.com/culverin/bootstrap-fixture");
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(
+    await worker.evaluate(
+      () =>
+        (globalThis as typeof globalThis & { fixtureFetchCount?: number })
+          .fixtureFetchCount,
+    ),
+    0,
+  );
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await page.getByText("Analyzed locally.").waitFor({ timeout: 15_000 });
+  await page.getByText("1 code lines across 1 files").waitFor();
+  await page.getByText(/Skipped regular files: 1/).waitFor();
+  await page.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
+  assert.equal(
+    await worker.evaluate(
+      () =>
+        (globalThis as typeof globalThis & { fixtureFetchCount?: number })
+          .fixtureFetchCount,
+    ),
+    1,
+  );
+  await worker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      fixtureOriginalFetch?: typeof fetch;
+      fixtureFetchCount?: number;
+    };
+    if (scope.fixtureOriginalFetch)
+      globalThis.fetch = scope.fixtureOriginalFetch;
+    delete scope.fixtureOriginalFetch;
+    delete scope.fixtureFetchCount;
+  });
   const optionsState = await options.evaluate(async () => {
     const send = (type: string) =>
       new Promise<{ state: string; connected?: boolean }>((resolve) =>
@@ -152,14 +314,87 @@ try {
   assert.equal(optionsState.disconnected.state, "disconnected");
   assert.equal(optionsState.after.connected, false);
   assert.deepEqual(optionsState.storage, {});
+  const rejectedPublicFromOptions = await options.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.request",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            repository: { owner: "culverin", name: "bootstrap-fixture" },
+          },
+          resolve,
+        ),
+      ),
+  );
+  assert.deepEqual(
+    {
+      state: rejectedPublicFromOptions.state,
+      code: rejectedPublicFromOptions.code,
+    },
+    { state: "failed", code: "invalid_repository" },
+  );
+  assert.equal(fixtureArchiveRequests, 2);
+  const interruptionCdp = await context.newCDPSession(harness);
+  let interruptedVersion: string | undefined;
+  interruptionCdp.on("ServiceWorker.workerVersionUpdated", (event) => {
+    for (const version of event.versions)
+      if (version.status === "activated")
+        interruptedVersion = version.versionId;
+  });
+  await interruptionCdp.send("ServiceWorker.enable");
+  await page.goto("https://github.com/culverin/bootstrap-fixture");
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  fixtureMode = "slow";
+  const interruptedArchive = new Promise<void>((resolve) => {
+    slowArchiveStarted = resolve;
+  });
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await interruptedArchive;
+  const competing = await options.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.request",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            owner: "octocat",
+            name: "Hello-World",
+          },
+          resolve,
+        ),
+      ),
+  );
+  assert.equal(competing.state, "busy");
+  assert.ok(interruptedVersion);
+  await interruptionCdp.send("ServiceWorker.stopWorker", {
+    versionId: interruptedVersion,
+  });
+  await page.getByText(/Analysis was interrupted/).waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(1700);
+  assert.equal(fixtureArchiveRequests, 3);
+  fixtureMode = "ok";
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await page
+    .getByText("Repository unavailable or access is restricted.")
+    .waitFor({ timeout: 15_000 });
+  assert.equal(fixtureArchiveRequests, 4);
+  await interruptionCdp.detach();
   if (process.env.CULVERIN_LIVE_PUBLIC === "1") {
+    const networkOrigins = new Set<string>();
     const requests: {
       origin: string;
       authorization: boolean;
       cookie: boolean;
     }[] = [];
     context.on("request", (request) => {
+      if (!request.serviceWorker()) return;
       const origin = new URL(request.url()).origin;
+      if (origin.startsWith("https://")) networkOrigins.add(origin);
       if (
         origin === "https://api.github.com" ||
         origin === "https://codeload.github.com"
@@ -172,6 +407,40 @@ try {
         });
       }
     });
+    const livePage = await context.newPage();
+    await livePage.goto("https://github.com/octocat/Hello-World", {
+      waitUntil: "commit",
+      timeout: 60_000,
+    });
+    await livePage
+      .getByRole("button", { name: "Analyze repository" })
+      .waitFor({ timeout: 30_000 });
+    await livePage.getByText(/Ready to analyze/).waitFor({ timeout: 30_000 });
+    const beforeClick = requests.filter(
+      (request) => request.origin === "https://codeload.github.com",
+    ).length;
+    await livePage.reload({ waitUntil: "commit", timeout: 60_000 });
+    await livePage.getByText(/Ready to analyze/).waitFor({ timeout: 30_000 });
+    assert.equal(
+      requests.filter(
+        (request) => request.origin === "https://codeload.github.com",
+      ).length,
+      beforeClick,
+    );
+    await livePage.getByRole("button", { name: "Analyze repository" }).click();
+    await livePage
+      .getByText(/Analyzed locally.|Partial local analysis./)
+      .waitFor({ timeout: 30_000 });
+    assert.equal(
+      requests.filter(
+        (request) => request.origin === "https://codeload.github.com",
+      ).length,
+      beforeClick + 1,
+    );
+    await livePage.close();
+    const beforeOptionsLookup = requests.filter(
+      (request) => request.origin === "https://codeload.github.com",
+    ).length;
     await options.locator("#owner").fill("octocat");
     await options.locator("#name").fill("Hello-World");
     await options.locator("#lookup").click();
@@ -182,10 +451,16 @@ try {
       requests.filter(
         (request) => request.origin === "https://codeload.github.com",
       ).length,
-      0,
+      beforeOptionsLookup,
     );
     await options.locator("#download").click();
     await options.getByText(/Analyzed .* files/).waitFor({ timeout: 30_000 });
+    assert.equal(
+      requests.filter(
+        (request) => request.origin === "https://codeload.github.com",
+      ).length,
+      beforeOptionsLookup + 1,
+    );
     assert.ok(
       requests.some((request) => request.origin === "https://api.github.com"),
     );
@@ -196,6 +471,15 @@ try {
     );
     assert.ok(
       requests.every((request) => !request.authorization && !request.cookie),
+    );
+    assert.ok(
+      [...networkOrigins].every((origin) =>
+        [
+          "https://api.github.com",
+          "https://codeload.github.com",
+          "https://github.com",
+        ].includes(origin),
+      ),
     );
     console.log(`Live public acquisition passed: ${JSON.stringify(requests)}`);
   }
@@ -780,6 +1064,13 @@ try {
   );
   assert.equal(afterArchiveRestart.state, "analyzed");
   await cdp.detach();
+  fixtureMode = "rate";
+  await page.reload();
+  await page.getByText(/GitHub rate limit reached. Retry after/).waitFor();
+  const limitedRequests = fixtureApiRequests;
+  await page.reload();
+  await page.getByText(/GitHub rate limit reached. Retry after/).waitFor();
+  assert.equal(fixtureApiRequests, limitedRequests);
   console.log(
     `Browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,
   );

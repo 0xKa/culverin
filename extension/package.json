@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite build --watch"
+    "build": "vite build && bun build --target=browser --format=iife --minify --outfile=dist/content.js src/content/main.ts",
+    "dev": "vite build && bun build --target=browser --format=iife --outfile=dist/content.js src/content/main.ts && (vite build --watch & bun build --target=browser --format=iife --outfile=dist/content.js --watch src/content/main.ts & wait)"
   }
 }

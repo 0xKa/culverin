@@ -6,12 +6,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     modulePreload: false,
-    emptyOutDir: true,
+    emptyOutDir: !process.argv.includes("--watch"),
     sourcemap: false,
     rollupOptions: {
       input: {
         background: resolve(import.meta.dirname, "src/background/main.ts"),
-        content: resolve(import.meta.dirname, "src/content/main.ts"),
         offscreen: resolve(import.meta.dirname, "offscreen.html"),
         options: resolve(import.meta.dirname, "options.html"),
       },

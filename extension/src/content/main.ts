@@ -384,6 +384,15 @@ function schedule(): void {
   }, 80);
 }
 
+let observedRouteUrl = routeUrl();
+setInterval(() => {
+  const current = routeUrl();
+  if (current !== observedRouteUrl) {
+    observedRouteUrl = current;
+    schedule();
+  }
+}, 150);
+
 new MutationObserver(schedule).observe(document.documentElement, {
   childList: true,
   subtree: true,

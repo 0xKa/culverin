@@ -141,6 +141,27 @@ try {
       });
     },
   );
+  await context.route(
+    "https://api.github.com/repos/culverin/bootstrap-other**",
+    (route) => {
+      const url = new URL(route.request().url());
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          url.pathname.endsWith("/commits/main")
+            ? { sha: publicSha }
+            : {
+                id: 2,
+                name: "bootstrap-other",
+                owner: { login: "culverin" },
+                private: false,
+                default_branch: "main",
+              },
+        ),
+      });
+    },
+  );
   await page.route("https://github.com/culverin/bootstrap-fixture", (route) =>
     route.fulfill({
       status: 200,
@@ -171,12 +192,37 @@ try {
   assert.equal(fixtureArchiveRequests, 1);
   await page.evaluate(() => {
     history.pushState({}, "", "/culverin/bootstrap-fixture/issues");
-    document.body.append(document.createElement("div"));
   });
   await page.locator("[data-culverin-root]").waitFor({ state: "detached" });
   await page.evaluate(() => {
-    history.pushState({}, "", "/culverin/bootstrap-fixture");
-    document.body.append(document.createElement("div"));
+    history.replaceState({}, "", "/culverin/bootstrap-fixture");
+  });
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  assert.equal(fixtureArchiveRequests, 1);
+  const originalRoot = await page
+    .locator("[data-culverin-root]")
+    .elementHandle();
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-other");
+  });
+  await page.waitForFunction((root) => !root.isConnected, originalRoot);
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  assert.equal(fixtureArchiveRequests, 1);
+  const otherRoot = await page.locator("[data-culverin-root]").elementHandle();
+  await page.evaluate(() => {
+    history.back();
+  });
+  await page.waitForFunction((root) => !root.isConnected, otherRoot);
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  await page.evaluate(() => {
+    const marker = document.querySelector("#repository-container-header");
+    if (!marker) throw new Error("Missing repository marker");
+    const replacement = document.createElement("main");
+    replacement.id = "repository-container-header";
+    marker.replaceWith(replacement);
   });
   await page.getByRole("button", { name: "Analyze repository" }).waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
@@ -198,6 +244,25 @@ try {
   await page.getByText("Analysis canceled.").waitFor();
   await page.waitForTimeout(1700);
   assert.equal(await page.getByText(/code lines across/).count(), 0);
+  const navigationArchive = new Promise<void>((resolve) => {
+    slowArchiveStarted = resolve;
+  });
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await navigationArchive;
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture/issues");
+  });
+  await page.locator("[data-culverin-root]").waitFor({ state: "detached" });
+  fixtureMode = "ok";
+  await page.evaluate(() => {
+    history.replaceState({}, "", "/culverin/bootstrap-fixture");
+  });
+  await page.getByText(/Ready to analyze main at/).waitFor({ timeout: 1000 });
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await page
+    .getByText("Repository unavailable or access is restricted.")
+    .waitFor();
+  assert.equal(fixtureArchiveRequests, 4);
   fixtureMode = "empty";
   await page.reload();
   await page
@@ -208,7 +273,7 @@ try {
   await page
     .getByText("Repository unavailable or access is restricted.")
     .waitFor();
-  assert.equal(fixtureArchiveRequests, 2);
+  assert.equal(fixtureArchiveRequests, 4);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
     route.fulfill({
@@ -350,7 +415,7 @@ try {
     },
     { state: "failed", code: "invalid_repository" },
   );
-  assert.equal(fixtureArchiveRequests, 2);
+  assert.equal(fixtureArchiveRequests, 4);
   const interruptionCdp = await context.newCDPSession(harness);
   let interruptedVersion: string | undefined;
   interruptionCdp.on("ServiceWorker.workerVersionUpdated", (event) => {
@@ -390,13 +455,13 @@ try {
   });
   await page.getByText(/Analysis was interrupted/).waitFor({ timeout: 15_000 });
   await page.waitForTimeout(1700);
-  assert.equal(fixtureArchiveRequests, 3);
+  assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page
     .getByText("Repository unavailable or access is restricted.")
     .waitFor({ timeout: 15_000 });
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 6);
   await interruptionCdp.detach();
   if (process.env.CULVERIN_LIVE_PUBLIC === "1") {
     const networkOrigins = new Set<string>();

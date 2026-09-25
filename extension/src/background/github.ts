@@ -85,10 +85,23 @@ function senderRepository(
     !Number.isSafeInteger(sender.tab?.id) ||
     (sender.tab?.id ?? -1) < 0 ||
     typeof sender.documentId !== "string" ||
-    !sender.url
+    !sender.url ||
+    !sender.tab?.url
   )
     return undefined;
-  return pageRepository(sender.url);
+  let source: URL;
+  try {
+    source = new URL(sender.url);
+  } catch {
+    return undefined;
+  }
+  if (
+    source.origin !== "https://github.com" ||
+    source.username ||
+    source.password
+  )
+    return undefined;
+  return pageRepository(sender.tab.url);
 }
 
 function portKey(tabId: number, documentId: string): string {

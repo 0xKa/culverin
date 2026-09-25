@@ -93,13 +93,17 @@ export async function analyzeArchive(
   token: string | undefined,
   signal: AbortSignal,
   jobId: string,
+  onProgress?: (
+    phase: "downloading" | "decompressing",
+    processedBytes?: number,
+  ) => void,
 ): Promise<{
   result: AnalysisResultV1;
   transport: ArchiveMetrics & { compressedBytes: number };
   wasmLinearMemoryBytes: number;
 }> {
   const stream = await openArchive(fetch, resolution, token, signal);
-  return analyzeArchiveStream(stream, resolution, signal, jobId);
+  return analyzeArchiveStream(stream, resolution, signal, jobId, 0, onProgress);
 }
 
 export async function analyzeArchiveStream(
@@ -108,6 +112,10 @@ export async function analyzeArchiveStream(
   signal: AbortSignal,
   jobId: string,
   blockMs = 0,
+  onProgress?: (
+    phase: "downloading" | "decompressing",
+    processedBytes?: number,
+  ) => void,
 ): Promise<{
   result: AnalysisResultV1;
   transport: ArchiveMetrics & { compressedBytes: number };
@@ -141,6 +149,7 @@ export async function analyzeArchiveStream(
       "started",
     );
     started = true;
+    onProgress?.("downloading", 0);
     for (;;) {
       if (signal.aborted) throw new ArchiveError("analysis_canceled");
       const { done, value } = await reader.read();
@@ -150,6 +159,7 @@ export async function analyzeArchiveStream(
       compressedBytes += value.byteLength;
       if (compressedBytes > ARCHIVE_LIMITS.compressed)
         throw new ArchiveError("compressed_limit_exceeded", "compressed");
+      onProgress?.("downloading", compressedBytes);
       for (
         let offset = 0;
         offset < value.byteLength;
@@ -168,6 +178,7 @@ export async function analyzeArchiveStream(
         );
       }
     }
+    onProgress?.("decompressing");
     const outcome = await command("archive.finish", jobId);
     requireState(outcome, "completed");
     if (

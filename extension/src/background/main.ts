@@ -4,7 +4,7 @@ import {
   type CounterRules,
 } from "../counter/runner";
 import { handleFeasibility } from "../analysis/coordinator";
-import { handleGithub } from "./github";
+import { handleArchiveCounting, handleGithub } from "./github";
 import { analyzeArchiveStream } from "../archive/bridge";
 
 let fixtureJob:
@@ -12,6 +12,7 @@ let fixtureJob:
 
 chrome.runtime.onMessage.addListener(
   (message: unknown, sender, sendResponse) => {
+    if (handleArchiveCounting(message, sender)) return false;
     if (handleFeasibility(message, sender, sendResponse)) return true;
     if (handleGithub(message, sender, sendResponse)) return true;
     const currentFixture = fixtureJob;

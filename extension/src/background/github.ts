@@ -14,6 +14,15 @@ import {
 } from "../github/client";
 import { analyzeArchive } from "../archive/bridge";
 import { ArchiveError } from "../archive/tar";
+import {
+  PUBLIC_PORT,
+  publicFailure,
+  validPublicRequest,
+  type PublicPayload,
+  type PublicReply,
+  type PublicRequest,
+} from "../github/public-protocol";
+import { pageRepository } from "../content/repository";
 
 const VERSION = 1;
 const OPTIONS_URL = chrome.runtime.getURL("options.html");
@@ -22,7 +31,8 @@ const LAST = "github.last";
 const ready = initializeSession().then(async () => {
   const state = await chrome.storage.session.get(MARKER);
   const marker = state[MARKER] as
-    { documentId?: unknown; navigationId?: unknown } | undefined;
+    | { documentId?: unknown; navigationId?: unknown; tabId?: unknown }
+    | undefined;
   if (marker) {
     await chrome.storage.session.remove(MARKER);
     await chrome.storage.session.set({
@@ -30,6 +40,7 @@ const ready = initializeSession().then(async () => {
         state: "interrupted",
         documentId: marker.documentId,
         navigationId: marker.navigationId,
+        tabId: marker.tabId,
       },
     });
   }
@@ -52,11 +63,332 @@ type Active = {
   navigationId: string;
   generation: string;
   controller: AbortController;
+  tabId?: number;
+  repository?: { owner: string; name: string };
+  public?: boolean;
+  detached?: boolean;
+  cancelReason?: "cancel" | "navigation";
 };
 
 let active: Active | undefined;
 let validating = false;
 const seen = new Map<string, number>();
+const publicPorts = new Map<string, chrome.runtime.Port>();
+
+function senderRepository(
+  sender: chrome.runtime.MessageSender,
+): { owner: string; name: string } | undefined {
+  if (
+    sender.id !== chrome.runtime.id ||
+    sender.frameId !== 0 ||
+    !Number.isSafeInteger(sender.tab?.id) ||
+    (sender.tab?.id ?? -1) < 0 ||
+    typeof sender.documentId !== "string" ||
+    !sender.url
+  )
+    return undefined;
+  return pageRepository(sender.url);
+}
+
+function portKey(tabId: number, documentId: string): string {
+  return `${tabId}:${documentId}`;
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  const sender = port.sender;
+  if (
+    port.name !== PUBLIC_PORT ||
+    !sender ||
+    !senderRepository(sender) ||
+    sender.tab?.id === undefined ||
+    !sender.documentId
+  ) {
+    port.disconnect();
+    return;
+  }
+  const key = portKey(sender.tab.id, sender.documentId);
+  if (
+    publicPorts.has(key) &&
+    active?.public &&
+    active.tabId === sender.tab.id &&
+    active.documentId === sender.documentId
+  ) {
+    active.detached = true;
+    active.cancelReason ??= "navigation";
+    active.controller.abort("navigation");
+  }
+  publicPorts.set(key, port);
+  port.onDisconnect.addListener(() => {
+    if (publicPorts.get(key) !== port) return;
+    publicPorts.delete(key);
+    if (
+      active?.public &&
+      active.tabId === sender.tab?.id &&
+      active.documentId === sender.documentId
+    ) {
+      active.detached = true;
+      active.cancelReason ??= "navigation";
+      active.controller.abort("navigation");
+    }
+  });
+});
+
+function publicReply(
+  request: PublicRequest,
+  payload: PublicPayload,
+): PublicReply {
+  return {
+    protocolVersion: 1,
+    requestId: request.requestId,
+    navigationId: request.navigationId,
+    ...payload,
+  } as PublicReply;
+}
+
+function publicProgress(
+  job: Active,
+  phase: "resolving" | "downloading" | "decompressing" | "counting",
+  processedBytes?: number,
+): void {
+  if (
+    !job.public ||
+    job.detached ||
+    job.controller.signal.aborted ||
+    active !== job ||
+    job.tabId === undefined
+  )
+    return;
+  const message: PublicReply = {
+    protocolVersion: 1,
+    type: "analysis.progress",
+    requestId: job.id,
+    navigationId: job.navigationId,
+    phase,
+    ...(processedBytes === undefined ? {} : { processedBytes }),
+  };
+  void chrome.tabs
+    .sendMessage(job.tabId, message, { documentId: job.documentId })
+    .catch(() => undefined);
+}
+
+export function handleArchiveCounting(
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+): boolean {
+  if (
+    sender.id !== chrome.runtime.id ||
+    sender.url !== chrome.runtime.getURL("offscreen.html") ||
+    !message ||
+    typeof message !== "object"
+  )
+    return false;
+  const value = message as Record<string, unknown>;
+  if (value.type !== "archive.counting" || value.requestId !== active?.id)
+    return false;
+  if (active) publicProgress(active, "counting");
+  return true;
+}
+
+function handlePublic(
+  value: unknown,
+  sender: chrome.runtime.MessageSender,
+  respond: (value: unknown) => void,
+): boolean {
+  const repository = senderRepository(sender);
+  if (
+    !repository ||
+    !validPublicRequest(value) ||
+    sender.tab?.id === undefined ||
+    !sender.documentId
+  )
+    return false;
+  const request = value;
+  const tabId = sender.tab.id;
+  const documentId = sender.documentId;
+  const key = portKey(tabId, documentId);
+  const reply = (payload: PublicPayload) =>
+    respond(publicReply(request, payload));
+  void (async () => {
+    await ready;
+    if (!publicPorts.has(key)) {
+      reply({ type: "analysis.failed", code: "analysis_interrupted" });
+      return;
+    }
+    const now = Date.now();
+    for (const [id, at] of seen) if (now - at > 60_000) seen.delete(id);
+    if (seen.has(request.requestId)) {
+      reply({ type: "analysis.failed", code: "invalid_repository" });
+      return;
+    }
+    if (seen.size >= 100) seen.delete(seen.keys().next().value!);
+    seen.set(request.requestId, now);
+    if (request.type === "analysis.status") {
+      if (
+        active?.public &&
+        active.tabId === tabId &&
+        active.documentId === documentId &&
+        active.navigationId === request.navigationId
+      ) {
+        reply({ type: "analysis.status", state: "running" });
+        return;
+      }
+      const stored = await chrome.storage.session.get(LAST);
+      const last = stored[LAST] as
+        | {
+            state?: unknown;
+            tabId?: unknown;
+            documentId?: unknown;
+            navigationId?: unknown;
+          }
+        | undefined;
+      reply({
+        type: "analysis.status",
+        state:
+          last?.state === "interrupted" &&
+          last.tabId === tabId &&
+          last.documentId === documentId &&
+          last.navigationId === request.navigationId
+            ? "interrupted"
+            : "idle",
+      });
+      return;
+    }
+    if (request.type === "analysis.cancel") {
+      const job = active;
+      if (
+        job?.public &&
+        job.tabId === tabId &&
+        job.documentId === documentId &&
+        job.navigationId === request.navigationId &&
+        job.id === request.targetRequestId
+      ) {
+        job.detached = true;
+        job.cancelReason = "cancel";
+        job.controller.abort("cancel");
+        reply({
+          type: "analysis.canceled",
+          targetRequestId: request.targetRequestId!,
+        });
+      } else {
+        reply({ type: "analysis.failed", code: "analysis_interrupted" });
+      }
+      return;
+    }
+    if (
+      !request.repository ||
+      request.repository.owner.toLowerCase() !==
+        repository.owner.toLowerCase() ||
+      request.repository.name.toLowerCase() !== repository.name.toLowerCase()
+    ) {
+      reply({ type: "analysis.failed", code: "invalid_repository" });
+      return;
+    }
+    if (active) {
+      reply({ type: "analysis.failed", code: "analysis_busy" });
+      return;
+    }
+    const controller = new AbortController();
+    const job: Active = {
+      id: request.requestId,
+      documentId,
+      navigationId: request.navigationId,
+      generation: "",
+      controller,
+      tabId,
+      repository,
+      public: true,
+    };
+    active = job;
+    const timer = withDeadline(
+      controller,
+      request.type === "analysis.request" ? 25_000 : 10_000,
+    );
+    try {
+      await chrome.storage.session.set({
+        [MARKER]: { tabId, documentId, navigationId: request.navigationId },
+      });
+      publicProgress(job, "resolving");
+      const resolution = await resolveRepository(
+        fetch,
+        repository.owner,
+        repository.name,
+        undefined,
+        controller.signal,
+      );
+      if (controller.signal.aborted || job.detached || active !== job) return;
+      if (resolution.visibility !== "public") {
+        reply({ type: "analysis.failed", code: "repository_unavailable" });
+        return;
+      }
+      const envelope = { ...resolution, resolvedAt: Date.now() };
+      if (request.type === "repository.lookup") {
+        reply({ type: "repository.cache_miss", resolution: envelope });
+        return;
+      }
+      let lastUpdate = 0;
+      const analysis = await analyzeArchive(
+        resolution,
+        undefined,
+        controller.signal,
+        request.requestId,
+        (phase, processedBytes) => {
+          const now = Date.now();
+          if (
+            phase !== "downloading" ||
+            processedBytes === 0 ||
+            now - lastUpdate >= 150
+          ) {
+            lastUpdate = now;
+            publicProgress(job, phase, processedBytes);
+          }
+        },
+      );
+      if (controller.signal.aborted || job.detached || active !== job) return;
+      if (
+        analysis.result.repository.id !== envelope.repositoryId ||
+        analysis.result.revision.commitSha !== envelope.sha
+      )
+        throw new ArchiveError("counter_failed");
+      reply({
+        type: "analysis.completed",
+        resolution: envelope,
+        result: analysis.result,
+        fromCache: false,
+      });
+    } catch (error) {
+      if (!job.detached && active === job) {
+        const failure = controller.signal.aborted
+          ? safeFailure(error, controller.signal)
+          : error instanceof ArchiveError
+            ? { code: error.code, limit: error.limit }
+            : safeFailure(error, controller.signal);
+        reply({
+          type: "analysis.failed",
+          ...publicFailure(
+            failure.code,
+            "retryAt" in failure ? failure.retryAt : undefined,
+            "limit" in failure ? failure.limit : undefined,
+          ),
+        });
+      }
+    } finally {
+      clearTimeout(timer);
+      if (active === job) active = undefined;
+      await chrome.storage.session.remove(MARKER);
+      if (job.cancelReason === "navigation")
+        await chrome.storage.session.set({
+          [LAST]: {
+            state: "interrupted",
+            tabId,
+            documentId,
+            navigationId: job.navigationId,
+          },
+        });
+      else await chrome.storage.session.remove(LAST);
+    }
+  })().catch(() => reply({ type: "analysis.failed", code: "internal_error" }));
+  return true;
+}
 
 function validRequest(value: unknown): value is Request {
   if (!value || typeof value !== "object") return false;
@@ -93,6 +425,7 @@ export function handleGithub(
   sender: chrome.runtime.MessageSender,
   respond: (value: unknown) => void,
 ): boolean {
+  if (handlePublic(value, sender, respond)) return true;
   if (
     sender.id !== chrome.runtime.id ||
     sender.url !== OPTIONS_URL ||

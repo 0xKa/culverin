@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { pageRepository } from "../../extension/src/content/repository";
+import {
+  pageContext,
+  pageRepository,
+} from "../../extension/src/content/repository";
 import {
   publicFailure,
   validEnvelope,
@@ -47,6 +50,38 @@ test("accepts only GitHub repository overview routes", () => {
     "https://github.com/owner",
   ])
     expect(pageRepository(url)).toBeUndefined();
+});
+
+test("adapts repository placement without mounting on unrelated pages", () => {
+  const header = {} as Element;
+  const main = {} as Element;
+  const document = {
+    querySelector(selector: string) {
+      if (selector === "#repository-container-header") return header;
+      if (selector === "main") return main;
+      if (selector.includes("octolytics-dimension-repository_id"))
+        return {} as Element;
+      return null;
+    },
+  } as Document;
+  expect(pageContext("https://github.com/owner/repo", document)).toEqual({
+    repository: { owner: "owner", name: "repo" },
+    anchor: header,
+  });
+  expect(
+    pageContext("https://github.com/owner/repo/issues", document),
+  ).toBeUndefined();
+  const fallback = {
+    querySelector(selector: string) {
+      if (selector === "main") return main;
+      if (selector.includes("octolytics-dimension-repository_id"))
+        return {} as Element;
+      return null;
+    },
+  } as Document;
+  expect(pageContext("https://github.com/owner/repo", fallback)?.anchor).toBe(
+    main,
+  );
 });
 
 test("requires closed messages and repository identity", () => {

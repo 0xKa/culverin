@@ -175,6 +175,77 @@ try {
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await page.getByText(/Ready to analyze main at/).waitFor({ timeout: 15_000 });
   assert.equal(fixtureArchiveRequests, 0);
+  assert.equal(
+    await page
+      .locator("[data-culverin-root]")
+      .evaluate((host) =>
+        Boolean(
+          host.shadowRoot?.querySelector('[role="status"][aria-live="polite"]'),
+        ),
+      ),
+    true,
+  );
+  await page.getByRole("button", { name: "Analyze repository" }).focus();
+  assert.equal(
+    await page
+      .locator("[data-culverin-root]")
+      .evaluate(
+        (host) =>
+          host.shadowRoot?.activeElement?.textContent === "Analyze repository",
+      ),
+    true,
+  );
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Analyze repository" })
+      .evaluate((button) => getComputedStyle(button).outlineStyle),
+    "solid",
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty(
+      "--fgColor-default",
+      "rgb(255, 255, 255)",
+    );
+    document.documentElement.style.setProperty(
+      "--bgColor-default",
+      "rgb(0, 0, 0)",
+    );
+  });
+  assert.deepEqual(
+    await page.locator("[data-culverin-root]").evaluate((host) => {
+      const card = host.shadowRoot!.querySelector(".card")!;
+      const style = getComputedStyle(card);
+      return [style.color, style.backgroundColor];
+    }),
+    ["rgb(255, 255, 255)", "rgb(0, 0, 0)"],
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.removeProperty("--fgColor-default");
+    document.documentElement.style.removeProperty("--bgColor-default");
+  });
+  await page.emulateMedia({ colorScheme: "dark" });
+  assert.deepEqual(
+    await page.locator("[data-culverin-root]").evaluate((host) => {
+      const style = getComputedStyle(host.shadowRoot!.querySelector(".card")!);
+      return [style.color, style.backgroundColor];
+    }),
+    ["rgb(240, 246, 252)", "rgb(13, 17, 23)"],
+  );
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.emulateMedia({ forcedColors: "active" });
+  assert.equal(
+    await page
+      .locator("[data-culverin-root]")
+      .evaluate(
+        (host) =>
+          getComputedStyle(host.shadowRoot!.querySelector(".card")!)
+            .borderStyle,
+      ),
+    "solid",
+  );
+  await page.emulateMedia({ forcedColors: "none" });
   const beforeFragmentApiRequests = fixtureApiRequests;
   await page.evaluate(() => {
     location.hash = "usage";
@@ -185,7 +256,7 @@ try {
   assert.equal(fixtureArchiveRequests, 0);
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page
-    .getByText("Repository unavailable or access is restricted.")
+    .getByText(/Repository unavailable or access is restricted/)
     .waitFor({ timeout: 15_000 });
   assert.equal(fixtureArchiveRequests, 1);
   await page.reload();
@@ -218,6 +289,12 @@ try {
   await page.waitForFunction((root) => !root.isConnected, otherRoot);
   await page.getByText(/Ready to analyze main at/).waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  await page.evaluate(() => history.forward());
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  await page.evaluate(() => history.back());
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await page.evaluate(() => {
     const marker = document.querySelector("#repository-container-header");
     if (!marker) throw new Error("Missing repository marker");
@@ -240,8 +317,11 @@ try {
   });
   await page.waitForTimeout(150);
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
-  assert.equal(await page.getByRole("button", { name: "Cancel" }).count(), 1);
-  await page.getByRole("button", { name: "Cancel" }).click();
+  assert.equal(
+    await page.getByRole("button", { name: "Cancel analysis" }).count(),
+    1,
+  );
+  await page.getByRole("button", { name: "Cancel analysis" }).click();
   await page.getByText("Analysis canceled.").waitFor();
   await page.waitForTimeout(1700);
   assert.equal(await page.getByText(/code lines across/).count(), 0);
@@ -261,7 +341,7 @@ try {
   await page.getByText(/Ready to analyze main at/).waitFor({ timeout: 1000 });
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page
-    .getByText("Repository unavailable or access is restricted.")
+    .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   assert.equal(fixtureArchiveRequests, 4);
   const clearPublicCache = async () => {
@@ -299,7 +379,7 @@ try {
   await clearPublicCache();
   await page.reload();
   await page
-    .getByText("Repository unavailable or access is restricted.")
+    .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   assert.equal(fixtureArchiveRequests, 4);
   fixtureMode = "ok";
@@ -324,6 +404,9 @@ try {
     `chrome-extension://${new URL(worker.url()).host}/options.html`,
   );
   await options.getByText("No token connected.").waitFor();
+  await options.locator("details summary").click();
+  await options.getByRole("button", { name: "Clear public cache" }).click();
+  await options.getByText("Public cache cleared.").waitFor();
   const publicFixtureBytes = [
     ...readFileSync("tests/fixtures/archive-source.tar.gz"),
   ];
@@ -365,7 +448,49 @@ try {
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page.getByText("Analyzed locally.").waitFor({ timeout: 15_000 });
   await page.getByText("1 code lines across 1 files").waitFor();
-  await page.getByText(/Skipped regular files: 1/).waitFor();
+  await page
+    .getByText(
+      /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
+    )
+    .waitFor();
+  const disclosure = page.locator("[data-culverin-root] details");
+  await disclosure.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await disclosure.evaluate(
+      (element) => (element as HTMLDetailsElement).open,
+    ),
+    false,
+  );
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await disclosure.evaluate(
+      (element) => (element as HTMLDetailsElement).open,
+    ),
+    true,
+  );
+  assert.equal(
+    await page
+      .locator("[data-culverin-root]")
+      .evaluate(
+        (host) =>
+          host.shadowRoot?.querySelector('[role="status"]')?.textContent,
+      ),
+    "Analyzed locally.",
+  );
+  const accessibility = await context.newCDPSession(page);
+  const tree = await accessibility.send("Accessibility.getFullAXTree");
+  assert.ok(
+    tree.nodes.some(
+      (node) =>
+        node.role?.value === "status" &&
+        node.properties?.some(
+          (property) =>
+            property.name === "live" && property.value?.value === "polite",
+        ),
+    ),
+  );
+  await accessibility.detach();
   await page.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
   assert.equal(
     await worker.evaluate(
@@ -618,7 +743,7 @@ try {
   fixtureMode = "ok";
   await page.getByRole("button", { name: "Analyze repository" }).click();
   await page
-    .getByText("Repository unavailable or access is restricted.")
+    .getByText(/Repository unavailable or access is restricted/)
     .waitFor({ timeout: 15_000 });
   assert.equal(fixtureArchiveRequests, 6);
   await interruptionCdp.detach();
@@ -670,10 +795,10 @@ try {
   });
   assert.equal(rejectedCrossTab.result.value.code, "analysis_interrupted");
   await crossTab.detach();
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Cancel analysis" }).click();
   await page.getByText("Analysis canceled.").waitFor();
   await second
-    .getByText("Repository unavailable or access is restricted.")
+    .getByText(/Repository unavailable or access is restricted/)
     .waitFor({ timeout: 15_000 });
   assert.equal(fixtureArchiveRequests, 7);
   await second.close();
@@ -1364,6 +1489,44 @@ try {
   );
   assert.equal(afterArchiveRestart.state, "analyzed");
   await cdp.detach();
+  fixtureMode = "ok";
+  await clearPublicCache();
+  const zeroWorker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent("serviceworker"));
+  await zeroWorker.evaluate(
+    ({ bytes, sha }) => {
+      const original = globalThis.fetch;
+      globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`)) {
+          const response = new Response(Uint8Array.from(bytes), {
+            status: 200,
+            headers: { "content-type": "application/gzip" },
+          });
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
+        return original(input, init);
+      }) as typeof fetch;
+    },
+    {
+      bytes: [...readFileSync("tests/fixtures/archive-zero.tar.gz")],
+      sha: publicSha,
+    },
+  );
+  await page.evaluate(() =>
+    history.pushState({}, "", "/culverin/bootstrap-other"),
+  );
+  await page.getByText(/Ready to analyze main at/).waitFor();
+  await page.getByRole("button", { name: "Analyze repository" }).click();
+  await page.getByText("0 code lines across 1 files").waitFor();
+  await page.getByText(/No code lines were counted/).waitFor();
+  assert.equal(await page.getByText(/NaN|Infinity/).count(), 0);
+  await page.evaluate(() =>
+    history.pushState({}, "", "/culverin/bootstrap-fixture"),
+  );
   fixtureMode = "rate";
   await clearPublicCache();
   await page.reload();

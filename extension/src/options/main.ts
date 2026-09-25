@@ -62,7 +62,9 @@ function repository(): { owner: string; name: string } | undefined {
 }
 
 function display(reply: Reply): void {
-  if (reply.state === "resolved" && reply.resolution) {
+  if (reply.state === "public-cache-cleared") {
+    show("Public cache cleared.");
+  } else if (reply.state === "resolved" && reply.resolution) {
     show(
       `${reply.resolution.visibility} default branch ${reply.resolution.defaultBranch} at ${reply.resolution.sha}`,
     );
@@ -81,6 +83,14 @@ function display(reply: Reply): void {
     );
   } else {
     show(reply.state ?? "No response");
+  }
+}
+
+async function action(type: string): Promise<void> {
+  try {
+    display(await send(type));
+  } catch {
+    show("Extension unavailable. Try again.");
   }
 }
 
@@ -121,18 +131,18 @@ document.querySelector("#cancel")!.addEventListener("click", async () => {
   if (!activeRequestId) return;
   display(await send("analysis.cancel", { targetRequestId: activeRequestId }));
 });
-document.querySelector("#job-status")!.addEventListener("click", async () => {
-  display(await send("analysis.status"));
-});
-document.querySelector("#disconnect")!.addEventListener("click", async () => {
-  display(await send("auth.disconnect"));
-});
-document.querySelector("#clear")!.addEventListener("click", async () => {
-  display(await send("auth.clear-private-session"));
-});
-document.querySelector("#clear-public")!.addEventListener("click", async () => {
-  display(await send("cache.clear-public"));
-});
+document
+  .querySelector("#job-status")!
+  .addEventListener("click", () => void action("analysis.status"));
+document
+  .querySelector("#disconnect")!
+  .addEventListener("click", () => void action("auth.disconnect"));
+document
+  .querySelector("#clear")!
+  .addEventListener("click", () => void action("auth.clear-private-session"));
+document
+  .querySelector("#clear-public")!
+  .addEventListener("click", () => void action("cache.clear-public"));
 document.querySelector("#connect")!.addEventListener("click", async () => {
   const target = repository();
   if (!target) return;

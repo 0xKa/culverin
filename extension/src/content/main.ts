@@ -6,17 +6,19 @@ import {
   type PublicReply,
   type PublicRequest,
 } from "../github/public-protocol";
-import { pageRepository, type PageRepository } from "./repository";
+import { pageContext, type PageRepository } from "./repository";
+import {
+  clearAnalysisUi,
+  createAnalysisUi,
+  showAnalysisResult,
+  type AnalysisUi,
+} from "./ui";
 
 type View = {
   url: string;
   navigationId: string;
   repository: PageRepository;
-  root: HTMLElement;
-  status: HTMLElement;
-  result: HTMLElement;
-  analyze: HTMLButtonElement;
-  cancel: HTMLButtonElement;
+  ui: AnalysisUi;
   activeRequestId?: string;
   lookupRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
@@ -32,9 +34,11 @@ let scheduled: ReturnType<typeof setTimeout> | undefined;
 const errorText: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",
   unsupported_page: "This page is not supported.",
-  repository_unavailable: "Repository unavailable or access is restricted.",
+  repository_unavailable:
+    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
   repository_empty: "This repository has no default-branch commit to analyze.",
-  repository_forbidden: "Repository unavailable or access is restricted.",
+  repository_forbidden:
+    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
   rate_limited: "GitHub rate limit reached.",
   authentication_required: "Authentication is required for this repository.",
   authentication_invalid: "GitHub authentication is invalid.",
@@ -51,28 +55,20 @@ const errorText: Record<PublicErrorCode, string> = {
   archive_unsupported: "This source snapshot format is unsupported.",
   analysis_timeout: "Analysis timed out. Try again.",
   analysis_interrupted: "Analysis was interrupted. Click Analyze to try again.",
-  analysis_busy: "Another analysis is in progress. Try again later.",
+  analysis_busy: "Analysis is busy. Select Analyze repository to retry.",
   analysis_canceled: "Analysis canceled.",
   counter_failed: "Local counting failed.",
   internal_error: "Analysis failed. Try again.",
 };
 
-function element<K extends keyof HTMLElementTagNameMap>(
-  name: K,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(name);
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
 function updateBusy(current: View, busy: boolean): void {
-  current.analyze.disabled = busy || (current.retryUntil ?? 0) > Date.now();
-  current.cancel.hidden = !busy;
+  current.ui.analyze.disabled = busy || (current.retryUntil ?? 0) > Date.now();
+  current.ui.cancel.hidden = !busy;
 }
 
 function setStatus(current: View, text: string): void {
-  current.status.textContent = text;
+  if (current.ui.status.textContent !== text)
+    current.ui.status.textContent = text;
 }
 
 function routeUrl(): string {
@@ -83,7 +79,7 @@ function currentView(candidate: View): boolean {
   return (
     view === candidate &&
     candidate.url === routeUrl() &&
-    candidate.root.isConnected
+    candidate.ui.host.isConnected
   );
 }
 
@@ -135,7 +131,7 @@ function showFailure(
     updateBusy(current, Boolean(current.activeRequestId));
   }
   setStatus(current, message);
-  current.result.replaceChildren();
+  clearAnalysisUi(current.ui);
 }
 
 function renderResult(
@@ -146,49 +142,12 @@ function renderResult(
   >,
 ): void {
   const { result, resolution } = reply;
-  current.result.replaceChildren();
-  const totals = result.totals;
-  current.result.append(
-    element("p", `${totals.code} code lines across ${totals.files} files`),
-    element(
-      "p",
-      `${totals.lines} physical lines · ${totals.comments} comments · ${totals.blanks} blanks`,
-    ),
-    element(
-      "p",
-      `${resolution.defaultBranch} · ${resolution.sha.slice(0, 12)} · ${result.engine.name} ${result.engine.version}`,
-    ),
-  );
-  const list = element("ul");
-  for (const language of result.languages) {
-    const percent = totals.code === 0 ? 0 : (language.code / totals.code) * 100;
-    list.append(
-      element(
-        "li",
-        `${language.language}: ${language.code} code lines (${percent.toFixed(1)}% of code lines), ${language.files} files`,
-      ),
-    );
-  }
-  current.result.append(list);
-  const skipped = result.coverage.skippedByReason;
-  current.result.append(
-    element(
-      "p",
-      `Skipped regular files: ${result.coverage.skippedFiles} (${skipped.excluded_by_rule} excluded, ${skipped.unsupported_language} unsupported, ${skipped.binary_content} binary, ${skipped.oversized_source} oversized).`,
-    ),
-  );
-  if (!result.coverage.complete)
-    current.result.append(
-      element(
-        "p",
-        `Partial analysis: ${result.coverage.incompleteReasons.map((reason) => (reason === "oversized_source" ? "some source files exceeded the safe size limit" : "some source counts may be inaccurate")).join("; ")}.`,
-      ),
-    );
+  showAnalysisResult(current.ui, result, resolution);
   setStatus(
     current,
     reply.type === "repository.cache_hit" ||
       (reply.type === "analysis.completed" && reply.fromCache)
-      ? "Cached local analysis. Repository visibility was checked within the last minute."
+      ? "Cached local analysis. Public visibility metadata may be up to one minute old."
       : result.coverage.complete
         ? "Analyzed locally."
         : "Partial local analysis.",
@@ -200,7 +159,7 @@ async function lookup(current: View): Promise<void> {
     repository: current.repository,
   });
   current.lookupRequestId = requestId;
-  current.analyze.disabled = true;
+  current.ui.analyze.disabled = true;
   setStatus(current, "Resolving default branch…");
   const timer = setTimeout(() => {
     if (currentView(current) && current.lookupRequestId === requestId) {
@@ -248,7 +207,7 @@ async function analyze(current: View): Promise<void> {
   });
   current.activeRequestId = requestId;
   updateBusy(current, true);
-  current.result.replaceChildren();
+  clearAnalysisUi(current.ui);
   setStatus(current, "Resolving default branch…");
   current.timer = setTimeout(() => {
     if (currentView(current) && current.activeRequestId === requestId) {
@@ -303,55 +262,30 @@ function detach(): void {
   cancel(current);
   current.port.disconnect();
   chrome.runtime.onMessage.removeListener(current.messageListener);
-  current.root.remove();
+  current.ui.host.remove();
   view = undefined;
 }
 
 function mount(): void {
-  const repository = pageRepository(location.href);
-  const repositoryMarker =
-    document.querySelector("#repository-container-header") ??
-    document.querySelector(
-      'meta[name="octolytics-dimension-repository_id"][content]',
-    );
-  if (!repository || !repositoryMarker) {
+  const context = pageContext(location.href, document);
+  if (!context) {
     detach();
     return;
   }
-  if (view?.url === routeUrl() && view.root.isConnected) return;
+  if (
+    view?.url === routeUrl() &&
+    view.ui.host.isConnected &&
+    view.ui.host.parentElement === context.anchor
+  )
+    return;
   detach();
-  const root = element("section");
-  root.dataset.culverinRoot = "";
-  root.setAttribute("aria-label", "Culverin repository analysis");
-  root.style.cssText =
-    "margin:16px 0;padding:12px;border:1px solid currentColor;border-radius:6px;max-width:720px";
-  const title = element("h2", "Culverin");
-  title.style.cssText = "font-size:16px;margin:0 0 8px";
-  const analyzeButton = element("button", "Analyze repository");
-  analyzeButton.type = "button";
-  const cancelButton = element("button", "Cancel");
-  cancelButton.type = "button";
-  cancelButton.hidden = true;
-  cancelButton.style.marginLeft = "8px";
-  const status = element("p", "Ready to analyze.");
-  status.setAttribute("role", "status");
-  status.setAttribute("aria-live", "polite");
-  const result = element("div");
-  root.append(title, analyzeButton, cancelButton, status, result);
-  const anchor =
-    document.querySelector("#repository-container-header") ??
-    document.querySelector("main") ??
-    document.body;
-  anchor.prepend(root);
+  const ui = createAnalysisUi();
+  context.anchor.prepend(ui.host);
   const current: View = {
     url: routeUrl(),
     navigationId: crypto.randomUUID(),
-    repository,
-    root,
-    status,
-    result,
-    analyze: analyzeButton,
-    cancel: cancelButton,
+    repository: context.repository,
+    ui,
     port: chrome.runtime.connect({ name: PUBLIC_PORT }),
     messageListener: () => undefined,
   };
@@ -376,17 +310,20 @@ function mount(): void {
       !validPublicReply(message, current.activeRequestId, current.navigationId)
     )
       return;
-    if (message.type === "analysis.progress")
-      setStatus(
-        current,
-        message.phase === "downloading"
-          ? `Downloading ${message.processedBytes ?? 0} bytes…`
-          : `${message.phase[0]!.toUpperCase()}${message.phase.slice(1)}…`,
-      );
+    if (message.type === "analysis.progress") {
+      const status = {
+        queued: "Queued for local analysis…",
+        resolving: "Resolving repository revision…",
+        downloading: "Downloading source snapshot from GitHub…",
+        decompressing: "Decompressing and validating source snapshot…",
+        counting: "Counting source files locally…",
+      }[message.phase];
+      setStatus(current, status);
+    }
   };
   chrome.runtime.onMessage.addListener(current.messageListener);
-  analyzeButton.addEventListener("click", () => void analyze(current));
-  cancelButton.addEventListener("click", () => cancel(current));
+  ui.analyze.addEventListener("click", () => void analyze(current));
+  ui.cancel.addEventListener("click", () => cancel(current));
   void lookup(current);
 }
 

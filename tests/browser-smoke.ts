@@ -224,6 +224,14 @@ try {
   await harness.goto(
     `chrome-extension://${new URL(worker.url()).host}/test-harness.html`,
   );
+  const beforeWorkerStopApiRequests = fixtureApiRequests;
+  const workerControl = await context.newCDPSession(page);
+  await workerControl.send("ServiceWorker.enable");
+  await workerControl.send("ServiceWorker.stopAllWorkers");
+  await workerControl.detach();
+  await page.waitForTimeout(1500);
+  assert.equal(fixtureApiRequests, beforeWorkerStopApiRequests);
+  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
   const openActionPopup = async (tab: typeof page) => {
     await tab.bringToFront();
     const opened = await harness.evaluate(
@@ -246,9 +254,78 @@ try {
         ),
     );
     assert.equal(opened.ok, true);
-    await tab.bringToFront();
   };
   const extensionUrl = `chrome-extension://${new URL(worker.url()).host}`;
+  const actionPopup = async () => {
+    const session = await context.newCDPSession(harness);
+    let targetId: string | undefined;
+    for (let attempt = 0; attempt < 100 && !targetId; attempt++) {
+      const { targetInfos } = await session.send("Target.getTargets");
+      const candidates = targetInfos.filter(
+        (item) =>
+          item.type === "page" && item.url === `${extensionUrl}/popup.html`,
+      );
+      assert.ok(candidates.length <= 1);
+      targetId = candidates[0]?.targetId;
+      if (!targetId) await harness.waitForTimeout(50);
+    }
+    assert.ok(targetId, "action popup opened");
+    const { sessionId } = await session.send("Target.attachToTarget", {
+      targetId,
+      flatten: false,
+    });
+    let nextId = 0;
+    const evaluate = async <T>(expression: string): Promise<T> => {
+      const id = ++nextId;
+      const result = new Promise<T>((resolve, reject) => {
+        const listener = (event: { sessionId: string; message: string }) => {
+          const message = JSON.parse(event.message) as {
+            id?: number;
+            error?: unknown;
+            result?: {
+              result?: { value?: unknown };
+              exceptionDetails?: unknown;
+            };
+          };
+          if (event.sessionId !== sessionId || message.id !== id) return;
+          session.off("Target.receivedMessageFromTarget", listener);
+          if (message.error || message.result?.exceptionDetails)
+            reject(new Error(event.message));
+          else resolve(message.result?.result?.value as T);
+        };
+        session.on("Target.receivedMessageFromTarget", listener);
+      });
+      await session.send("Target.sendMessageToTarget", {
+        sessionId,
+        message: JSON.stringify({
+          id,
+          method: "Runtime.evaluate",
+          params: { expression, returnByValue: true },
+        }),
+      });
+      return result;
+    };
+    const statusText = () =>
+      evaluate<string>("document.querySelector('#status').textContent");
+    return {
+      status: async (pattern: RegExp) => {
+        for (let attempt = 0; attempt < 300; attempt++) {
+          const text = await statusText();
+          if (pattern.test(text)) return text;
+          await harness.waitForTimeout(50);
+        }
+        throw new Error(`Action popup status: ${await statusText()}`);
+      },
+      click: (selector: string) =>
+        evaluate<void>(
+          `document.querySelector(${JSON.stringify(selector)}).click()`,
+        ),
+      close: async () => {
+        await session.send("Target.closeTarget", { targetId });
+        await session.detach();
+      },
+    };
+  };
   const openPopup = async (tab: typeof page) => {
     await tab.bringToFront();
     const popup = await context.newPage();
@@ -259,6 +336,9 @@ try {
     return popup;
   };
   await openActionPopup(page);
+  const firstActionPopup = await actionPopup();
+  await firstActionPopup.status(/^Ready to analyze main at /);
+  await firstActionPopup.close();
   const popup = await openPopup(page);
   await popup
     .getByText(/Ready to analyze main at/)
@@ -291,6 +371,34 @@ try {
   await popup.emulateMedia({ colorScheme: "light", forcedColors: "none" });
   assert.equal(fixtureArchiveRequests, 0);
   await popup.close();
+  const interruptedLookupPopup = await context.newPage();
+  await interruptedLookupPopup.addInitScript(() => {
+    const connect = chrome.runtime.connect.bind(chrome.runtime);
+    chrome.runtime.connect = ((info: chrome.runtime.ConnectInfo) => {
+      const port = connect(info);
+      const postMessage = port.postMessage.bind(port);
+      port.postMessage = (message: { type?: string }) => {
+        if (message.type === "repository.lookup")
+          throw new Error("Extension unavailable");
+        postMessage(message);
+      };
+      return port;
+    }) as typeof chrome.runtime.connect;
+  });
+  await interruptedLookupPopup.goto(`${extensionUrl}/popup.html`);
+  await page.bringToFront();
+  await interruptedLookupPopup.reload();
+  await interruptedLookupPopup
+    .getByText("Extension unavailable. Reopen the popup to retry.")
+    .waitFor();
+  assert.equal(
+    await interruptedLookupPopup
+      .getByRole("button", { name: "Analyze repository" })
+      .isEnabled(),
+    true,
+  );
+  await interruptedLookupPopup.close();
+  assert.equal(fixtureArchiveRequests, 0);
   const beforeFragmentApiRequests = fixtureApiRequests;
   await page.evaluate(() => {
     location.hash = "usage";
@@ -413,6 +521,71 @@ try {
     .waitFor();
   await retryPopup.close();
   assert.equal(fixtureArchiveRequests, 4);
+  fixtureMode = "slow";
+  const switchedArchive = new Promise<void>((resolve) => {
+    slowArchiveStarted = resolve;
+  });
+  const switchingPopup = await openPopup(page);
+  await switchingPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+  await switchedArchive;
+  const otherTab = await context.newPage();
+  await otherTab.bringToFront();
+  await switchingPopup
+    .getByText("The active tab changed. Reopen the popup to analyze it.")
+    .waitFor();
+  await page.waitForTimeout(300);
+  const switchedJobs = await harness.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { requestId: string }[] | undefined;
+  });
+  assert.equal(switchedJobs?.length, 1);
+  const repositoryTabId = await harness.evaluate(
+    async () =>
+      (
+        await chrome.tabs.query({
+          url: "https://github.com/culverin/bootstrap-fixture*",
+        })
+      )[0]?.id,
+  );
+  const switchedCancel = await switchingPopup.evaluate(
+    ({ tabId, targetRequestId }) =>
+      new Promise<{ type?: string }>((resolve) => {
+        const port = chrome.runtime.connect({ name: "culverin.popup" });
+        const requestId = crypto.randomUUID();
+        port.onMessage.addListener(
+          (message: { requestId?: string; type?: string }) => {
+            if (message.requestId !== requestId) return;
+            port.disconnect();
+            resolve(message);
+          },
+        );
+        port.postMessage({
+          protocolVersion: 1,
+          type: "analysis.cancel",
+          requestId,
+          navigationId: crypto.randomUUID(),
+          targetRequestId,
+          tabId,
+        });
+      }),
+    { tabId: repositoryTabId, targetRequestId: switchedJobs?.[0]?.requestId },
+  );
+  assert.equal(switchedCancel.type, "analysis.canceled");
+  const switchedCanceledJobs = await harness.evaluate(async () => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = await chrome.storage.session.get("github.job");
+      if (state["github.job"] === undefined) return undefined;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return (await chrome.storage.session.get("github.job"))["github.job"];
+  });
+  assert.equal(switchedCanceledJobs, undefined);
+  await otherTab.close();
+  await switchingPopup.close();
+  fixtureMode = "ok";
+  assert.equal(fixtureArchiveRequests, 5);
   const clearPublicCache = async () => {
     const worker =
       context.serviceWorkers()[0] ??
@@ -456,7 +629,7 @@ try {
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   await privatePopup.close();
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
     route.fulfill({
@@ -483,12 +656,16 @@ try {
       const scope = globalThis as typeof globalThis & {
         fixtureOriginalFetch?: typeof fetch;
         fixtureFetchCount?: number;
+        fixtureRelease?: () => void;
       };
       scope.fixtureOriginalFetch = fetch;
       scope.fixtureFetchCount = 0;
       globalThis.fetch = (async (input, init) => {
         if (String(input).endsWith(`/tarball/${sha}`)) {
           scope.fixtureFetchCount = (scope.fixtureFetchCount ?? 0) + 1;
+          await new Promise<void>((resolve) => {
+            scope.fixtureRelease = resolve;
+          });
           const response = new Response(Uint8Array.from(bytes), {
             status: 200,
             headers: { "content-type": "application/gzip" },
@@ -513,8 +690,9 @@ try {
     ),
     0,
   );
-  const resultPopup = await openPopup(page);
-  await resultPopup.getByText(/Ready to analyze main at/).waitFor();
+  await openActionPopup(page);
+  const resultPopup = await actionPopup();
+  await resultPopup.status(/^Ready to analyze main at /);
   assert.equal(
     await worker.evaluate(
       () =>
@@ -523,25 +701,59 @@ try {
     ),
     0,
   );
-  await resultPopup.getByRole("button", { name: "Analyze repository" }).click();
-  await resultPopup.getByText("Analyzed locally.").waitFor({ timeout: 15_000 });
-  await resultPopup.getByText("1 code lines", { exact: true }).waitFor();
-  await resultPopup
+  await resultPopup.click("#analyze");
+  await worker.evaluate(async () => {
+    const scope = globalThis as typeof globalThis & {
+      fixtureRelease?: () => void;
+    };
+    for (let attempt = 0; attempt < 200 && !scope.fixtureRelease; attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    if (!scope.fixtureRelease) throw new Error("Archive request did not start");
+  });
+  await resultPopup.close();
+  await page.waitForTimeout(300);
+  const heldPopupJobs = await harness.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { owner: string }[] | undefined;
+  });
+  assert.equal(heldPopupJobs?.length, 1);
+  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  const resumedPopup = await openPopup(page);
+  await resumedPopup
+    .getByText("Analysis in progress. Closing the popup does not stop it.")
+    .waitFor();
+  await resumedPopup.getByRole("button", { name: "Cancel analysis" }).waitFor();
+  assert.equal(
+    await resumedPopup
+      .getByRole("button", { name: "Analyze repository" })
+      .isDisabled(),
+    true,
+  );
+  await worker.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { fixtureRelease?: () => void }
+    ).fixtureRelease?.(),
+  );
+  await resumedPopup
+    .getByText("Analyzed locally.")
+    .waitFor({ timeout: 15_000 });
+  await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
+  await resumedPopup
     .getByText(
       /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
     )
     .waitFor();
   await page.getByText("Culverin | Total LOC: 1").waitFor();
-  const disclosure = resultPopup.locator("#details");
+  const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();
-  await resultPopup.keyboard.press("Enter");
+  await resumedPopup.keyboard.press("Enter");
   assert.equal(
     await disclosure.evaluate(
       (element) => (element as HTMLDetailsElement).open,
     ),
     false,
   );
-  await resultPopup.keyboard.press("Enter");
+  await resumedPopup.keyboard.press("Enter");
   assert.equal(
     await disclosure.evaluate(
       (element) => (element as HTMLDetailsElement).open,
@@ -549,10 +761,10 @@ try {
     true,
   );
   assert.equal(
-    await resultPopup.locator("#status").textContent(),
+    await resumedPopup.locator("#status").textContent(),
     "Analyzed locally.",
   );
-  const accessibility = await context.newCDPSession(resultPopup);
+  const accessibility = await context.newCDPSession(resumedPopup);
   const tree = await accessibility.send("Accessibility.getFullAXTree");
   assert.ok(
     tree.nodes.some(
@@ -565,7 +777,7 @@ try {
     ),
   );
   await accessibility.detach();
-  await resultPopup.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
+  await resumedPopup.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
   assert.equal(
     await worker.evaluate(
       () =>
@@ -574,7 +786,7 @@ try {
     ),
     1,
   );
-  await resultPopup.close();
+  await resumedPopup.close();
   await page.reload();
   await page.getByText("Culverin | Total LOC: 1").waitFor();
   assert.equal(
@@ -585,6 +797,55 @@ try {
     ),
     1,
   );
+  const restartPopup = await openPopup(page);
+  const cachedStatus =
+    "Cached local analysis. Public visibility metadata may be up to one minute old.";
+  await restartPopup.getByText(cachedStatus).waitFor();
+  const restartControl = await context.newCDPSession(page);
+  await restartControl.send("ServiceWorker.enable");
+  await restartControl.send("ServiceWorker.stopAllWorkers");
+  await restartControl.detach();
+  await page.waitForTimeout(1000);
+  await restartPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+  await restartPopup.waitForFunction(
+    () =>
+      document.querySelector("#status")?.textContent !==
+      "Resolving default branch…",
+  );
+  assert.equal(
+    await restartPopup.locator("#status").textContent(),
+    cachedStatus,
+  );
+  await restartPopup.getByText("1 code lines", { exact: true }).waitFor();
+  const impostorDisconnected = await harness.evaluate(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const impostor = chrome.runtime.connect({ name: "culverin.popup" });
+        impostor.onDisconnect.addListener(() => resolve(true));
+        setTimeout(() => resolve(false), 2000);
+      }),
+  );
+  assert.equal(impostorDisconnected, true);
+  const messageChannel = await restartPopup.evaluate(
+    (tabId) =>
+      new Promise<string>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.status",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            tabId,
+          },
+          () => resolve(chrome.runtime.lastError ? "rejected" : "handled"),
+        ),
+      ),
+    repositoryTabId,
+  );
+  assert.equal(messageChannel, "rejected");
+  await restartPopup.close();
   const isolation = await context.newCDPSession(page);
   const isolatedContexts: { id: number; origin: string }[] = [];
   isolation.on("Runtime.executionContextCreated", ({ context }) => {
@@ -673,7 +934,7 @@ try {
     },
     { state: "failed", code: "invalid_repository" },
   );
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   const interruptionCdp = await context.newCDPSession(harness);
   let interruptedVersion: string | undefined;
   interruptionCdp.on("ServiceWorker.workerVersionUpdated", (event) => {
@@ -684,7 +945,7 @@ try {
   await interruptionCdp.send("ServiceWorker.enable");
   await page.goto("https://github.com/culverin/bootstrap-fixture");
   await page.getByText("Culverin | Total LOC: 1").waitFor();
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "private";
   const privateObservation = await options.evaluate(
     () =>
@@ -827,7 +1088,7 @@ try {
     .getByText(/Analysis was interrupted/)
     .waitFor({ timeout: 15_000 });
   await page.waitForTimeout(1700);
-  assert.equal(fixtureArchiveRequests, 5);
+  assert.equal(fixtureArchiveRequests, 6);
   await interruptedPopup.close();
   fixtureMode = "ok";
   const recoveryPopup = await openPopup(page);
@@ -837,7 +1098,7 @@ try {
   await recoveryPopup
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor({ timeout: 15_000 });
-  assert.equal(fixtureArchiveRequests, 6);
+  assert.equal(fixtureArchiveRequests, 7);
   await recoveryPopup.close();
   await interruptionCdp.detach();
   fixtureMode = "shared";
@@ -852,8 +1113,14 @@ try {
     .click();
   await detachedArchive;
   await detachedPopup.close();
+  await page.waitForTimeout(300);
+  const continuingJobs = await options.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { owner: string }[] | undefined;
+  });
+  assert.equal(continuingJobs?.length, 1);
   const detachedJobs = await options.evaluate(async () => {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (let attempt = 0; attempt < 500; attempt++) {
       const state = await chrome.storage.session.get("github.job");
       if (state["github.job"] === undefined) return undefined;
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -861,7 +1128,7 @@ try {
     return (await chrome.storage.session.get("github.job"))["github.job"];
   });
   assert.equal(detachedJobs, undefined);
-  assert.equal(fixtureArchiveRequests, 7);
+  assert.equal(fixtureArchiveRequests, 8);
   assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
   fixtureMode = "ok";
   if (process.env.CULVERIN_LIVE_PUBLIC === "1") {

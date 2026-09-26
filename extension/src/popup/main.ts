@@ -21,7 +21,6 @@ const analyzeButton = document.querySelector<HTMLButtonElement>("#analyze")!;
 const cancelButton = document.querySelector<HTMLButtonElement>("#cancel")!;
 const details = document.querySelector<HTMLDetailsElement>("#details")!;
 const detailContent = document.querySelector<HTMLElement>("#detail-content")!;
-const port = chrome.runtime.connect({ name: POPUP_PORT });
 const errors: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",
   unsupported_page: "This page is not supported.",
@@ -52,7 +51,20 @@ const errors: Record<PublicErrorCode, string> = {
   internal_error: "Analysis failed. Try again.",
 };
 
+const progressText = {
+  queued: "Queued for local analysis…",
+  resolving: "Resolving repository revision…",
+  downloading: "Downloading source snapshot from GitHub…",
+  decompressing: "Decompressing and validating source snapshot…",
+  counting: "Counting source files locally…",
+};
+
 let target: { tabId: number; repository: PageRepository } | undefined;
+let port: chrome.runtime.Port | undefined;
+const waiting = new Map<
+  string,
+  { resolve: (reply: PublicReply) => void; reject: (error: Error) => void }
+>();
 let lookupRequestId: string | undefined;
 let activeRequestId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -127,17 +139,6 @@ function showResult(
   }
   details.hidden = false;
   details.open = true;
-  if (coverage.complete && target) {
-    const update = {
-      protocolVersion: 1,
-      type: "summary.update",
-      repository: target.repository,
-      totalCodeLines: totals.code,
-    };
-    void chrome.tabs
-      .sendMessage(target.tabId, update, { frameId: 0 })
-      .catch(() => undefined);
-  }
 }
 
 function handleFailure(
@@ -163,6 +164,40 @@ function handleFailure(
   setBusy(Boolean(activeRequestId));
 }
 
+function receive(value: unknown): void {
+  for (const [requestId, waiter] of waiting) {
+    if (!validPublicReply(value, requestId, navigationId)) continue;
+    if (value.type === "analysis.progress") break;
+    waiting.delete(requestId);
+    waiter.resolve(value);
+    return;
+  }
+  const requestId = activeRequestId;
+  if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
+  if (value.type === "analysis.progress") setStatus(progressText[value.phase]);
+  else void finishAnalysis(requestId, value);
+}
+
+function connect(): chrome.runtime.Port {
+  if (port) return port;
+  const current = chrome.runtime.connect({ name: POPUP_PORT });
+  current.onMessage.addListener(receive);
+  current.onDisconnect.addListener(() => {
+    if (port !== current) return;
+    port = undefined;
+    for (const waiter of waiting.values())
+      waiter.reject(new Error("Extension disconnected"));
+    waiting.clear();
+    const requestId = activeRequestId;
+    if (requestId) {
+      setStatus(errors.analysis_interrupted);
+      stopWatching(requestId);
+    }
+  });
+  port = current;
+  return current;
+}
+
 function send(
   type: PublicRequest["type"],
   extra: Record<string, unknown> = {},
@@ -178,14 +213,13 @@ function send(
     ...extra,
   } as PopupPublicRequest;
   const response = new Promise<PublicReply>((resolve, reject) => {
-    chrome.runtime.sendMessage(request, (value: unknown) => {
-      if (
-        chrome.runtime.lastError ||
-        !validPublicReply(value, requestId, navigationId)
-      )
-        reject(new Error("Invalid extension response"));
-      else resolve(value);
-    });
+    waiting.set(requestId, { resolve, reject });
+    try {
+      connect().postMessage(request);
+    } catch {
+      waiting.delete(requestId);
+      reject(new Error("Extension unavailable"));
+    }
   });
   return { requestId, response };
 }
@@ -213,7 +247,7 @@ async function lookup(): Promise<void> {
       setStatus(
         `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. Analyze downloads a source snapshot from GitHub and counts it locally.`,
       );
-      setBusy(false);
+      void resume();
     } else if (reply.type === "repository.cache_hit") {
       const hash = await effectiveRulesHash([]);
       if (lookupRequestId !== pending.requestId) return;
@@ -225,7 +259,6 @@ async function lookup(): Promise<void> {
         setStatus(
           "Cached local analysis. Public visibility metadata may be up to one minute old.",
         );
-        setBusy(false);
       }
     } else if (reply.type === "analysis.failed") handleFailure(reply);
     else setStatus(errors.internal_error);
@@ -234,8 +267,56 @@ async function lookup(): Promise<void> {
       setStatus("Extension unavailable. Reopen the popup to retry.");
   } finally {
     clearTimeout(lookupTimer);
-    if (lookupRequestId === pending.requestId) lookupRequestId = undefined;
+    if (lookupRequestId === pending.requestId) {
+      lookupRequestId = undefined;
+      setBusy(Boolean(activeRequestId));
+    }
   }
+}
+
+function watchAnalysis(requestId: string): void {
+  activeRequestId = requestId;
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (activeRequestId !== requestId) return;
+    activeRequestId = undefined;
+    setBusy(false);
+    setStatus(errors.analysis_interrupted);
+    const cancel = send("analysis.cancel", { targetRequestId: requestId });
+    void cancel?.response.catch(() => undefined);
+  }, 60_000);
+}
+
+function stopWatching(requestId: string): void {
+  if (activeRequestId !== requestId) return;
+  activeRequestId = undefined;
+  clearTimeout(timer);
+  setBusy(false);
+}
+
+async function finishAnalysis(
+  requestId: string,
+  reply: PublicReply,
+): Promise<void> {
+  if (activeRequestId !== requestId) return;
+  if (reply.type === "analysis.completed") {
+    const hash = await effectiveRulesHash([]);
+    if (activeRequestId !== requestId) return;
+    if (reply.result.engine.rulesHash !== hash) {
+      setStatus(errors.internal_error);
+    } else {
+      showResult(reply.result, reply.resolution);
+      setStatus(
+        reply.fromCache
+          ? "Cached local analysis. Public visibility metadata may be up to one minute old."
+          : reply.result.coverage.complete
+            ? "Analyzed locally."
+            : "Partial local analysis.",
+      );
+    }
+  } else if (reply.type === "analysis.failed") handleFailure(reply);
+  else setStatus(errors.internal_error);
+  stopWatching(requestId);
 }
 
 async function analyze(): Promise<void> {
@@ -244,50 +325,41 @@ async function analyze(): Promise<void> {
     repository: target.repository,
   });
   if (!pending) return;
-  activeRequestId = pending.requestId;
+  watchAnalysis(pending.requestId);
   setBusy(true);
   clearResult();
   setStatus("Resolving default branch…");
-  timer = setTimeout(() => {
-    if (activeRequestId !== pending.requestId) return;
-    activeRequestId = undefined;
-    setBusy(false);
-    setStatus(errors.analysis_interrupted);
-    const cancel = send("analysis.cancel", {
-      targetRequestId: pending.requestId,
-    });
-    void cancel?.response.catch(() => undefined);
-  }, 60_000);
   try {
-    const reply = await pending.response;
-    if (activeRequestId !== pending.requestId) return;
-    if (reply.type === "analysis.completed") {
-      const hash = await effectiveRulesHash([]);
-      if (activeRequestId !== pending.requestId) return;
-      if (reply.result.engine.rulesHash !== hash) {
-        setStatus(errors.internal_error);
-      } else {
-        showResult(reply.result, reply.resolution);
-        setStatus(
-          reply.fromCache
-            ? "Cached local analysis. Public visibility metadata may be up to one minute old."
-            : reply.result.coverage.complete
-              ? "Analyzed locally."
-              : "Partial local analysis.",
-        );
-      }
-    } else if (reply.type === "analysis.failed") handleFailure(reply);
-    else setStatus(errors.internal_error);
+    await finishAnalysis(pending.requestId, await pending.response);
   } catch {
     if (activeRequestId === pending.requestId)
       setStatus(errors.analysis_interrupted);
-  } finally {
-    if (activeRequestId === pending.requestId) {
-      activeRequestId = undefined;
-      clearTimeout(timer);
-      setBusy(false);
-    }
+    stopWatching(pending.requestId);
   }
+}
+
+async function resume(): Promise<void> {
+  if (!target || activeRequestId) return;
+  const pending = send("analysis.status");
+  if (!pending) return;
+  activeRequestId = pending.requestId;
+  const reply = await pending.response.catch(() => undefined);
+  if (activeRequestId !== pending.requestId) return;
+  if (
+    reply?.type === "analysis.status" &&
+    (reply.state === "queued" || reply.state === "running")
+  ) {
+    watchAnalysis(pending.requestId);
+    setBusy(true);
+    clearResult();
+    setStatus(
+      reply.state === "queued"
+        ? progressText.queued
+        : "Analysis in progress. Closing the popup does not stop it.",
+    );
+    return;
+  }
+  stopWatching(pending.requestId);
 }
 
 async function cancel(): Promise<void> {
@@ -302,10 +374,6 @@ async function cancel(): Promise<void> {
 }
 
 function leaveRepository(): void {
-  const requestId = activeRequestId;
-  const pending = requestId
-    ? send("analysis.cancel", { targetRequestId: requestId })
-    : undefined;
   activeRequestId = undefined;
   lookupRequestId = undefined;
   target = undefined;
@@ -316,7 +384,6 @@ function leaveRepository(): void {
   clearResult();
   setBusy(false);
   setStatus("The active tab changed. Reopen the popup to analyze it.");
-  void pending?.response.catch(() => undefined);
 }
 
 function sameRepository(url: string, expected: PageRepository): boolean {
@@ -340,24 +407,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   if (target && tabId !== target.tabId) leaveRepository();
-});
-
-port.onMessage.addListener((value: unknown) => {
-  if (
-    !activeRequestId ||
-    !validPublicReply(value, activeRequestId, navigationId) ||
-    value.type !== "analysis.progress"
-  )
-    return;
-  setStatus(
-    {
-      queued: "Queued for local analysis…",
-      resolving: "Resolving repository revision…",
-      downloading: "Downloading source snapshot from GitHub…",
-      decompressing: "Decompressing and validating source snapshot…",
-      counting: "Counting source files locally…",
-    }[value.phase],
-  );
 });
 
 document.querySelector("#settings")!.addEventListener("click", () => {

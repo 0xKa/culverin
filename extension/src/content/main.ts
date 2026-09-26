@@ -23,7 +23,7 @@ type View = {
   ) => void;
 };
 
-const POPUP_URL = chrome.runtime.getURL("popup.html");
+const WORKER_URL = chrome.runtime.getURL("background.js");
 let view: View | undefined;
 let scheduled: ReturnType<typeof setTimeout> | undefined;
 
@@ -100,17 +100,6 @@ async function lookup(current: View): Promise<void> {
   }
 }
 
-function watchPort(current: View, port: chrome.runtime.Port): void {
-  current.port = port;
-  port.onDisconnect.addListener(() => {
-    if (!currentView(current)) return;
-    current.lookupRequestId = undefined;
-    clearTimeout(current.timer);
-    watchPort(current, chrome.runtime.connect({ name: PUBLIC_PORT }));
-    void lookup(current);
-  });
-}
-
 function detach(): void {
   const current = view;
   if (!current) return;
@@ -148,8 +137,8 @@ function mount(): void {
   current.messageListener = (message, sender) => {
     if (
       sender.id !== chrome.runtime.id ||
-      sender.url !== POPUP_URL ||
-      (sender.frameId !== undefined && sender.frameId !== 0) ||
+      sender.url !== WORKER_URL ||
+      sender.tab !== undefined ||
       !currentView(current) ||
       !validSummaryUpdate(message) ||
       message.repository.owner.toLowerCase() !==
@@ -160,7 +149,6 @@ function mount(): void {
       return;
     showTotalCodeLines(current.ui, message.totalCodeLines);
   };
-  watchPort(current, current.port);
   chrome.runtime.onMessage.addListener(current.messageListener);
   void lookup(current);
 }

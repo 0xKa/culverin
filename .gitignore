@@ -1,5 +1,6 @@
 .local*
 .agents
+.claude
 AGENTS.md
 .bun/
 node_modules/

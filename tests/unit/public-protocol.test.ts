@@ -6,8 +6,10 @@ import {
 import {
   publicFailure,
   validEnvelope,
+  validPopupPublicRequest,
   validPublicReply,
   validPublicRequest,
+  validSummaryUpdate,
 } from "../../extension/src/github/public-protocol";
 
 const requestId = "123e4567-e89b-42d3-a456-426614174000";
@@ -82,6 +84,33 @@ test("adapts repository placement without mounting on unrelated pages", () => {
   expect(pageContext("https://github.com/owner/repo", fallback)?.anchor).toBe(
     main,
   );
+});
+
+test("validates popup requests and compact page summary updates", () => {
+  const popupRequest = {
+    protocolVersion: 1,
+    type: "repository.lookup",
+    requestId,
+    navigationId,
+    repository: { owner: "owner", name: "repo" },
+    tabId: 7,
+  };
+  expect(validPopupPublicRequest(popupRequest)).toBe(true);
+  expect(validPopupPublicRequest({ ...popupRequest, tabId: -1 })).toBe(false);
+  expect(validPopupPublicRequest({ ...popupRequest, token: "secret" })).toBe(
+    false,
+  );
+  expect(validPopupPublicRequest({ ...popupRequest, other: true })).toBe(false);
+  const update = {
+    protocolVersion: 1,
+    type: "summary.update",
+    repository: { owner: "owner", name: "repo" },
+    totalCodeLines: 125,
+  };
+  expect(validSummaryUpdate(update)).toBe(true);
+  expect(validSummaryUpdate({ ...update, totalCodeLines: -1 })).toBe(false);
+  expect(validSummaryUpdate({ ...update, totalCodeLines: "125" })).toBe(false);
+  expect(validSummaryUpdate({ ...update, token: "secret" })).toBe(false);
 });
 
 test("requires closed messages and repository identity", () => {

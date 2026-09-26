@@ -3,6 +3,7 @@ import { validRepository, type Resolution } from "./client";
 
 export const PUBLIC_VERSION = 1;
 export const PUBLIC_PORT = "culverin.public";
+export const POPUP_PORT = "culverin.popup";
 
 export type PublicRequest = {
   protocolVersion: 1;
@@ -15,6 +16,15 @@ export type PublicRequest = {
   navigationId: string;
   repository?: { owner: string; name: string };
   targetRequestId?: string;
+};
+
+export type PopupPublicRequest = PublicRequest & { tabId: number };
+
+export type SummaryUpdate = {
+  protocolVersion: 1;
+  type: "summary.update";
+  repository: { owner: string; name: string };
+  totalCodeLines: number;
 };
 
 export type ResolutionEnvelope = Resolution & { resolvedAt: number };
@@ -130,6 +140,45 @@ export function validPublicRequest(value: unknown): value is PublicRequest {
   return (
     value.type === "analysis.status" &&
     exact(value, ["protocolVersion", "type", "requestId", "navigationId"])
+  );
+}
+
+export function validPopupPublicRequest(
+  value: unknown,
+): value is PopupPublicRequest {
+  if (
+    !record(value) ||
+    typeof value.tabId !== "number" ||
+    !Number.isSafeInteger(value.tabId) ||
+    value.tabId < 0
+  )
+    return false;
+  const request = { ...value };
+  delete request.tabId;
+  return validPublicRequest(request);
+}
+
+export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
+  if (
+    !record(value) ||
+    !exact(value, [
+      "protocolVersion",
+      "type",
+      "repository",
+      "totalCodeLines",
+    ]) ||
+    value.protocolVersion !== PUBLIC_VERSION ||
+    value.type !== "summary.update" ||
+    !record(value.repository) ||
+    !exact(value.repository, ["owner", "name"]) ||
+    typeof value.repository.owner !== "string" ||
+    typeof value.repository.name !== "string" ||
+    !validRepository(value.repository.owner, value.repository.name)
+  )
+    return false;
+  return (
+    Number.isSafeInteger(value.totalCodeLines) &&
+    (value.totalCodeLines as number) >= 0
   );
 }
 

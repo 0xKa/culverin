@@ -25,6 +25,25 @@ chrome.runtime.onMessage.addListener(
       return false;
     if (
       sender.url === chrome.runtime.getURL("test-harness.html") &&
+      message.type === "popup.open" &&
+      "targetTabId" in message &&
+      Number.isSafeInteger(message.targetTabId) &&
+      (message.targetTabId as number) >= 0
+    ) {
+      void chrome.tabs
+        .get(message.targetTabId as number)
+        .then(async (tab) => {
+          if (tab.windowId === undefined)
+            throw new Error("Missing browser window");
+          await chrome.tabs.update(tab.id!, { active: true });
+          await chrome.action.openPopup({ windowId: tab.windowId });
+          sendResponse({ ok: true });
+        })
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (
+      sender.url === chrome.runtime.getURL("test-harness.html") &&
       message.type === "archive.fixture.cancel" &&
       "targetRequestId" in message &&
       currentFixture !== undefined &&

@@ -317,7 +317,7 @@ sync();
       return result;
     };
     const statusText = () =>
-      evaluate<string>("document.querySelector('#status').textContent");
+      evaluate<string>("document.querySelector('#status')?.textContent ?? ''");
     return {
       status: async (pattern: RegExp) => {
         for (let attempt = 0; attempt < 300; attempt++) {

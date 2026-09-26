@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import zlib
 from pathlib import Path
 
-SOURCE = Path("assets/original/culverin-original-speed-stats.svg")
+SOURCE = Path("assets/original/culverin-original-stats.svg")
 OUTPUT = Path("extension/public/icons")
 SIZES = (16, 32, 48, 128)
 NAMESPACE = "{http://www.w3.org/2000/svg}"

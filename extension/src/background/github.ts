@@ -579,6 +579,18 @@ function handlePublic(
   const request = value;
   const tabId = sender.tab.id;
   const documentId = sender.documentId;
+  if (request.type === "popup.open") {
+    const windowId = sender.tab.windowId;
+    const opened = (value: boolean) =>
+      respond(publicReply(request, { type: "popup.opened", opened: value }));
+    if (!sender.tab.active || windowId === undefined) opened(false);
+    else
+      void chrome.action.openPopup({ windowId }).then(
+        () => opened(true),
+        () => opened(false),
+      );
+    return true;
+  }
   const key = portKey(tabId, documentId);
   const prefix = `p:${tabId}:${documentId}:`;
   runPublicRequest(request, {

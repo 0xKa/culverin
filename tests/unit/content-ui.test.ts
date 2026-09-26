@@ -16,16 +16,18 @@ test("formats counts like GitHub repository stats", () => {
   expect(compactCount(3_000_000_000)).toBe("3B");
 });
 
-test("describes complete counts with exact tooltips", () => {
+test("describes complete counts with exact tooltips and opens details", () => {
   expect(rowView({ kind: "complete", total: 1_234_567 })).toEqual({
     count: "1.2M",
     label: "lines of code",
-    title: "1,234,567 lines of code",
+    title: "1,234,567 lines of code. Open Culverin for details",
+    action: "details",
   });
   expect(rowView({ kind: "complete", total: 1 })).toEqual({
     count: "1",
     label: "line of code",
-    title: "1 line of code",
+    title: "1 line of code. Open Culverin for details",
+    action: "details",
   });
 });
 

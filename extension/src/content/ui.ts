@@ -6,7 +6,7 @@ export type AnalysisPhase = Extract<
   { type: "analysis.progress" }
 >["phase"];
 
-export type RowAction = "analyze" | "cancel";
+export type RowAction = "analyze" | "cancel" | "details";
 
 export type RowState =
   | { kind: "hidden" }
@@ -131,7 +131,8 @@ export function rowView(state: VisibleRowState): RowView {
     return {
       count: compactCount(state.total),
       label,
-      title: `${state.total.toLocaleString("en")} ${label}`,
+      title: `${state.total.toLocaleString("en")} ${label}. Open Culverin for details`,
+      action: "details",
     };
   }
   if (state.kind === "retry")

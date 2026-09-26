@@ -11,7 +11,8 @@ export type PublicRequest = {
     | "repository.lookup"
     | "analysis.request"
     | "analysis.cancel"
-    | "analysis.status";
+    | "analysis.status"
+    | "popup.open";
   requestId: string;
   navigationId: string;
   repository?: { owner: string; name: string };
@@ -81,6 +82,7 @@ export type PublicReply = {
       type: "analysis.status";
       state: "idle" | "queued" | "running" | "interrupted";
     }
+  | { type: "popup.opened"; opened: boolean }
   | {
       type: "analysis.progress";
       phase:
@@ -138,7 +140,7 @@ export function validPublicRequest(value: unknown): value is PublicRequest {
       ]) && validId(value.targetRequestId)
     );
   return (
-    value.type === "analysis.status" &&
+    (value.type === "analysis.status" || value.type === "popup.open") &&
     exact(value, ["protocolVersion", "type", "requestId", "navigationId"])
   );
 }
@@ -155,7 +157,7 @@ export function validPopupPublicRequest(
     return false;
   const request = { ...value };
   delete request.tabId;
-  return validPublicRequest(request);
+  return validPublicRequest(request) && request.type !== "popup.open";
 }
 
 export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
@@ -331,6 +333,10 @@ export function validPublicReply(
       ["idle", "queued", "running", "interrupted"].includes(
         value.state as string,
       )
+    );
+  if (value.type === "popup.opened")
+    return (
+      exact(value, [...base, "opened"]) && typeof value.opened === "boolean"
     );
   if (value.type === "analysis.progress")
     return (

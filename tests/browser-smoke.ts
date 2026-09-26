@@ -819,6 +819,21 @@ sync();
     ),
     1,
   );
+  const countRow = page.getByRole("button", {
+    name: "1 line of code",
+    exact: true,
+  });
+  await page.bringToFront();
+  await countRow.hover();
+  assert.equal(
+    await countRow.evaluate((row) => getComputedStyle(row).color),
+    "rgb(9, 105, 218)",
+  );
+  await countRow.click();
+  const detailsPopup = await actionPopup();
+  await detailsPopup.status(/^Cached local analysis/);
+  await detailsPopup.close();
+  await page.mouse.move(0, 0);
   const restartPopup = await openPopup(page);
   const cachedStatus =
     "Cached local analysis. Public visibility metadata may be up to one minute old.";
@@ -1917,8 +1932,11 @@ sync();
   await page
     .getByText("0 lines of code", { exact: true })
     .waitFor({ timeout: 15_000 });
-  assert.equal(await rowTitle(), "0 lines of code");
-  assert.equal(await page.getByRole("button", { name: /lines/ }).count(), 0);
+  assert.equal(await rowTitle(), "0 lines of code. Open Culverin for details");
+  assert.equal(
+    await page.getByRole("button", { name: "0 lines of code" }).count(),
+    1,
+  );
   const pageLabels = await page.evaluate(
     () =>
       (window as typeof window & { culverinLabels?: string[] }).culverinLabels,

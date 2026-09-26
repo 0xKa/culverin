@@ -212,6 +212,8 @@ function cancel(current: View): void {
 function activate(current: View, action: RowAction): void {
   if (!currentView(current)) return;
   if (action === "cancel") cancel(current);
+  else if (action === "details")
+    void send(current, "popup.open").response.catch(() => undefined);
   else void analyze(current);
 }
 

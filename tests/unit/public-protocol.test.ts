@@ -94,6 +94,37 @@ test("anchors the summary after the visible About forks row", () => {
   ).toBeUndefined();
 });
 
+test("lets only the page ask to open the toolbar popup", () => {
+  const request = {
+    protocolVersion: 1,
+    type: "popup.open",
+    requestId,
+    navigationId,
+  };
+  expect(validPublicRequest(request)).toBe(true);
+  expect(
+    validPublicRequest({
+      ...request,
+      repository: { owner: "owner", name: "repo" },
+    }),
+  ).toBe(false);
+  expect(validPopupPublicRequest({ ...request, tabId: 7 })).toBe(false);
+  const reply = {
+    protocolVersion: 1,
+    type: "popup.opened",
+    requestId,
+    navigationId,
+    opened: true,
+  };
+  expect(validPublicReply(reply, requestId, navigationId)).toBe(true);
+  expect(
+    validPublicReply({ ...reply, opened: "yes" }, requestId, navigationId),
+  ).toBe(false);
+  expect(
+    validPublicReply({ ...reply, extra: true }, requestId, navigationId),
+  ).toBe(false);
+});
+
 test("validates popup requests and compact page summary updates", () => {
   const popupRequest = {
     protocolVersion: 1,

@@ -16,9 +16,11 @@ import {
 import { analyzeArchive } from "../archive/bridge";
 import { ArchiveError } from "../archive/tar";
 import {
+  POPUP_PORT,
   PUBLIC_PORT,
   publicFailure,
   validId,
+  validPopupPublicRequest,
   validPublicRequest,
   type PublicPayload,
   type PublicReply,
@@ -35,6 +37,7 @@ import { effectiveRulesHash } from "../counter/rules";
 
 const VERSION = 1;
 const OPTIONS_URL = chrome.runtime.getURL("options.html");
+const POPUP_URL = chrome.runtime.getURL("popup.html");
 const MARKER = "github.job";
 const LAST = "github.last";
 const cache = new PublicResultCache(chrome.storage.local);
@@ -70,9 +73,12 @@ const ready = Promise.all([
           validId(value.requestId) &&
           typeof value.owner === "string" &&
           value.owner.length <= 200 &&
-          /^(?:p:[0-9]+:[^:]+:|o:[^:]+:)[0-9a-f-]{36}$/i.test(value.owner) &&
+          /^(?:p:[0-9]+:[^:]+:|o:[^:]+:|u:[^:]+:)[0-9a-f-]{36}$/i.test(
+            value.owner,
+          ) &&
           typeof value.public === "boolean" &&
-          value.public === value.owner.startsWith("p:"),
+          value.public ===
+            (value.owner.startsWith("p:") || value.owner.startsWith("u:")),
       )
       .slice(0, 32);
     await chrome.storage.session.remove(MARKER);
@@ -96,6 +102,7 @@ type Request = {
 let validating = false;
 const seen = new Map<string, number>();
 const publicPorts = new Map<string, chrome.runtime.Port>();
+const popupPorts = new Map<string, chrome.runtime.Port>();
 let publicRateLimitedUntil = 0;
 const pending = new Map<
   string,
@@ -112,6 +119,10 @@ function publicOwner(
 
 function optionsOwner(documentId: string, navigationId: string): string {
   return `o:${documentId}:${navigationId}`;
+}
+
+function popupOwner(documentId: string, navigationId: string): string {
+  return `u:${documentId}:${navigationId}`;
 }
 
 function detachPending(prefix: string): void {
@@ -184,6 +195,26 @@ function portKey(tabId: number, documentId: string): string {
 
 chrome.runtime.onConnect.addListener((port) => {
   const sender = port.sender;
+  if (port.name === POPUP_PORT) {
+    if (
+      sender?.id !== chrome.runtime.id ||
+      sender.url !== POPUP_URL ||
+      sender.frameId !== 0 ||
+      !sender.documentId
+    ) {
+      port.disconnect();
+      return;
+    }
+    const documentId = sender.documentId;
+    popupPorts.set(documentId, port);
+    port.onDisconnect.addListener(() => {
+      if (popupPorts.get(documentId) !== port) return;
+      popupPorts.delete(documentId);
+      coordinator.detachDocument(`u:${documentId}:`);
+      detachPending(`u:${documentId}:`);
+    });
+    return;
+  }
   if (port.name === "culverin.options") {
     if (
       sender?.id !== chrome.runtime.id ||
@@ -274,29 +305,26 @@ export function handleArchiveCounting(
   return coordinator.reportCounting(value.requestId);
 }
 
-function handlePublic(
-  value: unknown,
-  sender: chrome.runtime.MessageSender,
-  respond: (value: unknown) => void,
-): boolean {
-  const repository = senderRepository(sender);
-  if (
-    !repository ||
-    !validPublicRequest(value) ||
-    sender.tab?.id === undefined ||
-    !sender.documentId
-  )
-    return false;
-  const request = value;
-  const tabId = sender.tab.id;
-  const documentId = sender.documentId;
-  const port = portKey(tabId, documentId);
-  const owner = publicOwner(tabId, documentId, request.navigationId);
-  const reply = (payload: PublicPayload) =>
-    respond(publicReply(request, payload));
+type PublicClient = {
+  repository: { owner: string; name: string };
+  owner: string;
+  prefix: string;
+  isAlive: () => boolean;
+  reply: (request: PublicRequest, payload: PublicPayload) => void;
+  progress: (
+    request: PublicRequest,
+    phase:
+      "resolving" | "queued" | "downloading" | "decompressing" | "counting",
+    processedBytes?: number,
+  ) => void;
+};
+
+function runPublicRequest(request: PublicRequest, client: PublicClient): void {
+  const { repository, owner } = client;
+  const reply = (payload: PublicPayload) => client.reply(request, payload);
   void (async () => {
     await ready;
-    if (!publicPorts.has(port)) {
+    if (!client.isAlive()) {
       reply({ type: "analysis.failed", code: "analysis_interrupted" });
       return;
     }
@@ -346,8 +374,8 @@ function handlePublic(
       const old = pending.get(owner);
       old?.controller.abort("navigation");
       pending.delete(owner);
-      coordinator.detachDocument(`p:${tabId}:${documentId}:`);
-      detachPending(`p:${tabId}:${documentId}:`);
+      coordinator.detachDocument(client.prefix);
+      detachPending(client.prefix);
       if (pending.size + coordinator.subscriptionCount() >= 32) {
         reply({ type: "analysis.failed", code: "analysis_busy" });
         return;
@@ -374,7 +402,7 @@ function handlePublic(
       const envelope = resolved.envelope;
       if (
         controller.signal.aborted ||
-        !publicPorts.has(port) ||
+        !client.isAlive() ||
         (request.type === "analysis.request" &&
           pending.get(owner)?.requestId !== request.requestId)
       )
@@ -389,7 +417,7 @@ function handlePublic(
       if (resolved.fresh && refs.isCurrent(resolved.epoch))
         cache.allowRepository(envelope);
       const cached = await cache.get(envelope).catch(() => undefined);
-      if (controller.signal.aborted || !publicPorts.has(port)) return;
+      if (controller.signal.aborted || !client.isAlive()) return;
       if (cache.isRevoked(envelope.repositoryId)) {
         reply({ type: "analysis.failed", code: "repository_unavailable" });
         return;
@@ -418,7 +446,7 @@ function handlePublic(
       pending.delete(owner);
       await clearInterrupted(owner);
       const identity = resolutionIdentity(envelope, await rulesHash);
-      if (controller.signal.aborted || !publicPorts.has(port)) return;
+      if (controller.signal.aborted || !client.isAlive()) return;
       if (cache.isRevoked(envelope.repositoryId)) {
         reply({ type: "analysis.failed", code: "repository_unavailable" });
         return;
@@ -433,9 +461,13 @@ function handlePublic(
           owner,
           public: true,
           onProgress: (phase, processedBytes) =>
-            publicProgress(tabId, documentId, request, phase, processedBytes),
+            client.progress(request, phase, processedBytes),
           onComplete: async (output, current) => {
-            if (!coordinator.isSubscribed(owner, request.requestId)) return;
+            if (
+              !coordinator.isSubscribed(owner, request.requestId) ||
+              !client.isAlive()
+            )
+              return;
             if (
               output.result.repository.id !== current.repositoryId ||
               output.result.revision.commitSha !== current.sha
@@ -444,7 +476,10 @@ function handlePublic(
               return;
             }
             await cache.put(current, output.result).catch(() => undefined);
-            if (coordinator.isSubscribed(owner, request.requestId))
+            if (
+              coordinator.isSubscribed(owner, request.requestId) &&
+              client.isAlive()
+            )
               reply({
                 type: "analysis.completed",
                 resolution: current,
@@ -453,6 +488,7 @@ function handlePublic(
               });
           },
           onFailure: (error, signal) => {
+            if (!client.isAlive()) return;
             const failure =
               signal.aborted && signal.reason === "visibility"
                 ? { code: "repository_unavailable" as const }
@@ -483,7 +519,7 @@ function handlePublic(
       );
       if (!accepted) reply({ type: "analysis.failed", code: "analysis_busy" });
     } catch (error) {
-      if (!controller.signal.aborted && publicPorts.has(port)) {
+      if (!controller.signal.aborted && client.isAlive()) {
         const failure =
           error instanceof Error &&
           !(error instanceof AcquisitionError) &&
@@ -512,6 +548,99 @@ function handlePublic(
         pending.delete(owner);
     }
   })().catch(() => reply({ type: "analysis.failed", code: "internal_error" }));
+}
+
+function handlePublic(
+  value: unknown,
+  sender: chrome.runtime.MessageSender,
+  respond: (value: unknown) => void,
+): boolean {
+  const repository = senderRepository(sender);
+  if (
+    !repository ||
+    !validPublicRequest(value) ||
+    sender.tab?.id === undefined ||
+    !sender.documentId
+  )
+    return false;
+  const request = value;
+  const tabId = sender.tab.id;
+  const documentId = sender.documentId;
+  const key = portKey(tabId, documentId);
+  const prefix = `p:${tabId}:${documentId}:`;
+  runPublicRequest(request, {
+    repository,
+    owner: publicOwner(tabId, documentId, request.navigationId),
+    prefix,
+    isAlive: () => publicPorts.has(key),
+    reply: (current, payload) => respond(publicReply(current, payload)),
+    progress: (current, phase, processedBytes) =>
+      publicProgress(tabId, documentId, current, phase, processedBytes),
+  });
+  return true;
+}
+
+function handlePopupPublic(
+  value: unknown,
+  sender: chrome.runtime.MessageSender,
+  respond: (value: unknown) => void,
+): boolean {
+  if (
+    sender.id !== chrome.runtime.id ||
+    sender.url !== POPUP_URL ||
+    sender.frameId !== 0 ||
+    typeof sender.documentId !== "string" ||
+    !validPopupPublicRequest(value)
+  )
+    return false;
+  const request = value;
+  const documentId = sender.documentId;
+  const port = popupPorts.get(documentId);
+  if (!port) return false;
+  const { tabId, ...publicRequest } = request;
+  const reply = (payload: PublicPayload) =>
+    respond(publicReply(publicRequest, payload));
+  void (async () => {
+    const [activeTab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    const tab = await chrome.tabs.get(tabId);
+    const repository = pageRepository(tab.url ?? "");
+    const isCancel = publicRequest.type === "analysis.cancel";
+    const repositoryMatches =
+      isCancel ||
+      (repository !== undefined &&
+        (!publicRequest.repository ||
+          (publicRequest.repository.owner.toLowerCase() ===
+            repository.owner.toLowerCase() &&
+            publicRequest.repository.name.toLowerCase() ===
+              repository.name.toLowerCase())));
+    if (activeTab?.id !== tabId || !repositoryMatches) {
+      reply({ type: "analysis.failed", code: "invalid_repository" });
+      return;
+    }
+    const prefix = `u:${documentId}:`;
+    runPublicRequest(publicRequest, {
+      repository: repository ?? { owner: "", name: "" },
+      owner: popupOwner(documentId, publicRequest.navigationId),
+      prefix,
+      isAlive: () => popupPorts.get(documentId) === port,
+      reply: (current, payload) => respond(publicReply(current, payload)),
+      progress: (current, phase, processedBytes) => {
+        if (popupPorts.get(documentId) !== port) return;
+        port.postMessage(
+          publicReply(current, {
+            type: "analysis.progress",
+            phase,
+            ...(processedBytes === undefined ? {} : { processedBytes }),
+          }),
+        );
+      },
+    });
+  })().catch(() =>
+    reply({ type: "analysis.failed", code: "invalid_repository" }),
+  );
   return true;
 }
 
@@ -544,6 +673,7 @@ export function handleGithub(
   sender: chrome.runtime.MessageSender,
   respond: (value: unknown) => void,
 ): boolean {
+  if (handlePopupPublic(value, sender, respond)) return true;
   if (handlePublic(value, sender, respond)) return true;
   if (
     sender.id !== chrome.runtime.id ||

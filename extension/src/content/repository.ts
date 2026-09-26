@@ -6,8 +6,7 @@ export type PageContext = { repository: PageRepository; anchor: Element };
 function visible(element: Element | null): element is Element {
   return (
     element !== null &&
-    (typeof element.checkVisibility !== "function" ||
-      element.checkVisibility())
+    (typeof element.checkVisibility !== "function" || element.checkVisibility())
   );
 }
 

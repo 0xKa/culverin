@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Culverin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        background: Canvas;
+        color: CanvasText;
+      }
+      body {
+        width: 360px;
+        max-height: 560px;
+        margin: 0;
+        overflow-y: auto;
+        line-height: 1.45;
+      }
+      main {
+        padding: 16px;
+      }
+      header,
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+      button {
+        padding: 6px 10px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid Highlight;
+        outline-offset: 3px;
+      }
+      #repository {
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+      #status {
+        min-height: 1.45em;
+        margin: 12px 0;
+      }
+      #analysis {
+        border-top: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+        padding-top: 12px;
+      }
+      #code-lines {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+      #metrics,
+      #detail-content p {
+        margin: 6px 0;
+      }
+      .actions {
+        justify-content: flex-start;
+        margin: 12px 0;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      #detail-content ul {
+        padding-left: 22px;
+      }
+      .warning {
+        border-left: 3px solid #bf8700;
+        padding-left: 8px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Culverin</h1>
+        <button id="settings" type="button">Settings</button>
+      </header>
+      <p id="repository" hidden></p>
+      <p id="status" role="status" aria-live="polite" aria-atomic="true">
+        Open a GitHub repository overview to analyze it.
+      </p>
+      <section id="analysis" hidden>
+        <p id="code-lines"></p>
+        <p id="metrics"></p>
+        <div class="actions">
+          <button id="analyze" type="button" disabled>
+            Analyze repository
+          </button>
+          <button id="cancel" type="button" hidden>Cancel analysis</button>
+        </div>
+        <details id="details" hidden>
+          <summary>Analysis details</summary>
+          <div id="detail-content"></div>
+        </details>
+      </section>
+    </main>
+    <script type="module" src="/src/popup/main.ts"></script>
+  </body>
+</html>

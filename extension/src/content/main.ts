@@ -39,6 +39,8 @@ type View = {
 const WORKER_URL = chrome.runtime.getURL("background.js");
 let view: View | undefined;
 let scheduled: ReturnType<typeof setTimeout> | undefined;
+let hydration: { app: Element; stop: () => void } | undefined;
+const hydrated = new WeakSet<Element>();
 
 function routeUrl(): string {
   return location.origin + location.pathname + location.search;
@@ -223,6 +225,7 @@ function detach(): void {
   clearTimeout(current.timer);
   clearTimeout(current.analysisTimer);
   clearTimeout(current.retryTimer);
+  stopHydration();
   current.port.disconnect();
   chrome.runtime.onMessage.removeListener(current.messageListener);
   current.ui.host.remove();
@@ -277,12 +280,52 @@ function mount(): void {
   if (!context) return;
   if (!view) {
     view = create(context.repository);
-    context.anchor.after(view.ui.host);
     void lookup(view);
+  }
+  if (context.hydrating && !hydrated.has(context.hydrating)) {
+    awaitHydration(context.hydrating);
     return;
   }
-  if (view.ui.host.previousElementSibling !== context.anchor)
+  if (context.anchor && view.ui.host.previousElementSibling !== context.anchor)
     context.anchor.after(view.ui.host);
+}
+
+function stopHydration(): void {
+  hydration?.stop();
+  hydration = undefined;
+}
+
+function awaitHydration(app: Element): void {
+  if (hydration?.app === app) return;
+  stopHydration();
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const settle = () => {
+    hydrated.add(app);
+    stopHydration();
+    mount();
+  };
+  const observer = new MutationObserver(() => {
+    if (app.classList.contains("loaded")) settle();
+  });
+  observer.observe(app, { attributes: true, attributeFilter: ["class"] });
+  const fallback = () => {
+    timer = setTimeout(settle, 2000);
+  };
+  if (document.readyState === "complete") fallback();
+  else
+    window.addEventListener("load", fallback, {
+      once: true,
+      signal: controller.signal,
+    });
+  hydration = {
+    app,
+    stop: () => {
+      observer.disconnect();
+      controller.abort();
+      clearTimeout(timer);
+    },
+  };
 }
 
 function schedule(): void {
@@ -302,7 +345,10 @@ setInterval(() => {
   }
 }, 150);
 
-new MutationObserver(schedule).observe(document.documentElement, {
+new MutationObserver(() => {
+  if (document.readyState === "loading" && !view?.ui.host.isConnected) mount();
+  else schedule();
+}).observe(document, {
   childList: true,
   subtree: true,
 });
@@ -310,4 +356,4 @@ window.addEventListener("popstate", schedule);
 window.addEventListener("pageshow", schedule);
 window.addEventListener("resize", schedule);
 window.addEventListener("pagehide", detach);
-schedule();
+mount();

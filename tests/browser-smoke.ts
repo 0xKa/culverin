@@ -119,11 +119,14 @@ try {
   let fixtureMode: "ok" | "empty" | "rate" | "slow" | "shared" | "private" =
     "ok";
   let slowArchiveStarted: (() => void) | undefined;
-  const repositoryFixture = `<!doctype html><html><head><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></main><script>
+  const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></react-app></main><script>
 const sync = () => {
   const [, owner, name] = location.pathname.split("/");
   document.querySelector("#forks").setAttribute("href", "/" + owner + "/" + name + "/forks");
+  document.querySelector('meta[name="octolytics-dimension-repository_nwo"]').setAttribute("content", owner + "/" + name);
 };
+if (sessionStorage.getItem("holdHydration") !== "1")
+  document.querySelector("#app").classList.add("loaded");
 for (const method of ["pushState", "replaceState"]) {
   const original = history[method].bind(history);
   history[method] = (...args) => {
@@ -479,6 +482,37 @@ sync();
   await page.getByText("Count lines of code").waitFor();
   assert.equal(await summary.count(), 1);
   assert.equal(fixtureApiRequests, beforeReplacementApiRequests);
+  await page.evaluate(() => sessionStorage.setItem("holdHydration", "1"));
+  await page.reload();
+  await page.waitForTimeout(800);
+  assert.equal(await summary.count(), 0);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("holdHydration");
+    document.querySelector("#app")?.classList.add("loaded");
+  });
+  await summary.waitFor({ state: "attached" });
+  assert.equal(await summary.getAttribute("hidden"), null);
+  assert.equal(
+    await summary.evaluate(
+      (host) => host.previousElementSibling?.querySelector("a")?.id,
+    ),
+    "forks",
+  );
+  await page.getByText("Count lines of code").waitFor({ timeout: 1000 });
+  await page.evaluate(() => sessionStorage.setItem("holdHydration", "1"));
+  await page.reload();
+  await page.waitForTimeout(800);
+  assert.equal(await summary.count(), 0);
+  await page.getByText("Count lines of code").waitFor({ timeout: 4000 });
+  assert.equal(
+    await page.evaluate(() => {
+      sessionStorage.removeItem("holdHydration");
+      return document.querySelector("#app")?.classList.contains("loaded");
+    }),
+    false,
+  );
+  await page.reload();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(fixtureArchiveRequests, 1);
   fixtureMode = "slow";
   const started = new Promise<void>((resolve) => {

@@ -55,14 +55,27 @@ test("accepts only GitHub repository overview routes", () => {
 });
 
 test("anchors the summary after the visible About forks row", () => {
-  const row = (visible: boolean) =>
-    ({ checkVisibility: () => visible }) as unknown as Element;
+  const row = (visible: boolean, app: Element | null = null) =>
+    ({
+      checkVisibility: () => visible,
+      closest: () => app,
+    }) as unknown as Element;
   const link = (href: string, parent: Element) =>
     ({ parentElement: parent, getAttribute: () => href }) as unknown as Element;
-  const page = (links: Element[]) =>
+  const app = (loaded: boolean) =>
+    ({
+      classList: { contains: (name: string) => loaded && name === "loaded" },
+    }) as unknown as Element;
+  const page = (links: Element[], nwo?: string) =>
     ({
       querySelectorAll(selector: string) {
         return selector === ".mt-2 > a[href]" ? links : [];
+      },
+      querySelector(selector: string) {
+        return nwo !== undefined &&
+          selector === 'meta[name="octolytics-dimension-repository_nwo"]'
+          ? ({ getAttribute: () => nwo } as unknown as Element)
+          : null;
       },
     }) as unknown as Document;
   const hidden = row(false);
@@ -92,6 +105,57 @@ test("anchors the summary after the visible About forks row", () => {
   expect(
     pageContext("https://github.com/owner/repo", page([])),
   ).toBeUndefined();
+  const loaded = row(true, app(true));
+  expect(
+    pageContext(
+      "https://github.com/owner/repo",
+      page([link("/owner/repo/forks", loaded)]),
+    )?.anchor,
+  ).toBe(loaded);
+});
+
+test("starts from the repository marker and waits for GitHub hydration", () => {
+  const hydrating = {
+    classList: { contains: () => false },
+  } as unknown as Element;
+  const row = {
+    checkVisibility: () => true,
+    closest: () => hydrating,
+  } as unknown as Element;
+  const page = (links: Element[], nwo?: string) =>
+    ({
+      querySelectorAll: () => links,
+      querySelector: (selector: string) =>
+        nwo !== undefined &&
+        selector === 'meta[name="octolytics-dimension-repository_nwo"]'
+          ? ({ getAttribute: () => nwo } as unknown as Element)
+          : null,
+    }) as unknown as Document;
+  expect(
+    pageContext("https://github.com/owner/repo", page([], "Owner/Repo")),
+  ).toEqual({ repository: { owner: "owner", name: "repo" } });
+  for (const nwo of [undefined, "other/repo", "owner/repo-fork"])
+    expect(
+      pageContext("https://github.com/owner/repo", page([], nwo)),
+    ).toBeUndefined();
+  expect(
+    pageContext("https://github.com/orgs/people", page([], "owner/repo")),
+  ).toBeUndefined();
+  expect(
+    pageContext(
+      "https://github.com/owner/repo",
+      page([
+        {
+          parentElement: row,
+          getAttribute: () => "/owner/repo/forks",
+        } as unknown as Element,
+      ]),
+    ),
+  ).toEqual({
+    repository: { owner: "owner", name: "repo" },
+    anchor: row,
+    hydrating,
+  });
 });
 
 test("lets only the page ask to open the toolbar popup", () => {

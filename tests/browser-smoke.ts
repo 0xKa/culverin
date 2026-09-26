@@ -519,12 +519,16 @@ try {
       const scope = globalThis as typeof globalThis & {
         fixtureOriginalFetch?: typeof fetch;
         fixtureFetchCount?: number;
+        fixtureRelease?: () => void;
       };
       scope.fixtureOriginalFetch = fetch;
       scope.fixtureFetchCount = 0;
       globalThis.fetch = (async (input, init) => {
         if (String(input).endsWith(`/tarball/${sha}`)) {
           scope.fixtureFetchCount = (scope.fixtureFetchCount ?? 0) + 1;
+          await new Promise<void>((resolve) => {
+            scope.fixtureRelease = resolve;
+          });
           const response = new Response(Uint8Array.from(bytes), {
             status: 200,
             headers: { "content-type": "application/gzip" },
@@ -560,24 +564,58 @@ try {
     0,
   );
   await resultPopup.getByRole("button", { name: "Analyze repository" }).click();
-  await resultPopup.getByText("Analyzed locally.").waitFor({ timeout: 15_000 });
-  await resultPopup.getByText("1 code lines", { exact: true }).waitFor();
-  await resultPopup
+  await worker.evaluate(async () => {
+    const scope = globalThis as typeof globalThis & {
+      fixtureRelease?: () => void;
+    };
+    for (let attempt = 0; attempt < 200 && !scope.fixtureRelease; attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    if (!scope.fixtureRelease) throw new Error("Archive request did not start");
+  });
+  await resultPopup.close();
+  await page.waitForTimeout(300);
+  const heldPopupJobs = await harness.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { owner: string }[] | undefined;
+  });
+  assert.equal(heldPopupJobs?.length, 1);
+  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  const resumedPopup = await openPopup(page);
+  await resumedPopup
+    .getByText("Analysis in progress. Closing the popup does not stop it.")
+    .waitFor();
+  await resumedPopup.getByRole("button", { name: "Cancel analysis" }).waitFor();
+  assert.equal(
+    await resumedPopup
+      .getByRole("button", { name: "Analyze repository" })
+      .isDisabled(),
+    true,
+  );
+  await worker.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { fixtureRelease?: () => void }
+    ).fixtureRelease?.(),
+  );
+  await resumedPopup
+    .getByText("Analyzed locally.")
+    .waitFor({ timeout: 15_000 });
+  await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
+  await resumedPopup
     .getByText(
       /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
     )
     .waitFor();
   await page.getByText("Culverin | Total LOC: 1").waitFor();
-  const disclosure = resultPopup.locator("#details");
+  const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();
-  await resultPopup.keyboard.press("Enter");
+  await resumedPopup.keyboard.press("Enter");
   assert.equal(
     await disclosure.evaluate(
       (element) => (element as HTMLDetailsElement).open,
     ),
     false,
   );
-  await resultPopup.keyboard.press("Enter");
+  await resumedPopup.keyboard.press("Enter");
   assert.equal(
     await disclosure.evaluate(
       (element) => (element as HTMLDetailsElement).open,
@@ -585,10 +623,10 @@ try {
     true,
   );
   assert.equal(
-    await resultPopup.locator("#status").textContent(),
+    await resumedPopup.locator("#status").textContent(),
     "Analyzed locally.",
   );
-  const accessibility = await context.newCDPSession(resultPopup);
+  const accessibility = await context.newCDPSession(resumedPopup);
   const tree = await accessibility.send("Accessibility.getFullAXTree");
   assert.ok(
     tree.nodes.some(
@@ -601,7 +639,7 @@ try {
     ),
   );
   await accessibility.detach();
-  await resultPopup.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
+  await resumedPopup.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
   assert.equal(
     await worker.evaluate(
       () =>
@@ -610,7 +648,7 @@ try {
     ),
     1,
   );
-  await resultPopup.close();
+  await resumedPopup.close();
   await page.reload();
   await page.getByText("Culverin | Total LOC: 1").waitFor();
   assert.equal(
@@ -888,8 +926,14 @@ try {
     .click();
   await detachedArchive;
   await detachedPopup.close();
+  await page.waitForTimeout(300);
+  const continuingJobs = await options.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { owner: string }[] | undefined;
+  });
+  assert.equal(continuingJobs?.length, 1);
   const detachedJobs = await options.evaluate(async () => {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (let attempt = 0; attempt < 500; attempt++) {
       const state = await chrome.storage.session.get("github.job");
       if (state["github.job"] === undefined) return undefined;
       await new Promise((resolve) => setTimeout(resolve, 20));

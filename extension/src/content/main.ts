@@ -23,7 +23,7 @@ type View = {
   ) => void;
 };
 
-const POPUP_URL = chrome.runtime.getURL("popup.html");
+const WORKER_URL = chrome.runtime.getURL("background.js");
 let view: View | undefined;
 let scheduled: ReturnType<typeof setTimeout> | undefined;
 
@@ -137,8 +137,8 @@ function mount(): void {
   current.messageListener = (message, sender) => {
     if (
       sender.id !== chrome.runtime.id ||
-      sender.url !== POPUP_URL ||
-      (sender.frameId !== undefined && sender.frameId !== 0) ||
+      sender.url !== WORKER_URL ||
+      sender.tab !== undefined ||
       !currentView(current) ||
       !validSummaryUpdate(message) ||
       message.repository.owner.toLowerCase() !==

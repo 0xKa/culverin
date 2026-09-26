@@ -25,7 +25,9 @@ import {
   type PublicPayload,
   type PublicReply,
   type PublicRequest,
+  type SummaryUpdate,
 } from "../github/public-protocol";
+import type { AnalysisResultV1 } from "../counter/result";
 import { pageRepository } from "../content/repository";
 import {
   PublicResultCache,
@@ -73,7 +75,7 @@ const ready = Promise.all([
           validId(value.requestId) &&
           typeof value.owner === "string" &&
           value.owner.length <= 200 &&
-          /^(?:p:[0-9]+:[^:]+:|o:[^:]+:|u:[^:]+:)[0-9a-f-]{36}$/i.test(
+          /^(?:p:[0-9]+:[^:]+:|o:[^:]+:|u:[0-9]+:)[0-9a-f-]{36}$/i.test(
             value.owner,
           ) &&
           typeof value.public === "boolean" &&
@@ -103,6 +105,18 @@ let validating = false;
 const seen = new Map<string, number>();
 const publicPorts = new Map<string, chrome.runtime.Port>();
 const popupPorts = new Map<string, chrome.runtime.Port>();
+type PopupViewer = {
+  port: chrome.runtime.Port;
+  request: PublicRequest;
+  respond?: (value: unknown) => void;
+};
+type PopupJob = {
+  owner: string;
+  requestId: string;
+  repository: { owner: string; name: string };
+  viewer?: PopupViewer;
+};
+const popupJobs = new Map<number, PopupJob>();
 let publicRateLimitedUntil = 0;
 const pending = new Map<
   string,
@@ -121,8 +135,8 @@ function optionsOwner(documentId: string, navigationId: string): string {
   return `o:${documentId}:${navigationId}`;
 }
 
-function popupOwner(documentId: string, navigationId: string): string {
-  return `u:${documentId}:${navigationId}`;
+function popupOwner(tabId: number, navigationId: string): string {
+  return `u:${tabId}:${navigationId}`;
 }
 
 function detachPending(prefix: string): void {
@@ -210,8 +224,8 @@ chrome.runtime.onConnect.addListener((port) => {
     port.onDisconnect.addListener(() => {
       if (popupPorts.get(documentId) !== port) return;
       popupPorts.delete(documentId);
-      coordinator.detachDocument(`u:${documentId}:`);
-      detachPending(`u:${documentId}:`);
+      for (const job of popupJobs.values())
+        if (job.viewer?.port === port) job.viewer = undefined;
     });
     return;
   }
@@ -580,6 +594,74 @@ function handlePublic(
   return true;
 }
 
+function sameRepository(
+  current: { owner: string; name: string } | undefined,
+  expected: { owner: string; name: string },
+): boolean {
+  return (
+    current !== undefined &&
+    current.owner.toLowerCase() === expected.owner.toLowerCase() &&
+    current.name.toLowerCase() === expected.name.toLowerCase()
+  );
+}
+
+async function updateSummary(
+  tabId: number,
+  repository: { owner: string; name: string },
+  result: AnalysisResultV1,
+): Promise<void> {
+  if (
+    !result.coverage.complete ||
+    result.engine.rulesHash !== (await rulesHash)
+  )
+    return;
+  const update: SummaryUpdate = {
+    protocolVersion: 1,
+    type: "summary.update",
+    repository,
+    totalCodeLines: result.totals.code,
+  };
+  await chrome.tabs
+    .sendMessage(tabId, update, { frameId: 0 })
+    .catch(() => undefined);
+}
+
+function settlePopupJob(
+  tabId: number,
+  job: PopupJob,
+  payload: PublicPayload,
+): void {
+  if (popupJobs.get(tabId) !== job) return;
+  popupJobs.delete(tabId);
+  const viewer = job.viewer;
+  if (viewer?.respond) viewer.respond(publicReply(viewer.request, payload));
+  else viewer?.port.postMessage(publicReply(viewer.request, payload));
+  if (payload.type === "analysis.completed")
+    void updateSummary(tabId, job.repository, payload.result);
+}
+
+function endPopupJob(tabId: number, reason: string): void {
+  const job = popupJobs.get(tabId);
+  if (!job) return;
+  settlePopupJob(tabId, job, {
+    type: "analysis.failed",
+    code: "analysis_canceled",
+  });
+  const resolving = pending.get(job.owner);
+  if (resolving?.requestId === job.requestId) {
+    resolving.controller.abort(reason);
+    pending.delete(job.owner);
+  }
+  coordinator.detach(job.owner, job.requestId);
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => endPopupJob(tabId, "navigation"));
+chrome.tabs.onUpdated.addListener((tabId, _change, tab) => {
+  const job = popupJobs.get(tabId);
+  if (job && !sameRepository(pageRepository(tab.url ?? ""), job.repository))
+    endPopupJob(tabId, "navigation");
+});
+
 function handlePopupPublic(
   value: unknown,
   sender: chrome.runtime.MessageSender,
@@ -612,25 +694,77 @@ function handlePopupPublic(
       isCancel ||
       (repository !== undefined &&
         (!publicRequest.repository ||
-          (publicRequest.repository.owner.toLowerCase() ===
-            repository.owner.toLowerCase() &&
-            publicRequest.repository.name.toLowerCase() ===
-              repository.name.toLowerCase())));
+          sameRepository(publicRequest.repository, repository)));
     if (activeTab?.id !== tabId || !repositoryMatches) {
       reply({ type: "analysis.failed", code: "invalid_repository" });
       return;
     }
-    const prefix = `u:${documentId}:`;
+    const job = popupJobs.get(tabId);
+    if (publicRequest.type === "analysis.cancel") {
+      const targetRequestId = publicRequest.targetRequestId!;
+      if (
+        !job ||
+        (targetRequestId !== job.requestId &&
+          targetRequestId !== job.viewer?.request.requestId)
+      ) {
+        reply({ type: "analysis.failed", code: "analysis_interrupted" });
+        return;
+      }
+      endPopupJob(tabId, "cancel");
+      reply({ type: "analysis.canceled", targetRequestId });
+      return;
+    }
+    if (!repository) {
+      reply({ type: "analysis.failed", code: "invalid_repository" });
+      return;
+    }
+    if (publicRequest.type === "analysis.status") {
+      if (!job || !sameRepository(repository, job.repository)) {
+        reply({ type: "analysis.status", state: "idle" });
+        return;
+      }
+      job.viewer = { port, request: publicRequest };
+      reply({
+        type: "analysis.status",
+        state:
+          coordinator.status(job.owner) === "queued" ? "queued" : "running",
+      });
+      return;
+    }
+    const owner = popupOwner(tabId, publicRequest.navigationId);
+    if (publicRequest.type === "repository.lookup") {
+      runPublicRequest(publicRequest, {
+        repository,
+        owner,
+        prefix: `u:${tabId}:`,
+        isAlive: () => popupPorts.get(documentId) === port,
+        reply: (current, payload) => {
+          respond(publicReply(current, payload));
+          if (payload.type === "repository.cache_hit")
+            void updateSummary(tabId, repository, payload.result);
+        },
+        progress: () => undefined,
+      });
+      return;
+    }
+    const next: PopupJob = {
+      owner,
+      requestId: publicRequest.requestId,
+      repository,
+      viewer: { port, request: publicRequest, respond },
+    };
+    popupJobs.set(tabId, next);
     runPublicRequest(publicRequest, {
-      repository: repository ?? { owner: "", name: "" },
-      owner: popupOwner(documentId, publicRequest.navigationId),
-      prefix,
-      isAlive: () => popupPorts.get(documentId) === port,
-      reply: (current, payload) => respond(publicReply(current, payload)),
-      progress: (current, phase, processedBytes) => {
-        if (popupPorts.get(documentId) !== port) return;
-        port.postMessage(
-          publicReply(current, {
+      repository,
+      owner,
+      prefix: `u:${tabId}:`,
+      isAlive: () => popupJobs.get(tabId) === next,
+      reply: (_current, payload) => settlePopupJob(tabId, next, payload),
+      progress: (_current, phase, processedBytes) => {
+        const viewer = next.viewer;
+        if (popupJobs.get(tabId) !== next || !viewer) return;
+        viewer.port.postMessage(
+          publicReply(viewer.request, {
             type: "analysis.progress",
             phase,
             ...(processedBytes === undefined ? {} : { processedBytes }),

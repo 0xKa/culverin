@@ -3,6 +3,14 @@ import { validRepository } from "../github/client";
 export type PageRepository = { owner: string; name: string };
 export type PageContext = { repository: PageRepository; anchor: Element };
 
+function visible(element: Element | null): element is Element {
+  return (
+    element !== null &&
+    (typeof element.checkVisibility !== "function" ||
+      element.checkVisibility())
+  );
+}
+
 export function pageRepository(url: string): PageRepository | undefined {
   let parsed: URL;
   try {
@@ -30,11 +38,11 @@ export function pageContext(
   const repository = pageRepository(url);
   if (!repository) return undefined;
   const header = document.querySelector("#repository-container-header");
-  if (header) return { repository, anchor: header };
+  if (visible(header)) return { repository, anchor: header };
   const marker = document.querySelector(
     'meta[name="octolytics-dimension-repository_id"][content]',
   );
   const main = document.querySelector("main");
-  if (marker && main) return { repository, anchor: main };
+  if (marker && visible(main)) return { repository, anchor: main };
   return undefined;
 }

@@ -215,12 +215,14 @@ sync();
       before: host.nextElementSibling?.textContent,
       live: host.shadowRoot?.querySelector('[aria-live="polite"]')?.textContent,
       icon: host.shadowRoot?.querySelector("svg")?.getAttribute("fill"),
+      shapes: host.shadowRoot?.querySelectorAll("svg rect").length,
     })),
     {
       after: "forks",
       before: "Report repository",
       live: "Count lines of code",
       icon: "currentColor",
+      shapes: 7,
     },
   );
   assert.equal(

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import {
   compactCount,
   failureState,
@@ -96,4 +97,19 @@ test("never presents a partial analysis as a total", () => {
   expect(view.action).toBeUndefined();
   expect(view.label).toBe("Couldn't count every file");
   expect(view.title).toContain("exceeded the safe size limit");
+});
+
+test("uses a pixel-aligned monochrome icon asset", () => {
+  const source = readFileSync("assets/mono/culverin-mono-stats.svg", "utf8");
+  const root = /^<svg ([^>]*)>/.exec(source)?.[1] ?? "";
+  expect(root).toContain('viewBox="0 0 16 16"');
+  expect(root).toContain('fill="currentColor"');
+  expect(source).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  const shapes = [...source.matchAll(/<(\w+) ([^>]*)\/>/g)];
+  expect(shapes.length).toBeGreaterThan(0);
+  for (const [, tag, attributes] of shapes) {
+    expect(tag).toBe("rect");
+    for (const [, value] of attributes!.matchAll(/="([^"]*)"/g))
+      expect(value).toMatch(/^\d+$/);
+  }
 });

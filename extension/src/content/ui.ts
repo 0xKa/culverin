@@ -1,3 +1,4 @@
+import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
 import { failureMessages } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
@@ -31,9 +32,6 @@ export type SummaryUi = {
   row?: HTMLElement;
   action?: RowAction;
 };
-
-const ICON_PATH =
-  "M2 1h2v1h11v1.5H4v9h11V14H4v1H2v-1H1v-1.5h1v-9H1V2h1zM6 5h7v1H6zm0 2h5v1H6zm0 2h8v1H6zm0 2h3v1H6z";
 
 const progressText: Record<AnalysisPhase, string> = {
   queued: "Waiting to count lines…",
@@ -144,18 +142,20 @@ export function rowView(state: VisibleRowState): RowView {
   return { label: state.label, title: state.detail };
 }
 
-function icon(): SVGSVGElement {
-  const namespace = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(namespace, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
-  svg.setAttribute("fill", "currentColor");
+let iconTemplate: Element | undefined;
+
+function icon(): Element {
+  if (!iconTemplate) {
+    iconTemplate = new DOMParser().parseFromString(
+      iconSource,
+      "image/svg+xml",
+    ).documentElement;
+    for (const node of Array.from(iconTemplate.childNodes))
+      if (node.nodeType !== Node.ELEMENT_NODE) node.remove();
+  }
+  const svg = document.importNode(iconTemplate, true);
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  const path = document.createElementNS(namespace, "path");
-  path.setAttribute("d", ICON_PATH);
-  svg.append(path);
   return svg;
 }
 

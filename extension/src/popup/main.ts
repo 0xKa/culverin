@@ -1,6 +1,7 @@
 import { effectiveRulesHash } from "../counter/rules";
 import type { AnalysisResultV1 } from "../counter/result";
 import { pageRepository, type PageRepository } from "../content/repository";
+import { failureMessages } from "../github/failure-messages";
 import {
   POPUP_PORT,
   validPublicReply,
@@ -22,33 +23,9 @@ const cancelButton = document.querySelector<HTMLButtonElement>("#cancel")!;
 const details = document.querySelector<HTMLDetailsElement>("#details")!;
 const detailContent = document.querySelector<HTMLElement>("#detail-content")!;
 const errors: Record<PublicErrorCode, string> = {
-  invalid_repository: "Invalid repository address.",
-  unsupported_page: "This page is not supported.",
-  repository_unavailable:
-    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
-  repository_empty: "This repository has no default-branch commit to analyze.",
-  repository_forbidden:
-    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
-  rate_limited: "GitHub rate limit reached.",
-  authentication_required: "Authentication is required for this repository.",
-  authentication_invalid: "GitHub authentication is invalid.",
-  metadata_limit_exceeded: "Repository metadata exceeds the safe limit.",
-  network_unavailable: "GitHub could not be reached.",
-  download_failed: "The source snapshot could not be downloaded.",
-  compressed_limit_exceeded:
-    "The source snapshot exceeds the compressed-size limit.",
-  decompressed_limit_exceeded:
-    "The source snapshot exceeds the expanded-size limit.",
-  entry_limit_exceeded: "The source snapshot has too many entries.",
-  file_limit_exceeded: "The source snapshot has too many files.",
-  archive_invalid: "The source snapshot is malformed.",
-  archive_unsupported: "This source snapshot format is unsupported.",
-  analysis_timeout: "Analysis timed out. Try again.",
+  ...failureMessages,
   analysis_interrupted: "Analysis was interrupted. Click Analyze to try again.",
   analysis_busy: "Analysis is busy. Select Analyze repository to retry.",
-  analysis_canceled: "Analysis canceled.",
-  counter_failed: "Local counting failed.",
-  internal_error: "Analysis failed. Try again.",
 };
 
 const progressText = {

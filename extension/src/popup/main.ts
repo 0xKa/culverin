@@ -213,7 +213,6 @@ async function lookup(): Promise<void> {
       setStatus(
         `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. Analyze downloads a source snapshot from GitHub and counts it locally.`,
       );
-      setBusy(false);
     } else if (reply.type === "repository.cache_hit") {
       const hash = await effectiveRulesHash([]);
       if (lookupRequestId !== pending.requestId) return;
@@ -225,7 +224,6 @@ async function lookup(): Promise<void> {
         setStatus(
           "Cached local analysis. Public visibility metadata may be up to one minute old.",
         );
-        setBusy(false);
       }
     } else if (reply.type === "analysis.failed") handleFailure(reply);
     else setStatus(errors.internal_error);
@@ -234,7 +232,10 @@ async function lookup(): Promise<void> {
       setStatus("Extension unavailable. Reopen the popup to retry.");
   } finally {
     clearTimeout(lookupTimer);
-    if (lookupRequestId === pending.requestId) lookupRequestId = undefined;
+    if (lookupRequestId === pending.requestId) {
+      lookupRequestId = undefined;
+      setBusy(Boolean(activeRequestId));
+    }
   }
 }
 

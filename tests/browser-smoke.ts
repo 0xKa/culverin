@@ -299,6 +299,34 @@ try {
   await popup.emulateMedia({ colorScheme: "light", forcedColors: "none" });
   assert.equal(fixtureArchiveRequests, 0);
   await popup.close();
+  const interruptedLookupPopup = await context.newPage();
+  await interruptedLookupPopup.addInitScript(() => {
+    const sendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = ((
+      message: { type?: string },
+      callback: (value: unknown) => void,
+    ) => {
+      if (message.type === "repository.lookup") {
+        setTimeout(() => callback(undefined), 0);
+        return;
+      }
+      return sendMessage(message, callback);
+    }) as typeof chrome.runtime.sendMessage;
+  });
+  await interruptedLookupPopup.goto(`${extensionUrl}/popup.html`);
+  await page.bringToFront();
+  await interruptedLookupPopup.reload();
+  await interruptedLookupPopup
+    .getByText("Extension unavailable. Reopen the popup to retry.")
+    .waitFor();
+  assert.equal(
+    await interruptedLookupPopup
+      .getByRole("button", { name: "Analyze repository" })
+      .isEnabled(),
+    true,
+  );
+  await interruptedLookupPopup.close();
+  assert.equal(fixtureArchiveRequests, 0);
   const beforeFragmentApiRequests = fixtureApiRequests;
   await page.evaluate(() => {
     location.hash = "usage";

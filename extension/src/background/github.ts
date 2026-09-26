@@ -104,11 +104,10 @@ type Request = {
 let validating = false;
 const seen = new Map<string, number>();
 const publicPorts = new Map<string, chrome.runtime.Port>();
-const popupPorts = new Map<string, chrome.runtime.Port>();
+const popupPorts = new Set<chrome.runtime.Port>();
 type PopupViewer = {
   port: chrome.runtime.Port;
   request: PublicRequest;
-  respond?: (value: unknown) => void;
 };
 type PopupJob = {
   owner: string;
@@ -213,17 +212,17 @@ chrome.runtime.onConnect.addListener((port) => {
     if (
       sender?.id !== chrome.runtime.id ||
       sender.url !== POPUP_URL ||
-      sender.frameId !== 0 ||
-      !sender.documentId
+      (sender.tab !== undefined && sender.frameId !== 0)
     ) {
       port.disconnect();
       return;
     }
-    const documentId = sender.documentId;
-    popupPorts.set(documentId, port);
+    popupPorts.add(port);
+    port.onMessage.addListener((value: unknown) =>
+      handlePopupMessage(port, value),
+    );
     port.onDisconnect.addListener(() => {
-      if (popupPorts.get(documentId) !== port) return;
-      popupPorts.delete(documentId);
+      popupPorts.delete(port);
       for (const job of popupJobs.values())
         if (job.viewer?.port === port) job.viewer = undefined;
     });
@@ -626,6 +625,14 @@ async function updateSummary(
     .catch(() => undefined);
 }
 
+function postToPopup(
+  port: chrome.runtime.Port,
+  request: PublicRequest,
+  payload: PublicPayload,
+): void {
+  if (popupPorts.has(port)) port.postMessage(publicReply(request, payload));
+}
+
 function settlePopupJob(
   tabId: number,
   job: PopupJob,
@@ -633,9 +640,7 @@ function settlePopupJob(
 ): void {
   if (popupJobs.get(tabId) !== job) return;
   popupJobs.delete(tabId);
-  const viewer = job.viewer;
-  if (viewer?.respond) viewer.respond(publicReply(viewer.request, payload));
-  else viewer?.port.postMessage(publicReply(viewer.request, payload));
+  if (job.viewer) postToPopup(job.viewer.port, job.viewer.request, payload);
   if (payload.type === "analysis.completed")
     void updateSummary(tabId, job.repository, payload.result);
 }
@@ -662,26 +667,11 @@ chrome.tabs.onUpdated.addListener((tabId, _change, tab) => {
     endPopupJob(tabId, "navigation");
 });
 
-function handlePopupPublic(
-  value: unknown,
-  sender: chrome.runtime.MessageSender,
-  respond: (value: unknown) => void,
-): boolean {
-  if (
-    sender.id !== chrome.runtime.id ||
-    sender.url !== POPUP_URL ||
-    sender.frameId !== 0 ||
-    typeof sender.documentId !== "string" ||
-    !validPopupPublicRequest(value)
-  )
-    return false;
-  const request = value;
-  const documentId = sender.documentId;
-  const port = popupPorts.get(documentId);
-  if (!port) return false;
-  const { tabId, ...publicRequest } = request;
+function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
+  if (!validPopupPublicRequest(value)) return;
+  const { tabId, ...publicRequest } = value;
   const reply = (payload: PublicPayload) =>
-    respond(publicReply(publicRequest, payload));
+    postToPopup(port, publicRequest, payload);
   if (publicRequest.type === "analysis.cancel") {
     const job = popupJobs.get(tabId);
     const targetRequestId = publicRequest.targetRequestId!;
@@ -691,11 +681,11 @@ function handlePopupPublic(
         targetRequestId !== job.viewer?.request.requestId)
     ) {
       reply({ type: "analysis.failed", code: "analysis_interrupted" });
-      return true;
+      return;
     }
     endPopupJob(tabId, "cancel");
     reply({ type: "analysis.canceled", targetRequestId });
-    return true;
+    return;
   }
   void (async () => {
     const [activeTab] = await chrome.tabs.query({
@@ -733,9 +723,9 @@ function handlePopupPublic(
         repository,
         owner,
         prefix: `u:${tabId}:`,
-        isAlive: () => popupPorts.get(documentId) === port,
+        isAlive: () => popupPorts.has(port),
         reply: (current, payload) => {
-          respond(publicReply(current, payload));
+          postToPopup(port, current, payload);
           if (payload.type === "repository.cache_hit")
             void updateSummary(tabId, repository, payload.result);
         },
@@ -747,7 +737,7 @@ function handlePopupPublic(
       owner,
       requestId: publicRequest.requestId,
       repository,
-      viewer: { port, request: publicRequest, respond },
+      viewer: { port, request: publicRequest },
     };
     popupJobs.set(tabId, next);
     runPublicRequest(publicRequest, {
@@ -759,19 +749,16 @@ function handlePopupPublic(
       progress: (_current, phase, processedBytes) => {
         const viewer = next.viewer;
         if (popupJobs.get(tabId) !== next || !viewer) return;
-        viewer.port.postMessage(
-          publicReply(viewer.request, {
-            type: "analysis.progress",
-            phase,
-            ...(processedBytes === undefined ? {} : { processedBytes }),
-          }),
-        );
+        postToPopup(viewer.port, viewer.request, {
+          type: "analysis.progress",
+          phase,
+          ...(processedBytes === undefined ? {} : { processedBytes }),
+        });
       },
     });
   })().catch(() =>
     reply({ type: "analysis.failed", code: "invalid_repository" }),
   );
-  return true;
 }
 
 function validRequest(value: unknown): value is Request {
@@ -803,7 +790,6 @@ export function handleGithub(
   sender: chrome.runtime.MessageSender,
   respond: (value: unknown) => void,
 ): boolean {
-  if (handlePopupPublic(value, sender, respond)) return true;
   if (handlePublic(value, sender, respond)) return true;
   if (
     sender.id !== chrome.runtime.id ||

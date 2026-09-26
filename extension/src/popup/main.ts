@@ -21,7 +21,6 @@ const analyzeButton = document.querySelector<HTMLButtonElement>("#analyze")!;
 const cancelButton = document.querySelector<HTMLButtonElement>("#cancel")!;
 const details = document.querySelector<HTMLDetailsElement>("#details")!;
 const detailContent = document.querySelector<HTMLElement>("#detail-content")!;
-const port = chrome.runtime.connect({ name: POPUP_PORT });
 const errors: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",
   unsupported_page: "This page is not supported.",
@@ -61,6 +60,11 @@ const progressText = {
 };
 
 let target: { tabId: number; repository: PageRepository } | undefined;
+let port: chrome.runtime.Port | undefined;
+const waiting = new Map<
+  string,
+  { resolve: (reply: PublicReply) => void; reject: (error: Error) => void }
+>();
 let lookupRequestId: string | undefined;
 let activeRequestId: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -160,6 +164,40 @@ function handleFailure(
   setBusy(Boolean(activeRequestId));
 }
 
+function receive(value: unknown): void {
+  for (const [requestId, waiter] of waiting) {
+    if (!validPublicReply(value, requestId, navigationId)) continue;
+    if (value.type === "analysis.progress") break;
+    waiting.delete(requestId);
+    waiter.resolve(value);
+    return;
+  }
+  const requestId = activeRequestId;
+  if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
+  if (value.type === "analysis.progress") setStatus(progressText[value.phase]);
+  else void finishAnalysis(requestId, value);
+}
+
+function connect(): chrome.runtime.Port {
+  if (port) return port;
+  const current = chrome.runtime.connect({ name: POPUP_PORT });
+  current.onMessage.addListener(receive);
+  current.onDisconnect.addListener(() => {
+    if (port !== current) return;
+    port = undefined;
+    for (const waiter of waiting.values())
+      waiter.reject(new Error("Extension disconnected"));
+    waiting.clear();
+    const requestId = activeRequestId;
+    if (requestId) {
+      setStatus(errors.analysis_interrupted);
+      stopWatching(requestId);
+    }
+  });
+  port = current;
+  return current;
+}
+
 function send(
   type: PublicRequest["type"],
   extra: Record<string, unknown> = {},
@@ -175,14 +213,13 @@ function send(
     ...extra,
   } as PopupPublicRequest;
   const response = new Promise<PublicReply>((resolve, reject) => {
-    chrome.runtime.sendMessage(request, (value: unknown) => {
-      if (
-        chrome.runtime.lastError ||
-        !validPublicReply(value, requestId, navigationId)
-      )
-        reject(new Error("Invalid extension response"));
-      else resolve(value);
-    });
+    waiting.set(requestId, { resolve, reject });
+    try {
+      connect().postMessage(request);
+    } catch {
+      waiting.delete(requestId);
+      reject(new Error("Extension unavailable"));
+    }
   });
   return { requestId, response };
 }
@@ -370,13 +407,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   if (target && tabId !== target.tabId) leaveRepository();
-});
-
-port.onMessage.addListener((value: unknown) => {
-  const requestId = activeRequestId;
-  if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
-  if (value.type === "analysis.progress") setStatus(progressText[value.phase]);
-  else void finishAnalysis(requestId, value);
 });
 
 document.querySelector("#settings")!.addEventListener("click", () => {

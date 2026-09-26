@@ -254,9 +254,78 @@ try {
         ),
     );
     assert.equal(opened.ok, true);
-    await tab.bringToFront();
   };
   const extensionUrl = `chrome-extension://${new URL(worker.url()).host}`;
+  const actionPopup = async () => {
+    const session = await context.newCDPSession(harness);
+    let targetId: string | undefined;
+    for (let attempt = 0; attempt < 100 && !targetId; attempt++) {
+      const { targetInfos } = await session.send("Target.getTargets");
+      const candidates = targetInfos.filter(
+        (item) =>
+          item.type === "page" && item.url === `${extensionUrl}/popup.html`,
+      );
+      assert.ok(candidates.length <= 1);
+      targetId = candidates[0]?.targetId;
+      if (!targetId) await harness.waitForTimeout(50);
+    }
+    assert.ok(targetId, "action popup opened");
+    const { sessionId } = await session.send("Target.attachToTarget", {
+      targetId,
+      flatten: false,
+    });
+    let nextId = 0;
+    const evaluate = async <T>(expression: string): Promise<T> => {
+      const id = ++nextId;
+      const result = new Promise<T>((resolve, reject) => {
+        const listener = (event: { sessionId: string; message: string }) => {
+          const message = JSON.parse(event.message) as {
+            id?: number;
+            error?: unknown;
+            result?: {
+              result?: { value?: unknown };
+              exceptionDetails?: unknown;
+            };
+          };
+          if (event.sessionId !== sessionId || message.id !== id) return;
+          session.off("Target.receivedMessageFromTarget", listener);
+          if (message.error || message.result?.exceptionDetails)
+            reject(new Error(event.message));
+          else resolve(message.result?.result?.value as T);
+        };
+        session.on("Target.receivedMessageFromTarget", listener);
+      });
+      await session.send("Target.sendMessageToTarget", {
+        sessionId,
+        message: JSON.stringify({
+          id,
+          method: "Runtime.evaluate",
+          params: { expression, returnByValue: true },
+        }),
+      });
+      return result;
+    };
+    const statusText = () =>
+      evaluate<string>("document.querySelector('#status').textContent");
+    return {
+      status: async (pattern: RegExp) => {
+        for (let attempt = 0; attempt < 300; attempt++) {
+          const text = await statusText();
+          if (pattern.test(text)) return text;
+          await harness.waitForTimeout(50);
+        }
+        throw new Error(`Action popup status: ${await statusText()}`);
+      },
+      click: (selector: string) =>
+        evaluate<void>(
+          `document.querySelector(${JSON.stringify(selector)}).click()`,
+        ),
+      close: async () => {
+        await session.send("Target.closeTarget", { targetId });
+        await session.detach();
+      },
+    };
+  };
   const openPopup = async (tab: typeof page) => {
     await tab.bringToFront();
     const popup = await context.newPage();
@@ -267,6 +336,9 @@ try {
     return popup;
   };
   await openActionPopup(page);
+  const firstActionPopup = await actionPopup();
+  await firstActionPopup.status(/^Ready to analyze main at /);
+  await firstActionPopup.close();
   const popup = await openPopup(page);
   await popup
     .getByText(/Ready to analyze main at/)
@@ -301,17 +373,17 @@ try {
   await popup.close();
   const interruptedLookupPopup = await context.newPage();
   await interruptedLookupPopup.addInitScript(() => {
-    const sendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
-    chrome.runtime.sendMessage = ((
-      message: { type?: string },
-      callback: (value: unknown) => void,
-    ) => {
-      if (message.type === "repository.lookup") {
-        setTimeout(() => callback(undefined), 0);
-        return;
-      }
-      return sendMessage(message, callback);
-    }) as typeof chrome.runtime.sendMessage;
+    const connect = chrome.runtime.connect.bind(chrome.runtime);
+    chrome.runtime.connect = ((info: chrome.runtime.ConnectInfo) => {
+      const port = connect(info);
+      const postMessage = port.postMessage.bind(port);
+      port.postMessage = (message: { type?: string }) => {
+        if (message.type === "repository.lookup")
+          throw new Error("Extension unavailable");
+        postMessage(message);
+      };
+      return port;
+    }) as typeof chrome.runtime.connect;
   });
   await interruptedLookupPopup.goto(`${extensionUrl}/popup.html`);
   await page.bringToFront();
@@ -479,19 +551,25 @@ try {
   );
   const switchedCancel = await switchingPopup.evaluate(
     ({ tabId, targetRequestId }) =>
-      new Promise<{ type?: string }>((resolve) =>
-        chrome.runtime.sendMessage(
-          {
-            protocolVersion: 1,
-            type: "analysis.cancel",
-            requestId: crypto.randomUUID(),
-            navigationId: crypto.randomUUID(),
-            targetRequestId,
-            tabId,
+      new Promise<{ type?: string }>((resolve) => {
+        const port = chrome.runtime.connect({ name: "culverin.popup" });
+        const requestId = crypto.randomUUID();
+        port.onMessage.addListener(
+          (message: { requestId?: string; type?: string }) => {
+            if (message.requestId !== requestId) return;
+            port.disconnect();
+            resolve(message);
           },
-          resolve,
-        ),
-      ),
+        );
+        port.postMessage({
+          protocolVersion: 1,
+          type: "analysis.cancel",
+          requestId,
+          navigationId: crypto.randomUUID(),
+          targetRequestId,
+          tabId,
+        });
+      }),
     { tabId: repositoryTabId, targetRequestId: switchedJobs?.[0]?.requestId },
   );
   assert.equal(switchedCancel.type, "analysis.canceled");
@@ -612,8 +690,9 @@ try {
     ),
     0,
   );
-  const resultPopup = await openPopup(page);
-  await resultPopup.getByText(/Ready to analyze main at/).waitFor();
+  await openActionPopup(page);
+  const resultPopup = await actionPopup();
+  await resultPopup.status(/^Ready to analyze main at /);
   assert.equal(
     await worker.evaluate(
       () =>
@@ -622,7 +701,7 @@ try {
     ),
     0,
   );
-  await resultPopup.getByRole("button", { name: "Analyze repository" }).click();
+  await resultPopup.click("#analyze");
   await worker.evaluate(async () => {
     const scope = globalThis as typeof globalThis & {
       fixtureRelease?: () => void;
@@ -718,6 +797,55 @@ try {
     ),
     1,
   );
+  const restartPopup = await openPopup(page);
+  const cachedStatus =
+    "Cached local analysis. Public visibility metadata may be up to one minute old.";
+  await restartPopup.getByText(cachedStatus).waitFor();
+  const restartControl = await context.newCDPSession(page);
+  await restartControl.send("ServiceWorker.enable");
+  await restartControl.send("ServiceWorker.stopAllWorkers");
+  await restartControl.detach();
+  await page.waitForTimeout(1000);
+  await restartPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+  await restartPopup.waitForFunction(
+    () =>
+      document.querySelector("#status")?.textContent !==
+      "Resolving default branch…",
+  );
+  assert.equal(
+    await restartPopup.locator("#status").textContent(),
+    cachedStatus,
+  );
+  await restartPopup.getByText("1 code lines", { exact: true }).waitFor();
+  const impostorDisconnected = await harness.evaluate(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const impostor = chrome.runtime.connect({ name: "culverin.popup" });
+        impostor.onDisconnect.addListener(() => resolve(true));
+        setTimeout(() => resolve(false), 2000);
+      }),
+  );
+  assert.equal(impostorDisconnected, true);
+  const messageChannel = await restartPopup.evaluate(
+    (tabId) =>
+      new Promise<string>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.status",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            tabId,
+          },
+          () => resolve(chrome.runtime.lastError ? "rejected" : "handled"),
+        ),
+      ),
+    repositoryTabId,
+  );
+  assert.equal(messageChannel, "rejected");
+  await restartPopup.close();
   const isolation = await context.newCDPSession(page);
   const isolatedContexts: { id: number; origin: string }[] = [];
   isolation.on("Runtime.executionContextCreated", ({ context }) => {

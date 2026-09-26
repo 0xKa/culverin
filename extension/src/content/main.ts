@@ -6,8 +6,18 @@ import {
   type PublicReply,
   type PublicRequest,
 } from "../github/public-protocol";
+import { failureMessages } from "../github/failure-messages";
 import { pageContext, type PageRepository } from "./repository";
-import { createSummaryUi, showTotalCodeLines, type SummaryUi } from "./ui";
+import {
+  createSummaryUi,
+  failureState,
+  lookupFailureState,
+  partialState,
+  showState,
+  type RowAction,
+  type RowState,
+  type SummaryUi,
+} from "./ui";
 
 type View = {
   url: string;
@@ -15,7 +25,10 @@ type View = {
   repository: PageRepository;
   ui: SummaryUi;
   lookupRequestId?: string;
+  analysisRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
+  analysisTimer?: ReturnType<typeof setTimeout>;
+  retryTimer?: ReturnType<typeof setTimeout>;
   port: chrome.runtime.Port;
   messageListener: (
     message: unknown,
@@ -32,11 +45,7 @@ function routeUrl(): string {
 }
 
 function currentView(candidate: View): boolean {
-  return (
-    view === candidate &&
-    candidate.url === routeUrl() &&
-    candidate.ui.host.isConnected
-  );
+  return view === candidate && candidate.url === routeUrl();
 }
 
 function send(
@@ -65,34 +74,66 @@ function send(
   return { requestId, response };
 }
 
+function setState(current: View, state: RowState): void {
+  clearTimeout(current.retryTimer);
+  showState(current.ui, state);
+}
+
+function rateLimit(current: View, retryAt?: number): void {
+  setState(current, failureState("rate_limited", retryAt));
+  const until = retryAt && retryAt > Date.now() ? retryAt : Date.now() + 60_000;
+  current.retryTimer = setTimeout(() => {
+    if (currentView(current) && !current.analysisRequestId)
+      setState(current, { kind: "idle" });
+  }, until - Date.now());
+}
+
+async function compatibleTotal(
+  result: Extract<PublicReply, { type: "repository.cache_hit" }>["result"],
+): Promise<number | undefined> {
+  return result.engine.rulesHash === (await effectiveRulesHash([]))
+    ? result.totals.code
+    : undefined;
+}
+
 async function lookup(current: View): Promise<void> {
   const { requestId, response } = send(current, "repository.lookup", {
     repository: current.repository,
   });
   current.lookupRequestId = requestId;
+  const active = () =>
+    currentView(current) &&
+    current.lookupRequestId === requestId &&
+    !current.analysisRequestId;
   const timer = setTimeout(() => {
-    if (currentView(current) && current.lookupRequestId === requestId)
+    if (active()) {
       current.lookupRequestId = undefined;
+      setState(current, { kind: "idle" });
+    }
   }, 12_000);
   current.timer = timer;
   try {
     const reply = await response;
-    if (
-      !currentView(current) ||
-      current.lookupRequestId !== requestId ||
-      reply.type !== "repository.cache_hit"
-    )
+    if (!active()) return;
+    if (reply.type === "analysis.failed") {
+      if (reply.code === "rate_limited") rateLimit(current, reply.retryAt);
+      else setState(current, lookupFailureState(reply.code));
       return;
-    const hash = await effectiveRulesHash([]);
-    if (!currentView(current) || current.lookupRequestId !== requestId) return;
-    showTotalCodeLines(
-      current.ui,
-      reply.result.engine.rulesHash === hash && reply.result.coverage.complete
-        ? reply.result.totals.code
-        : undefined,
+    }
+    if (reply.type !== "repository.cache_hit") {
+      setState(current, { kind: "idle" });
+      return;
+    }
+    const total = reply.result.coverage.complete
+      ? await compatibleTotal(reply.result)
+      : undefined;
+    if (!active()) return;
+    setState(
+      current,
+      total === undefined ? { kind: "idle" } : { kind: "complete", total },
     );
   } catch {
-    if (currentView(current)) showTotalCodeLines(current.ui, undefined);
+    if (active()) setState(current, { kind: "idle" });
   } finally {
     clearTimeout(timer);
     if (current.lookupRequestId === requestId)
@@ -100,46 +141,119 @@ async function lookup(current: View): Promise<void> {
   }
 }
 
+function stopAnalysis(current: View, requestId: string): boolean {
+  if (current.analysisRequestId !== requestId) return false;
+  current.analysisRequestId = undefined;
+  clearTimeout(current.analysisTimer);
+  return true;
+}
+
+async function finishAnalysis(
+  current: View,
+  requestId: string,
+  reply: PublicReply,
+): Promise<void> {
+  if (!currentView(current) || current.analysisRequestId !== requestId) return;
+  if (reply.type === "analysis.completed") {
+    const total = await compatibleTotal(reply.result);
+    if (!currentView(current) || !stopAnalysis(current, requestId)) return;
+    if (total === undefined)
+      setState(current, {
+        kind: "retry",
+        detail: failureMessages.internal_error,
+      });
+    else if (!reply.result.coverage.complete)
+      setState(current, partialState(reply.result.coverage.incompleteReasons));
+    else setState(current, { kind: "complete", total });
+    return;
+  }
+  stopAnalysis(current, requestId);
+  if (reply.type !== "analysis.failed")
+    setState(current, {
+      kind: "retry",
+      detail: failureMessages.internal_error,
+    });
+  else if (reply.code === "rate_limited") rateLimit(current, reply.retryAt);
+  else setState(current, failureState(reply.code, reply.retryAt));
+}
+
+async function analyze(current: View): Promise<void> {
+  if (current.analysisRequestId) return;
+  const { requestId, response } = send(current, "analysis.request", {
+    repository: current.repository,
+  });
+  current.lookupRequestId = undefined;
+  current.analysisRequestId = requestId;
+  setState(current, { kind: "running", phase: "resolving" });
+  current.analysisTimer = setTimeout(() => {
+    if (!currentView(current) || !stopAnalysis(current, requestId)) return;
+    setState(current, failureState("analysis_interrupted"));
+    void send(current, "analysis.cancel", {
+      targetRequestId: requestId,
+    }).response.catch(() => undefined);
+  }, 60_000);
+  try {
+    await finishAnalysis(current, requestId, await response);
+  } catch {
+    if (currentView(current) && stopAnalysis(current, requestId))
+      setState(current, failureState("analysis_interrupted"));
+  }
+}
+
+function cancel(current: View): void {
+  const requestId = current.analysisRequestId;
+  if (!requestId || !stopAnalysis(current, requestId)) return;
+  setState(current, { kind: "idle" });
+  void send(current, "analysis.cancel", {
+    targetRequestId: requestId,
+  }).response.catch(() => undefined);
+}
+
+function activate(current: View, action: RowAction): void {
+  if (!currentView(current)) return;
+  if (action === "cancel") cancel(current);
+  else void analyze(current);
+}
+
 function detach(): void {
   const current = view;
   if (!current) return;
   clearTimeout(current.timer);
+  clearTimeout(current.analysisTimer);
+  clearTimeout(current.retryTimer);
   current.port.disconnect();
   chrome.runtime.onMessage.removeListener(current.messageListener);
   current.ui.host.remove();
   view = undefined;
 }
 
-function mount(): void {
-  const context = pageContext(location.href, document);
-  if (!context) {
-    detach();
-    return;
-  }
-  if (
-    view?.url === routeUrl() &&
-    view.ui.host.isConnected &&
-    view.ui.host.parentElement === context.anchor
-  )
-    return;
-  detach();
-  const ui = createSummaryUi();
-  context.anchor.prepend(ui.host);
+function create(repository: PageRepository): View {
   const current: View = {
     url: routeUrl(),
     navigationId: crypto.randomUUID(),
-    repository: context.repository,
-    ui,
+    repository,
+    ui: createSummaryUi((action) => activate(current, action)),
     port: chrome.runtime.connect({ name: PUBLIC_PORT }),
     messageListener: () => undefined,
   };
-  view = current;
   current.messageListener = (message, sender) => {
     if (
       sender.id !== chrome.runtime.id ||
       sender.url !== WORKER_URL ||
       sender.tab !== undefined ||
-      !currentView(current) ||
+      !currentView(current)
+    )
+      return;
+    const requestId = current.analysisRequestId;
+    if (
+      requestId &&
+      validPublicReply(message, requestId, current.navigationId) &&
+      message.type === "analysis.progress"
+    ) {
+      setState(current, { kind: "running", phase: message.phase });
+      return;
+    }
+    if (
       !validSummaryUpdate(message) ||
       message.repository.owner.toLowerCase() !==
         current.repository.owner.toLowerCase() ||
@@ -147,10 +261,26 @@ function mount(): void {
         current.repository.name.toLowerCase()
     )
       return;
-    showTotalCodeLines(current.ui, message.totalCodeLines);
+    if (requestId) stopAnalysis(current, requestId);
+    current.lookupRequestId = undefined;
+    setState(current, { kind: "complete", total: message.totalCodeLines });
   };
   chrome.runtime.onMessage.addListener(current.messageListener);
-  void lookup(current);
+  return current;
+}
+
+function mount(): void {
+  if (view && view.url !== routeUrl()) detach();
+  const context = pageContext(location.href, document);
+  if (!context) return;
+  if (!view) {
+    view = create(context.repository);
+    context.anchor.after(view.ui.host);
+    void lookup(view);
+    return;
+  }
+  if (view.ui.host.previousElementSibling !== context.anchor)
+    context.anchor.after(view.ui.host);
 }
 
 function schedule(): void {
@@ -176,5 +306,6 @@ new MutationObserver(schedule).observe(document.documentElement, {
 });
 window.addEventListener("popstate", schedule);
 window.addEventListener("pageshow", schedule);
+window.addEventListener("resize", schedule);
 window.addEventListener("pagehide", detach);
 schedule();

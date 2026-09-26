@@ -36,12 +36,11 @@ export function pageContext(
 ): PageContext | undefined {
   const repository = pageRepository(url);
   if (!repository) return undefined;
-  const header = document.querySelector("#repository-container-header");
-  if (visible(header)) return { repository, anchor: header };
-  const marker = document.querySelector(
-    'meta[name="octolytics-dimension-repository_id"][content]',
-  );
-  const main = document.querySelector("main");
-  if (marker && visible(main)) return { repository, anchor: main };
+  const forks = `/${repository.owner}/${repository.name}/forks`.toLowerCase();
+  for (const link of Array.from(document.querySelectorAll(".mt-2 > a[href]"))) {
+    const row = link.parentElement;
+    if (link.getAttribute("href")?.toLowerCase() === forks && visible(row))
+      return { repository, anchor: row };
+  }
   return undefined;
 }

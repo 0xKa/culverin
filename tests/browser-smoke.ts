@@ -119,6 +119,22 @@ try {
   let fixtureMode: "ok" | "empty" | "rate" | "slow" | "shared" | "private" =
     "ok";
   let slowArchiveStarted: (() => void) | undefined;
+  const repositoryFixture = `<!doctype html><html><head><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></main><script>
+const sync = () => {
+  const [, owner, name] = location.pathname.split("/");
+  document.querySelector("#forks").setAttribute("href", "/" + owner + "/" + name + "/forks");
+};
+for (const method of ["pushState", "replaceState"]) {
+  const original = history[method].bind(history);
+  history[method] = (...args) => {
+    original(...args);
+    sync();
+  };
+}
+addEventListener("popstate", sync);
+sync();
+</script></body></html>`;
+  const summary = page.locator("[data-culverin-root]");
   await context.route(
     "https://api.github.com/repos/culverin/bootstrap-fixture**",
     (route) => {
@@ -187,36 +203,31 @@ try {
     route.fulfill({
       status: 200,
       contentType: "text/html",
-      body: "<!doctype html><html><body><main id='repository-container-header'>Fixture</main></body></html>",
+      body: repositoryFixture,
     }),
   );
   await page.goto("https://github.com/culverin/bootstrap-fixture#readme");
-  await page.getByText("Culverin | Total LOC: —").waitFor();
-  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
-  assert.equal(
-    await page
-      .locator("[data-culverin-root]")
-      .evaluate(
-        (host) =>
-          host.shadowRoot?.querySelector('[role="status"]')?.textContent,
-      ),
-    "Culverin | Total LOC: —",
+  await page.getByText("Count lines of code").waitFor();
+  assert.equal(await summary.count(), 1);
+  assert.deepEqual(
+    await summary.evaluate((host) => ({
+      after: host.previousElementSibling?.querySelector("a")?.id,
+      before: host.nextElementSibling?.textContent,
+      live: host.shadowRoot?.querySelector('[aria-live="polite"]')?.textContent,
+      icon: host.shadowRoot?.querySelector("svg")?.getAttribute("fill"),
+    })),
+    {
+      after: "forks",
+      before: "Report repository",
+      live: "Count lines of code",
+      icon: "currentColor",
+    },
   );
   assert.equal(
     await page.getByRole("button", { name: "Analyze repository" }).count(),
     0,
   );
   assert.equal(fixtureArchiveRequests, 0);
-  assert.equal(
-    await page
-      .locator("[data-culverin-root]")
-      .evaluate(
-        (host) =>
-          host.shadowRoot?.querySelector('[role="status"][aria-live="polite"]')
-            ?.textContent,
-      ),
-    "Culverin | Total LOC: —",
-  );
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker"));
@@ -231,7 +242,7 @@ try {
   await workerControl.detach();
   await page.waitForTimeout(1500);
   assert.equal(fixtureApiRequests, beforeWorkerStopApiRequests);
-  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  assert.equal(await page.getByText("Count lines of code").count(), 1);
   const openActionPopup = async (tab: typeof page) => {
     await tab.bringToFront();
     const opened = await harness.evaluate(
@@ -415,7 +426,7 @@ try {
   assert.equal(fixtureArchiveRequests, 1);
   await failedPopup.close();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(fixtureArchiveRequests, 1);
   await page.evaluate(() => {
     history.pushState({}, "", "/culverin/bootstrap-fixture/issues");
@@ -424,7 +435,7 @@ try {
   await page.evaluate(() => {
     history.replaceState({}, "", "/culverin/bootstrap-fixture");
   });
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   assert.equal(fixtureArchiveRequests, 1);
   const originalRoot = await page
@@ -434,7 +445,7 @@ try {
     history.pushState({}, "", "/culverin/bootstrap-other");
   });
   await page.waitForFunction((root) => !root.isConnected, originalRoot);
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   assert.equal(fixtureArchiveRequests, 1);
   const otherRoot = await page.locator("[data-culverin-root]").elementHandle();
@@ -442,29 +453,36 @@ try {
     history.back();
   });
   await page.waitForFunction((root) => !root.isConnected, otherRoot);
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await page.evaluate(() => history.forward());
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await page.evaluate(() => history.back());
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  const beforeReplacementApiRequests = fixtureApiRequests;
   await page.evaluate(() => {
-    const marker = document.querySelector("#repository-container-header");
-    if (!marker) throw new Error("Missing repository marker");
-    const replacement = document.createElement("main");
-    replacement.id = "repository-container-header";
-    marker.replaceWith(replacement);
+    const about = document.querySelector("#about");
+    if (!about) throw new Error("Missing About section");
+    const replacement = about.cloneNode(true) as Element;
+    replacement.querySelector("[data-culverin-root]")?.remove();
+    about.replaceWith(replacement);
   });
-  await page.getByText("Culverin | Total LOC: —").waitFor();
-  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#about #forks")
+      ?.parentElement?.nextElementSibling?.hasAttribute("data-culverin-root"),
+  );
+  await page.getByText("Count lines of code").waitFor();
+  assert.equal(await summary.count(), 1);
+  assert.equal(fixtureApiRequests, beforeReplacementApiRequests);
   assert.equal(fixtureArchiveRequests, 1);
   fixtureMode = "slow";
   const started = new Promise<void>((resolve) => {
     slowArchiveStarted = resolve;
   });
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   const cancelPopup = await openPopup(page);
   await cancelPopup.getByRole("button", { name: "Analyze repository" }).click();
   await started;
@@ -476,7 +494,7 @@ try {
   await cancelPopup.getByRole("button", { name: "Cancel analysis" }).click();
   await cancelPopup.getByText("Analysis canceled.").waitFor();
   await page.waitForTimeout(1700);
-  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  assert.equal(await page.getByText("Count lines of code").count(), 1);
   await cancelPopup.close();
   const navigationArchive = new Promise<void>((resolve) => {
     slowArchiveStarted = resolve;
@@ -513,7 +531,7 @@ try {
   await page.evaluate(() => {
     history.replaceState({}, "", "/culverin/bootstrap-fixture");
   });
-  await page.getByText("Culverin | Total LOC: —").waitFor({ timeout: 1000 });
+  await page.getByText("Count lines of code").waitFor({ timeout: 1000 });
   const retryPopup = await openPopup(page);
   await retryPopup.getByRole("button", { name: "Analyze repository" }).click();
   await retryPopup
@@ -614,21 +632,25 @@ try {
   fixtureMode = "empty";
   await clearPublicCache();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await summary.waitFor({ state: "attached" });
   const emptyPopup = await openPopup(page);
   await emptyPopup
     .getByText("This repository has no default-branch commit to analyze.")
     .waitFor();
   await emptyPopup.close();
+  await page.waitForTimeout(500);
+  assert.equal(await summary.isHidden(), true);
   fixtureMode = "private";
   await clearPublicCache();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await summary.waitFor({ state: "attached" });
   const privatePopup = await openPopup(page);
   await privatePopup
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   await privatePopup.close();
+  await page.waitForTimeout(500);
+  assert.equal(await summary.isHidden(), true);
   assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
@@ -681,7 +703,7 @@ try {
     { bytes: publicFixtureBytes, sha: publicSha },
   );
   await page.goto("https://github.com/culverin/bootstrap-fixture");
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   assert.equal(
     await worker.evaluate(
       () =>
@@ -717,7 +739,7 @@ try {
     return state["github.job"] as { owner: string }[] | undefined;
   });
   assert.equal(heldPopupJobs?.length, 1);
-  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  assert.equal(await page.getByText("Count lines of code").count(), 1);
   const resumedPopup = await openPopup(page);
   await resumedPopup
     .getByText("Analysis in progress. Closing the popup does not stop it.")
@@ -743,7 +765,7 @@ try {
       /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
     )
     .waitFor();
-  await page.getByText("Culverin | Total LOC: 1").waitFor();
+  await page.getByText("1 line of code", { exact: true }).waitFor();
   const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();
   await resumedPopup.keyboard.press("Enter");
@@ -788,7 +810,7 @@ try {
   );
   await resumedPopup.close();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: 1").waitFor();
+  await page.getByText("1 line of code", { exact: true }).waitFor();
   assert.equal(
     await worker.evaluate(
       () =>
@@ -944,7 +966,7 @@ try {
   });
   await interruptionCdp.send("ServiceWorker.enable");
   await page.goto("https://github.com/culverin/bootstrap-fixture");
-  await page.getByText("Culverin | Total LOC: 1").waitFor();
+  await page.getByText("1 line of code", { exact: true }).waitFor();
   assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "private";
   const privateObservation = await options.evaluate(
@@ -1001,7 +1023,7 @@ try {
     { bytes: partialBytes, sha: publicSha },
   );
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   const partialPopup = await openPopup(page);
   await partialPopup.getByText(/Ready to analyze main at/).waitFor();
   await partialPopup
@@ -1010,7 +1032,7 @@ try {
   await partialPopup
     .getByText("Partial local analysis.")
     .waitFor({ timeout: 15_000 });
-  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  assert.equal(await page.getByText("Count lines of code").count(), 1);
   await partialPopup.close();
   const persistedPartial = await options.evaluate(async () => {
     const state = await chrome.storage.local.get("culverin.public-results.v1");
@@ -1028,7 +1050,7 @@ try {
   });
   await clearPublicCache();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   fixtureMode = "slow";
   const interruptedArchive = new Promise<void>((resolve) => {
     slowArchiveStarted = resolve;
@@ -1103,7 +1125,7 @@ try {
   await interruptionCdp.detach();
   fixtureMode = "shared";
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   const detachedArchive = new Promise<void>((resolve) => {
     slowArchiveStarted = resolve;
   });
@@ -1129,7 +1151,7 @@ try {
   });
   assert.equal(detachedJobs, undefined);
   assert.equal(fixtureArchiveRequests, 8);
-  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
+  assert.equal(await page.getByText("Count lines of code").count(), 1);
   fixtureMode = "ok";
   if (process.env.CULVERIN_LIVE_PUBLIC === "1") {
     const networkOrigins = new Set<string>();
@@ -1851,7 +1873,7 @@ try {
   await page.evaluate(() =>
     history.pushState({}, "", "/culverin/bootstrap-other"),
   );
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("Count lines of code").waitFor();
   const zeroPopup = await openPopup(page);
   await zeroPopup.getByRole("button", { name: "Analyze repository" }).click();
   await zeroPopup.getByText("0 code lines", { exact: true }).waitFor();
@@ -1861,15 +1883,153 @@ try {
       zeroDetails?.includes("0.0% of code lines"),
   );
   assert.equal(await zeroPopup.getByText(/NaN|Infinity/).count(), 0);
-  await page.getByText("Culverin | Total LOC: 0").waitFor();
+  await page.getByText("0 lines of code", { exact: true }).waitFor();
   await zeroPopup.close();
   await page.evaluate(() =>
     history.pushState({}, "", "/culverin/bootstrap-fixture"),
   );
+  await clearPublicCache();
+  await page.reload();
+  const countButton = page.getByRole("button", {
+    name: "Count lines of code",
+  });
+  const rowTitle = () =>
+    summary.evaluate((host) =>
+      host.shadowRoot?.querySelector(".row")?.getAttribute("title"),
+    );
+  await countButton.waitFor();
+  await summary.evaluate((host) =>
+    (host.shadowRoot?.querySelector("button") as HTMLButtonElement).click(),
+  );
+  await page.waitForTimeout(500);
+  assert.equal(await countButton.count(), 1);
+  await summary.evaluate((host) => {
+    const labels: string[] = [];
+    const live = host.shadowRoot!.querySelector("[aria-live]")!;
+    new MutationObserver(() => labels.push(live.textContent ?? "")).observe(
+      live,
+      { childList: true, subtree: true, characterData: true },
+    );
+    (window as typeof window & { culverinLabels?: string[] }).culverinLabels =
+      labels;
+  });
+  await countButton.click();
+  await page
+    .getByText("0 lines of code", { exact: true })
+    .waitFor({ timeout: 15_000 });
+  assert.equal(await rowTitle(), "0 lines of code");
+  assert.equal(await page.getByRole("button", { name: /lines/ }).count(), 0);
+  const pageLabels = await page.evaluate(
+    () =>
+      (window as typeof window & { culverinLabels?: string[] }).culverinLabels,
+  );
+  assert.equal(pageLabels?.[0], "Preparing to count lines…");
+  assert.ok(
+    pageLabels?.some((label) =>
+      ["Downloading source…", "Unpacking source…", "Counting lines…"].includes(
+        label,
+      ),
+    ),
+    `progress labels: ${pageLabels?.join(", ")}`,
+  );
+  await zeroWorker.evaluate((sha) => {
+    const scope = globalThis as typeof globalThis & {
+      pageOriginalFetch?: typeof fetch;
+      pageFetchCount?: number;
+      pageRelease?: () => void;
+    };
+    scope.pageOriginalFetch = fetch;
+    scope.pageFetchCount = 0;
+    globalThis.fetch = (async (input, init) => {
+      if (String(input).endsWith(`/tarball/${sha}`)) {
+        scope.pageFetchCount = (scope.pageFetchCount ?? 0) + 1;
+        await new Promise<void>((resolve, reject) => {
+          scope.pageRelease = resolve;
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        });
+        return new Response(null, { status: 404 });
+      }
+      return scope.pageOriginalFetch!(input, init);
+    }) as typeof fetch;
+  }, publicSha);
+  const pageFetches = (count: number) =>
+    zeroWorker.evaluate(async (count) => {
+      const scope = globalThis as typeof globalThis & {
+        pageFetchCount?: number;
+      };
+      for (let attempt = 0; attempt < 250; attempt++) {
+        if ((scope.pageFetchCount ?? 0) >= count) return scope.pageFetchCount;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      return scope.pageFetchCount;
+    }, count);
+  await clearPublicCache();
+  await page.reload();
+  await countButton.click();
+  assert.equal(await pageFetches(1), 1);
+  const running = page.getByRole("button", {
+    name: "Preparing to count lines…",
+  });
+  await running.waitFor();
+  assert.equal(await rowTitle(), "Click to cancel");
+  await running.click();
+  await countButton.waitFor();
+  const canceledPageJobs = await options.evaluate(async () => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = await chrome.storage.session.get("github.job");
+      if (state["github.job"] === undefined) return undefined;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return (await chrome.storage.session.get("github.job"))["github.job"];
+  });
+  assert.equal(canceledPageJobs, undefined);
+  await page.waitForTimeout(500);
+  assert.equal(await countButton.count(), 1);
+  await countButton.click();
+  assert.equal(await pageFetches(2), 2);
+  await zeroWorker.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { pageRelease?: () => void }
+    ).pageRelease?.(),
+  );
+  const retryButton = page.getByRole("button", {
+    name: "Couldn't count lines · Retry",
+  });
+  await retryButton.waitFor({ timeout: 15_000 });
+  assert.ok((await rowTitle())?.length);
+  await zeroWorker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      pageOriginalFetch?: typeof fetch;
+      pageFetchCount?: number;
+      pageRelease?: () => void;
+    };
+    if (scope.pageOriginalFetch) globalThis.fetch = scope.pageOriginalFetch;
+    delete scope.pageOriginalFetch;
+    delete scope.pageFetchCount;
+    delete scope.pageRelease;
+  });
+  await page.setViewportSize({ width: 600, height: 720 });
+  await page.reload();
+  await page.waitForTimeout(1000);
+  assert.equal(await summary.count(), 0);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await countButton.waitFor();
+  assert.equal(await summary.count(), 1);
   fixtureMode = "rate";
   await clearPublicCache();
   await page.reload();
-  await page.getByText("Culverin | Total LOC: —").waitFor();
+  await page.getByText("GitHub rate limit, try later").waitFor();
+  assert.match(
+    (await summary.evaluate((host) =>
+      host.shadowRoot?.querySelector(".row")?.getAttribute("title"),
+    )) ?? "",
+    /^GitHub rate limit reached. Retry after /,
+  );
+  assert.equal(await page.getByRole("button", { name: /lines/ }).count(), 0);
   const limitedPopup = await openPopup(page);
   await limitedPopup
     .getByText(/GitHub rate limit reached. Retry after/)

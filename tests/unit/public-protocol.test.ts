@@ -54,36 +54,44 @@ test("accepts only GitHub repository overview routes", () => {
     expect(pageRepository(url)).toBeUndefined();
 });
 
-test("adapts repository placement without mounting on unrelated pages", () => {
-  const header = {} as Element;
-  const main = {} as Element;
-  const document = {
-    querySelector(selector: string) {
-      if (selector === "#repository-container-header") return header;
-      if (selector === "main") return main;
-      if (selector.includes("octolytics-dimension-repository_id"))
-        return {} as Element;
-      return null;
-    },
-  } as Document;
+test("anchors the summary after the visible About forks row", () => {
+  const row = (visible: boolean) =>
+    ({ checkVisibility: () => visible }) as unknown as Element;
+  const link = (href: string, parent: Element) =>
+    ({ parentElement: parent, getAttribute: () => href }) as unknown as Element;
+  const page = (links: Element[]) =>
+    ({
+      querySelectorAll(selector: string) {
+        return selector === ".mt-2 > a[href]" ? links : [];
+      },
+    }) as unknown as Document;
+  const hidden = row(false);
+  const forks = row(true);
+  const document = page([
+    link("/owner/repo/stargazers", row(true)),
+    link("/Owner/Repo/forks", hidden),
+    link("/other/repo/forks", row(true)),
+    link("/owner/repo/forks", forks),
+  ]);
   expect(pageContext("https://github.com/owner/repo", document)).toEqual({
     repository: { owner: "owner", name: "repo" },
-    anchor: header,
+    anchor: forks,
   });
   expect(
     pageContext("https://github.com/owner/repo/issues", document),
   ).toBeUndefined();
-  const fallback = {
-    querySelector(selector: string) {
-      if (selector === "main") return main;
-      if (selector.includes("octolytics-dimension-repository_id"))
-        return {} as Element;
-      return null;
-    },
-  } as Document;
-  expect(pageContext("https://github.com/owner/repo", fallback)?.anchor).toBe(
-    main,
-  );
+  expect(
+    pageContext("https://github.com/OWNER/REPO#readme", document)?.anchor,
+  ).toBe(forks);
+  expect(
+    pageContext(
+      "https://github.com/owner/repo",
+      page([link("/owner/repo/forks", hidden)]),
+    ),
+  ).toBeUndefined();
+  expect(
+    pageContext("https://github.com/owner/repo", page([])),
+  ).toBeUndefined();
 });
 
 test("validates popup requests and compact page summary updates", () => {

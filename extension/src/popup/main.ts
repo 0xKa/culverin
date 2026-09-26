@@ -337,10 +337,6 @@ async function cancel(): Promise<void> {
 }
 
 function leaveRepository(): void {
-  const requestId = activeRequestId;
-  const pending = requestId
-    ? send("analysis.cancel", { targetRequestId: requestId })
-    : undefined;
   activeRequestId = undefined;
   lookupRequestId = undefined;
   target = undefined;
@@ -351,7 +347,6 @@ function leaveRepository(): void {
   clearResult();
   setBusy(false);
   setStatus("The active tab changed. Reopen the popup to analyze it.");
-  void pending?.response.catch(() => undefined);
 }
 
 function sameRepository(url: string, expected: PageRepository): boolean {

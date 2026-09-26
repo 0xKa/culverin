@@ -682,6 +682,21 @@ function handlePopupPublic(
   const { tabId, ...publicRequest } = request;
   const reply = (payload: PublicPayload) =>
     respond(publicReply(publicRequest, payload));
+  if (publicRequest.type === "analysis.cancel") {
+    const job = popupJobs.get(tabId);
+    const targetRequestId = publicRequest.targetRequestId!;
+    if (
+      !job ||
+      (targetRequestId !== job.requestId &&
+        targetRequestId !== job.viewer?.request.requestId)
+    ) {
+      reply({ type: "analysis.failed", code: "analysis_interrupted" });
+      return true;
+    }
+    endPopupJob(tabId, "cancel");
+    reply({ type: "analysis.canceled", targetRequestId });
+    return true;
+  }
   void (async () => {
     const [activeTab] = await chrome.tabs.query({
       active: true,
@@ -689,45 +704,26 @@ function handlePopupPublic(
     });
     const tab = await chrome.tabs.get(tabId);
     const repository = pageRepository(tab.url ?? "");
-    const isCancel = publicRequest.type === "analysis.cancel";
-    const repositoryMatches =
-      isCancel ||
-      (repository !== undefined &&
-        (!publicRequest.repository ||
-          sameRepository(publicRequest.repository, repository)));
-    if (activeTab?.id !== tabId || !repositoryMatches) {
-      reply({ type: "analysis.failed", code: "invalid_repository" });
-      return;
-    }
-    const job = popupJobs.get(tabId);
-    if (publicRequest.type === "analysis.cancel") {
-      const targetRequestId = publicRequest.targetRequestId!;
-      if (
-        !job ||
-        (targetRequestId !== job.requestId &&
-          targetRequestId !== job.viewer?.request.requestId)
-      ) {
-        reply({ type: "analysis.failed", code: "analysis_interrupted" });
-        return;
-      }
-      endPopupJob(tabId, "cancel");
-      reply({ type: "analysis.canceled", targetRequestId });
-      return;
-    }
-    if (!repository) {
+    if (
+      activeTab?.id !== tabId ||
+      !repository ||
+      (publicRequest.repository &&
+        !sameRepository(publicRequest.repository, repository))
+    ) {
       reply({ type: "analysis.failed", code: "invalid_repository" });
       return;
     }
     if (publicRequest.type === "analysis.status") {
-      if (!job || !sameRepository(repository, job.repository)) {
+      const running = popupJobs.get(tabId);
+      if (!running || !sameRepository(repository, running.repository)) {
         reply({ type: "analysis.status", state: "idle" });
         return;
       }
-      job.viewer = { port, request: publicRequest };
+      running.viewer = { port, request: publicRequest };
       reply({
         type: "analysis.status",
         state:
-          coordinator.status(job.owner) === "queued" ? "queued" : "running",
+          coordinator.status(running.owner) === "queued" ? "queued" : "running",
       });
       return;
     }

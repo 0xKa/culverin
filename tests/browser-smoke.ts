@@ -449,6 +449,65 @@ try {
     .waitFor();
   await retryPopup.close();
   assert.equal(fixtureArchiveRequests, 4);
+  fixtureMode = "slow";
+  const switchedArchive = new Promise<void>((resolve) => {
+    slowArchiveStarted = resolve;
+  });
+  const switchingPopup = await openPopup(page);
+  await switchingPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+  await switchedArchive;
+  const otherTab = await context.newPage();
+  await otherTab.bringToFront();
+  await switchingPopup
+    .getByText("The active tab changed. Reopen the popup to analyze it.")
+    .waitFor();
+  await page.waitForTimeout(300);
+  const switchedJobs = await harness.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { requestId: string }[] | undefined;
+  });
+  assert.equal(switchedJobs?.length, 1);
+  const repositoryTabId = await harness.evaluate(
+    async () =>
+      (
+        await chrome.tabs.query({
+          url: "https://github.com/culverin/bootstrap-fixture*",
+        })
+      )[0]?.id,
+  );
+  const switchedCancel = await switchingPopup.evaluate(
+    ({ tabId, targetRequestId }) =>
+      new Promise<{ type?: string }>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.cancel",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            targetRequestId,
+            tabId,
+          },
+          resolve,
+        ),
+      ),
+    { tabId: repositoryTabId, targetRequestId: switchedJobs?.[0]?.requestId },
+  );
+  assert.equal(switchedCancel.type, "analysis.canceled");
+  const switchedCanceledJobs = await harness.evaluate(async () => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = await chrome.storage.session.get("github.job");
+      if (state["github.job"] === undefined) return undefined;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return (await chrome.storage.session.get("github.job"))["github.job"];
+  });
+  assert.equal(switchedCanceledJobs, undefined);
+  await otherTab.close();
+  await switchingPopup.close();
+  fixtureMode = "ok";
+  assert.equal(fixtureArchiveRequests, 5);
   const clearPublicCache = async () => {
     const worker =
       context.serviceWorkers()[0] ??
@@ -492,7 +551,7 @@ try {
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   await privatePopup.close();
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
     route.fulfill({
@@ -747,7 +806,7 @@ try {
     },
     { state: "failed", code: "invalid_repository" },
   );
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   const interruptionCdp = await context.newCDPSession(harness);
   let interruptedVersion: string | undefined;
   interruptionCdp.on("ServiceWorker.workerVersionUpdated", (event) => {
@@ -758,7 +817,7 @@ try {
   await interruptionCdp.send("ServiceWorker.enable");
   await page.goto("https://github.com/culverin/bootstrap-fixture");
   await page.getByText("Culverin | Total LOC: 1").waitFor();
-  assert.equal(fixtureArchiveRequests, 4);
+  assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "private";
   const privateObservation = await options.evaluate(
     () =>
@@ -901,7 +960,7 @@ try {
     .getByText(/Analysis was interrupted/)
     .waitFor({ timeout: 15_000 });
   await page.waitForTimeout(1700);
-  assert.equal(fixtureArchiveRequests, 5);
+  assert.equal(fixtureArchiveRequests, 6);
   await interruptedPopup.close();
   fixtureMode = "ok";
   const recoveryPopup = await openPopup(page);
@@ -911,7 +970,7 @@ try {
   await recoveryPopup
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor({ timeout: 15_000 });
-  assert.equal(fixtureArchiveRequests, 6);
+  assert.equal(fixtureArchiveRequests, 7);
   await recoveryPopup.close();
   await interruptionCdp.detach();
   fixtureMode = "shared";
@@ -941,7 +1000,7 @@ try {
     return (await chrome.storage.session.get("github.job"))["github.job"];
   });
   assert.equal(detachedJobs, undefined);
-  assert.equal(fixtureArchiveRequests, 7);
+  assert.equal(fixtureArchiveRequests, 8);
   assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
   fixtureMode = "ok";
   if (process.env.CULVERIN_LIVE_PUBLIC === "1") {

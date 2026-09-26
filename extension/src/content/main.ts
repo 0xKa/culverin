@@ -100,17 +100,6 @@ async function lookup(current: View): Promise<void> {
   }
 }
 
-function watchPort(current: View, port: chrome.runtime.Port): void {
-  current.port = port;
-  port.onDisconnect.addListener(() => {
-    if (!currentView(current)) return;
-    current.lookupRequestId = undefined;
-    clearTimeout(current.timer);
-    watchPort(current, chrome.runtime.connect({ name: PUBLIC_PORT }));
-    void lookup(current);
-  });
-}
-
 function detach(): void {
   const current = view;
   if (!current) return;
@@ -160,7 +149,6 @@ function mount(): void {
       return;
     showTotalCodeLines(current.ui, message.totalCodeLines);
   };
-  watchPort(current, current.port);
   chrome.runtime.onMessage.addListener(current.messageListener);
   void lookup(current);
 }

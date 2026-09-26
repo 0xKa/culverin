@@ -224,6 +224,14 @@ try {
   await harness.goto(
     `chrome-extension://${new URL(worker.url()).host}/test-harness.html`,
   );
+  const beforeWorkerStopApiRequests = fixtureApiRequests;
+  const workerControl = await context.newCDPSession(page);
+  await workerControl.send("ServiceWorker.enable");
+  await workerControl.send("ServiceWorker.stopAllWorkers");
+  await workerControl.detach();
+  await page.waitForTimeout(1500);
+  assert.equal(fixtureApiRequests, beforeWorkerStopApiRequests);
+  assert.equal(await page.getByText("Culverin | Total LOC: —").count(), 1);
   const openActionPopup = async (tab: typeof page) => {
     await tab.bringToFront();
     const opened = await harness.evaluate(

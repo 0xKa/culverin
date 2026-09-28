@@ -18,8 +18,7 @@
       h1 {
         margin-bottom: 4px;
       }
-      section,
-      details {
+      section {
         border: 1px solid CanvasText;
         border-radius: 8px;
         padding: 16px;
@@ -28,32 +27,12 @@
       section h2 {
         margin-top: 0;
       }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 12px 0;
-      }
-      label {
-        display: block;
-        margin: 10px 0;
-      }
-      input {
-        display: block;
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 360px;
-        padding: 7px;
-        font: inherit;
-      }
       button {
         padding: 7px 12px;
         font: inherit;
         cursor: pointer;
       }
-      button:focus-visible,
-      summary:focus-visible,
-      input:focus-visible {
+      button:focus-visible {
         outline: 3px solid Highlight;
         outline-offset: 3px;
       }
@@ -76,7 +55,8 @@
       <h1>Culverin</h1>
       <p>
         Repository source is downloaded directly from GitHub and analyzed in
-        your browser only when you select Analyze.
+        your browser only when you select Analyze. This version analyzes public
+        repositories only.
       </p>
       <section aria-labelledby="cache-heading">
         <h2 id="cache-heading">Public result cache</h2>
@@ -86,29 +66,6 @@
         </p>
         <button id="clear-public" type="button">Clear public cache</button>
       </section>
-      <details>
-        <summary>Analysis and access controls</summary>
-        <p>
-          Use these controls to check a repository or manage temporary
-          browser-session access.
-        </p>
-        <label>Owner <input id="owner" autocomplete="off" /></label>
-        <label>Repository <input id="name" autocomplete="off" /></label>
-        <div class="controls">
-          <button id="lookup" type="button">Resolve repository</button>
-          <button id="download" type="button">Analyze archive</button>
-          <button id="cancel" type="button">Cancel analysis</button>
-          <button id="job-status" type="button">Check job status</button>
-        </div>
-        <label
-          >Temporary token <input id="token" type="password" autocomplete="off"
-        /></label>
-        <div class="controls">
-          <button id="connect" type="button">Connect token</button>
-          <button id="disconnect" type="button">Disconnect GitHub</button>
-          <button id="clear" type="button">Clear private session</button>
-        </div>
-      </details>
       <p id="status" role="status" aria-live="polite" aria-atomic="true"></p>
     </main>
     <script type="module" src="/src/options/main.ts"></script>

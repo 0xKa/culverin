@@ -36,9 +36,7 @@ assert.deepEqual(
     .map((name) => name.replace(/-[A-Za-z0-9_-]+(?=\.)/, "-HASH"))
     .sort(),
   [
-    "client-HASH.js",
     "culverin_counter_bg-HASH.wasm",
-    "pending-HASH.js",
     "repository-HASH.js",
     "result-HASH.js",
     "tar-HASH.js",
@@ -702,8 +700,8 @@ sync();
   await options.goto(
     `chrome-extension://${new URL(worker.url()).host}/options.html`,
   );
-  await options.getByText("No token connected.").waitFor();
-  await options.locator("details summary").click();
+  assert.equal(await options.locator("input").count(), 0);
+  assert.equal(await options.locator("details").count(), 0);
   await options.getByRole("button", { name: "Clear public cache" }).click();
   await options.getByText("Public cache cleared.").waitFor();
   const publicFixtureBytes = [
@@ -963,12 +961,40 @@ sync();
         ),
       );
     const initial = await send("auth.status");
+    const current = await chrome.storage.session.get("github.generation");
+    const submissionId = crypto.randomUUID();
+    await chrome.storage.session.set({
+      "github.pending": {
+        token: "fixture-token",
+        submissionId,
+        generation: current["github.generation"],
+        owner: "culverin",
+        name: "bootstrap-fixture",
+        createdAt: Date.now(),
+      },
+    });
+    const submitted = await new Promise<unknown>((resolve) =>
+      chrome.runtime.sendMessage(
+        {
+          protocolVersion: 1,
+          type: "auth.submit",
+          requestId: crypto.randomUUID(),
+          navigationId: crypto.randomUUID(),
+          submissionId,
+        },
+        (reply: unknown) => {
+          void chrome.runtime.lastError;
+          resolve(reply);
+        },
+      ),
+    );
     const idle = await send("analysis.status");
     const cleared = await send("auth.clear-private-session");
     const disconnected = await send("auth.disconnect");
     const after = await send("auth.status");
     return {
       initial,
+      submitted,
       idle,
       cleared,
       disconnected,
@@ -980,6 +1006,7 @@ sync();
     };
   });
   assert.equal(optionsState.initial.connected, false);
+  assert.equal(optionsState.submitted, undefined);
   assert.equal(optionsState.idle.state, "idle");
   assert.equal(optionsState.cleared.state, "cleared");
   assert.equal(optionsState.disconnected.state, "disconnected");
@@ -1265,20 +1292,37 @@ sync();
     const beforeOptionsLookup = requests.filter(
       (request) => request.origin === "https://codeload.github.com",
     ).length;
-    await options.locator("#owner").fill("octocat");
-    await options.locator("#name").fill("Hello-World");
-    await options.locator("#lookup").click();
-    await options
-      .getByText(/public default branch/)
-      .waitFor({ timeout: 30_000 });
+    const sendLive = (type: string) =>
+      options.evaluate(
+        (type) =>
+          new Promise<{
+            state?: string;
+            resolution?: { visibility: string };
+          }>((resolve) =>
+            chrome.runtime.sendMessage(
+              {
+                protocolVersion: 1,
+                type,
+                requestId: crypto.randomUUID(),
+                navigationId: crypto.randomUUID(),
+                owner: "octocat",
+                name: "Hello-World",
+              },
+              resolve,
+            ),
+          ),
+        type,
+      );
+    const lookup = await sendLive("repository.lookup");
+    assert.equal(lookup.state, "resolved");
+    assert.equal(lookup.resolution?.visibility, "public");
     assert.equal(
       requests.filter(
         (request) => request.origin === "https://codeload.github.com",
       ).length,
       beforeOptionsLookup,
     );
-    await options.locator("#download").click();
-    await options.getByText(/Analyzed .* files/).waitFor({ timeout: 30_000 });
+    assert.equal((await sendLive("analysis.request")).state, "analyzed");
     assert.equal(
       requests.filter(
         (request) => request.origin === "https://codeload.github.com",

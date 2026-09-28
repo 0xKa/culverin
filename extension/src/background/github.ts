@@ -1,11 +1,9 @@
 import {
-  activatePending,
   activeToken,
   authStatus,
   clearPrivateSession,
   disconnect,
   initializeSession,
-  removePending,
 } from "../auth/session";
 import {
   AcquisitionError,
@@ -97,11 +95,9 @@ type Request = {
   navigationId: string;
   owner?: string;
   name?: string;
-  submissionId?: string;
   targetRequestId?: string;
 };
 
-let validating = false;
 const seen = new Map<string, number>();
 const publicPorts = new Map<string, chrome.runtime.Port>();
 const popupPorts = new Set<chrome.runtime.Port>();
@@ -781,7 +777,6 @@ function validRequest(value: unknown): value is Request {
     typeof request.type === "string" &&
     [
       "auth.status",
-      "auth.submit",
       "auth.disconnect",
       "auth.clear-private-session",
       "cache.clear-public",
@@ -854,51 +849,6 @@ export function handleGithub(
       coordinator.abortGeneration(previous);
       await chrome.storage.session.remove(LAST);
       reply({ state: "cleared", generation });
-      return;
-    }
-    if (request.type === "auth.submit") {
-      if (
-        typeof request.submissionId !== "string" ||
-        !/^[0-9a-f-]{36}$/.test(request.submissionId)
-      ) {
-        reply({ state: "failed", code: "invalid_repository" });
-        return;
-      }
-      if (validating) {
-        await removePending(request.submissionId);
-        reply({ state: "busy" });
-        return;
-      }
-      validating = true;
-      let payload: Record<string, unknown>;
-      try {
-        const previous = (await authStatus()).generation;
-        const result = await activatePending(request.submissionId, fetch);
-        if (result.connected) {
-          try {
-            await cache.purgeRepository(result.resolution.repositoryId);
-          } catch (error) {
-            await disconnect();
-            throw error;
-          }
-          refs.invalidateRepository(result.resolution.repositoryId);
-          coordinator.abortPublicRepository(result.resolution.repositoryId);
-          coordinator.abortGeneration(previous);
-        }
-        payload = result.connected
-          ? { state: "connected" }
-          : { state: "stale" };
-      } catch (error) {
-        const code = safeFailure(error, new AbortController().signal).code;
-        payload = { state: "failed", code };
-      } finally {
-        try {
-          await removePending(request.submissionId);
-        } finally {
-          validating = false;
-        }
-      }
-      reply(payload);
       return;
     }
     const owner = optionsOwner(documentId, request.navigationId);

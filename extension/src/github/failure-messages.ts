@@ -4,12 +4,13 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",
   unsupported_page: "This page is not supported.",
   repository_unavailable:
-    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
+    "Repository unavailable or access is restricted. Culverin analyzes public repositories only.",
   repository_empty: "This repository has no default-branch commit to analyze.",
   repository_forbidden:
-    "Repository unavailable or access is restricted. Organization approval or SSO may be required.",
+    "Repository unavailable or access is restricted. Culverin analyzes public repositories only.",
   rate_limited: "GitHub rate limit reached.",
-  authentication_required: "Authentication is required for this repository.",
+  authentication_required:
+    "This repository requires sign-in. Culverin analyzes public repositories only.",
   authentication_invalid: "GitHub authentication is invalid.",
   metadata_limit_exceeded: "Repository metadata exceeds the safe limit.",
   network_unavailable: "GitHub could not be reached.",

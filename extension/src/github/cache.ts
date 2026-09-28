@@ -1,4 +1,4 @@
-import { validateResult, type AnalysisResultV1 } from "../counter/result";
+import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import {
   coveragePolicyVersion,
   effectiveRulesHash,
@@ -17,7 +17,7 @@ export const RESOLUTION_TTL = 60_000;
 
 type Entry = {
   identity: string;
-  result: AnalysisResultV1;
+  result: AnalysisResultV2;
   resolution: ResolutionEnvelope;
   storedAt: number;
   lastAccess: number;
@@ -43,7 +43,7 @@ const exact = (value: Record<string, unknown>, keys: string[]) =>
 const validTime = (value: unknown): value is number =>
   Number.isSafeInteger(value) && (value as number) > 0;
 
-export function resultIdentity(result: AnalysisResultV1): string {
+export function resultIdentity(result: AnalysisResultV2): string {
   return JSON.stringify([
     result.repository.id,
     result.revision.commitSha,
@@ -72,7 +72,7 @@ export function resolutionIdentity(
     rulesVersion,
     rulesHash,
     coveragePolicyVersion,
-    1,
+    2,
   ]);
 }
 
@@ -201,7 +201,7 @@ export class PublicResultCache {
 
   async get(
     resolution: ResolutionEnvelope,
-  ): Promise<AnalysisResultV1 | undefined> {
+  ): Promise<AnalysisResultV2 | undefined> {
     return this.serial(async () => {
       if (resolution.visibility !== "public" || !validEnvelope(resolution))
         return undefined;
@@ -225,7 +225,7 @@ export class PublicResultCache {
 
   async put(
     resolution: ResolutionEnvelope,
-    result: AnalysisResultV1,
+    result: AnalysisResultV2,
   ): Promise<void> {
     return this.serial(async () => {
       if (

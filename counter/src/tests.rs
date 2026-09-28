@@ -200,6 +200,8 @@ fn counts_and_skips() {
     let result = a.finish().unwrap();
     assert_eq!(result.totals.counts.code, 1);
     assert_eq!(result.coverage.skipped_files, 1);
+    assert_eq!(result.coverage.analyzed_bytes, 13);
+    assert_eq!(result.coverage.total_bytes, 21);
 }
 
 #[test]
@@ -237,20 +239,29 @@ fn oversized_source_is_partial_and_file_is_skipped() {
 fn streamed_skip_records_only_valid_classification() {
     let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
     analyzer
-        .skip_file("large.rs", b"fn ", "oversized_source")
+        .skip_file("large.rs", b"fn ", "oversized_source", 9_000_000)
         .unwrap();
     analyzer
-        .skip_file("unknown.xyz", b"text", "unsupported_language")
+        .skip_file("unknown.xyz", b"text", "unsupported_language", 4)
         .unwrap();
     assert_eq!(
         analyzer
-            .skip_file("another.rs", b"fn ", "excluded_by_rule")
+            .skip_file("another.rs", b"fn ", "excluded_by_rule", 3)
             .err()
             .unwrap(),
         "invalid skip reason"
     );
+    assert_eq!(
+        analyzer
+            .skip_file("short.xyz", b"text", "unsupported_language", 3)
+            .err()
+            .unwrap(),
+        "invalid skip size"
+    );
     let result = analyzer.finish().unwrap();
     assert_eq!(result.coverage.regular_files, 2);
+    assert_eq!(result.coverage.analyzed_bytes, 0);
+    assert_eq!(result.coverage.total_bytes, 9_000_004);
     assert_eq!(result.coverage.skipped_files, 2);
     assert_eq!(result.coverage.skipped_by_reason["oversized_source"], 1);
     assert_eq!(result.coverage.skipped_by_reason["unsupported_language"], 1);

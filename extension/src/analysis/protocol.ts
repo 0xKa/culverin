@@ -1,4 +1,4 @@
-import type { AnalysisResultV1 } from "../counter/result";
+import type { AnalysisResultV2 } from "../counter/result";
 import type { CounterRules } from "../counter/runner";
 
 export const PROTOCOL_VERSION = 1;
@@ -15,7 +15,7 @@ export type JobInput = {
   blockMs?: number;
 };
 export type JobOutcome =
-  | { state: "completed"; result: AnalysisResultV1 }
+  | { state: "completed"; result: AnalysisResultV2 }
   | {
       state: "failed";
       error: "counter_failed" | "invalid_input" | "deadline_exceeded";

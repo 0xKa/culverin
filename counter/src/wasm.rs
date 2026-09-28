@@ -36,11 +36,17 @@ impl Analyzer {
             .map_err(|x| JsValue::from_str(&x))?;
         serde_json::to_string(&x).map_err(|x| JsValue::from_str(&x.to_string()))
     }
-    pub fn skip_file(&mut self, path: &str, prefix: &[u8], reason: &str) -> Result<(), JsValue> {
+    pub fn skip_file(
+        &mut self,
+        path: &str,
+        prefix: &[u8],
+        reason: &str,
+        size: u64,
+    ) -> Result<(), JsValue> {
         self.0
             .as_mut()
             .ok_or_else(|| JsValue::from_str("analyzer finished"))?
-            .skip_file(path, prefix, reason)
+            .skip_file(path, prefix, reason, size)
             .map_err(|x| JsValue::from_str(&x))
     }
     pub fn finish(&mut self) -> Result<String, JsValue> {

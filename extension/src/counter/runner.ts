@@ -1,4 +1,4 @@
-import { validateResult, type AnalysisResultV1 } from "./result";
+import { validateResult, type AnalysisResultV2 } from "./result";
 
 type WasmAnalyzer = {
   classify_path(path: string, prefix: Uint8Array): string;
@@ -26,7 +26,7 @@ export function runCounter(
   files: CounterFile[],
   trap = false,
 ): Promise<
-  | { ok: true; result: AnalysisResultV1 }
+  | { ok: true; result: AnalysisResultV2 }
   | { ok: false; error: "counter_failed" | "invalid_input" }
 > {
   const job = queue.then(() => runOne(rules, files, trap));
@@ -39,7 +39,7 @@ async function runOne(
   files: CounterFile[],
   trap: boolean,
 ): Promise<
-  | { ok: true; result: AnalysisResultV1 }
+  | { ok: true; result: AnalysisResultV2 }
   | { ok: false; error: "counter_failed" | "invalid_input" }
 > {
   let analyzer: WasmAnalyzer | undefined;

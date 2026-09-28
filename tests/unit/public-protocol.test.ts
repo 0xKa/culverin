@@ -279,7 +279,7 @@ test("validates envelope, correlation, and safe errors", () => {
     ),
   ).toBe(false);
   const result = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     repository: { id: "42" },
     revision: { commitSha: sha },
     engine: {
@@ -297,6 +297,7 @@ test("validates envelope, correlation, and safe errors", () => {
       regularFiles: 0,
       countedFiles: 0,
       analyzedBytes: 0,
+      totalBytes: 0,
       skippedFiles: 0,
       skippedByReason: {
         excluded_by_rule: 0,

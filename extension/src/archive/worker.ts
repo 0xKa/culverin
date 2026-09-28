@@ -85,9 +85,9 @@ self.onmessage = (event: MessageEvent<Command>) => {
                 throw new ArchiveError("counter_failed");
               }
             },
-            skipFile(path, prefix, reason) {
+            skipFile(path, prefix, reason, size) {
               try {
-                active.skip_file(path, prefix, reason);
+                active.skip_file(path, prefix, reason, BigInt(size));
               } catch {
                 throw new ArchiveError("counter_failed");
               }

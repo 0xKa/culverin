@@ -56,6 +56,10 @@ for (const name of cases) {
       });
       assert.equal(result.coverage.skippedByReason.excluded_by_rule, 2);
       assert.equal(result.coverage.skippedByReason.unsupported_language, 1);
+      assert.equal(
+        result.coverage.totalBytes,
+        fixture.files.reduce((sum, file) => sum + file.bytes.length, 0),
+      );
     }
     if (name === "embedded") {
       assert.equal(result.totals.files, 5);
@@ -80,6 +84,25 @@ for (const name of cases) {
   console.log(
     `${name}: native/WASM parity, ${(performance.now() - began).toFixed(2)} ms`,
   );
+}
+{
+  const fixture = JSON.parse(
+    readFileSync("tests/fixtures/core.json", "utf8"),
+  ) as { rules: unknown };
+  const counter = new Analyzer(JSON.stringify(fixture.rules));
+  try {
+    counter.skip_file(
+      "large.rs",
+      new TextEncoder().encode("fn "),
+      "oversized_source",
+      9_000_000n,
+    );
+    const result = JSON.parse(counter.finish());
+    assert.equal(result.coverage.totalBytes, 9_000_000);
+    assert.equal(result.coverage.analyzedBytes, 0);
+  } finally {
+    counter.free();
+  }
 }
 console.log(
   `WASM ${wasm.byteLength} bytes, ${imports.length} imports, init ${initMs.toFixed(2)} ms, memory ${initialPages} -> ${instance.memory.buffer.byteLength} bytes, RSS ${before} -> ${process.memoryUsage().rss} bytes`,

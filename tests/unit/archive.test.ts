@@ -101,17 +101,20 @@ function generatedEntries(
 function sink() {
   const counted: string[] = [];
   const skipped: string[] = [];
+  const skippedSizes: number[] = [];
   return {
     counted,
     skipped,
+    skippedSizes,
     classify(path: string) {
       return path.endsWith(".rs") ? "counted" : "unsupported_language";
     },
     addFile(path: string) {
       counted.push(path);
     },
-    skipFile(path: string, _prefix: Uint8Array, reason: string) {
+    skipFile(path: string, _prefix: Uint8Array, reason: string, size: number) {
       skipped.push(`${path}:${reason}`);
+      skippedSizes.push(size);
     },
   };
 }
@@ -148,6 +151,7 @@ describe("incremental tar parser", () => {
     const metrics = await analyzeTar(stream(bytes, 1), target);
     expect(target.counted).toEqual(["src/main.rs"]);
     expect(target.skipped).toEqual(["README:unsupported_language"]);
+    expect(target.skippedSizes).toEqual([4]);
     expect(metrics.decompressedBytes).toBe(bytes.length);
     expect(metrics.regularFiles).toBe(2);
     expect(metrics.specialEntries).toBe(1);
@@ -418,6 +422,7 @@ describe("incremental tar parser", () => {
     const metrics = await analyzeTar(stream(bytes, 8192), target);
     expect(metrics.wasmBytes).toBe(0);
     expect(target.skipped).toEqual(["big.rs:oversized_source"]);
+    expect(target.skippedSizes).toEqual([ARCHIVE_LIMITS.file + 1]);
   });
 
   test("enforces the regular-file count while streaming", async () => {

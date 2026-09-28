@@ -17,7 +17,7 @@ import {
   type Subscriber,
 } from "../../extension/src/github/coordinator";
 import { effectiveRulesHash } from "../../extension/src/counter/rules";
-import type { AnalysisResultV1 } from "../../extension/src/counter/result";
+import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
 
 const sha = "a".repeat(40);
@@ -31,9 +31,9 @@ const resolution = (id = "42", name = "repo"): ResolutionEnvelope => ({
   resolvedAt: Date.now(),
 });
 
-async function result(id = "42"): Promise<AnalysisResultV1> {
+async function result(id = "42"): Promise<AnalysisResultV2> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     repository: { id },
     revision: { commitSha: sha },
     engine: {
@@ -51,6 +51,7 @@ async function result(id = "42"): Promise<AnalysisResultV1> {
       regularFiles: 0,
       countedFiles: 0,
       analyzedBytes: 0,
+      totalBytes: 0,
       skippedFiles: 0,
       skippedByReason: {
         excluded_by_rule: 0,
@@ -113,7 +114,7 @@ describe("public result cache", () => {
       Object.assign(changed.engine, { [field]: "changed" });
       expect(resultIdentity(changed)).not.toBe(resultIdentity(value));
     }
-    expect(resultIdentity({ ...value, schemaVersion: 2 as 1 })).not.toBe(
+    expect(resultIdentity({ ...value, schemaVersion: 3 as 2 })).not.toBe(
       resultIdentity(value),
     );
     await cache.purgeRepository("42");
@@ -142,7 +143,7 @@ describe("public result cache", () => {
     expect(await cache.get(resolution())).toBeUndefined();
     await cache.put(resolution(), value);
     const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
-      entries: { result: AnalysisResultV1 }[];
+      entries: { result: AnalysisResultV2 }[];
     };
     snapshot.entries[0]!.result.revision.commitSha = "b".repeat(40);
     expect(
@@ -153,6 +154,25 @@ describe("public result cache", () => {
     ).toEqual([]);
     await cache.clear();
     expect(storage.values.other).toBe("keep");
+  });
+
+  test("drops stored results that predate snapshot file sizes", async () => {
+    const storage = new MemoryStorage();
+    await new PublicResultCache(storage).put(resolution(), await result());
+    const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
+      entries: { identity: string; result: Record<string, unknown> }[];
+    };
+    const entry = snapshot.entries[0]!;
+    const coverage = { ...(entry.result.coverage as Record<string, unknown>) };
+    delete coverage.totalBytes;
+    entry.result = { ...entry.result, schemaVersion: 1, coverage };
+    entry.identity = entry.identity.replace(/2\]$/, "1]");
+    expect(
+      await new PublicResultCache(storage).get(resolution()),
+    ).toBeUndefined();
+    expect(
+      (storage.values[PUBLIC_CACHE_KEY] as { entries: unknown[] }).entries,
+    ).toEqual([]);
   });
 
   test("evicts by entry budget and survives a quota failure", async () => {

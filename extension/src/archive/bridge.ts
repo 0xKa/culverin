@@ -1,4 +1,4 @@
-import type { AnalysisResultV1 } from "../counter/result";
+import type { AnalysisResultV2 } from "../counter/result";
 import { validateResult } from "../counter/result";
 import { effectiveRulesHash } from "../counter/rules";
 import { openArchive, type Resolution } from "../github/client";
@@ -98,7 +98,7 @@ export async function analyzeArchive(
     processedBytes?: number,
   ) => void,
 ): Promise<{
-  result: AnalysisResultV1;
+  result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
   wasmLinearMemoryBytes: number;
 }> {
@@ -117,7 +117,7 @@ export async function analyzeArchiveStream(
     processedBytes?: number,
   ) => void,
 ): Promise<{
-  result: AnalysisResultV1;
+  result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
   wasmLinearMemoryBytes: number;
 }> {

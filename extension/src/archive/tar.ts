@@ -53,6 +53,7 @@ export type ArchiveSink = {
     path: string,
     prefix: Uint8Array,
     reason: string,
+    size: number,
   ): Promise<void> | void;
 };
 
@@ -382,6 +383,7 @@ export async function analyzeTar(
             logical,
             prefix,
             classification === "counted" ? "oversized_source" : classification,
+            size,
           );
         } else {
           if (metrics.wasmBytes + size > ARCHIVE_LIMITS.wasmBytes)

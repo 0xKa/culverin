@@ -1,5 +1,5 @@
 import { effectiveRulesHash } from "../counter/rules";
-import type { AnalysisResultV1 } from "../counter/result";
+import type { AnalysisResultV2 } from "../counter/result";
 import { pageRepository, type PageRepository } from "../content/repository";
 import { failureMessages } from "../github/failure-messages";
 import {
@@ -73,7 +73,7 @@ function paragraph(text: string, className?: string): HTMLParagraphElement {
 }
 
 function showResult(
-  result: AnalysisResultV1,
+  result: AnalysisResultV2,
   resolution: ResolutionEnvelope,
 ): void {
   const { totals, coverage, engine } = result;

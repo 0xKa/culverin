@@ -11,8 +11,8 @@ export type SkippedReason =
   | "unsupported_language"
   | "binary_content"
   | "oversized_source";
-export type AnalysisResultV1 = {
-  schemaVersion: 1;
+export type AnalysisResultV2 = {
+  schemaVersion: 2;
   repository: { id: string };
   revision: { commitSha: string };
   engine: {
@@ -30,6 +30,7 @@ export type AnalysisResultV1 = {
     regularFiles: number;
     countedFiles: number;
     analyzedBytes: number;
+    totalBytes: number;
     skippedFiles: number;
     skippedByReason: Record<SkippedReason, number>;
     complete: boolean;
@@ -56,7 +57,7 @@ const counts = (x: unknown): x is LineCounts =>
   x.lines ===
     (x.code as number) + (x.comments as number) + (x.blanks as number);
 
-export function validateResult(value: unknown): value is AnalysisResultV1 {
+export function validateResult(value: unknown): value is AnalysisResultV2 {
   if (
     !record(value) ||
     !keys(value, [
@@ -68,7 +69,7 @@ export function validateResult(value: unknown): value is AnalysisResultV1 {
       "languages",
       "coverage",
     ]) ||
-    value.schemaVersion !== 1
+    value.schemaVersion !== 2
   )
     return false;
   const { repository, revision, engine, totals, languages, coverage } = value;
@@ -156,6 +157,7 @@ export function validateResult(value: unknown): value is AnalysisResultV1 {
       "regularFiles",
       "countedFiles",
       "analyzedBytes",
+      "totalBytes",
       "skippedFiles",
       "skippedByReason",
       "complete",
@@ -164,6 +166,10 @@ export function validateResult(value: unknown): value is AnalysisResultV1 {
     !integer(coverage.regularFiles) ||
     !integer(coverage.countedFiles) ||
     !integer(coverage.analyzedBytes) ||
+    !integer(coverage.totalBytes) ||
+    coverage.totalBytes < coverage.analyzedBytes ||
+    (coverage.skippedFiles === 0 &&
+      coverage.totalBytes !== coverage.analyzedBytes) ||
     !integer(coverage.skippedFiles) ||
     coverage.countedFiles !== total.files ||
     coverage.regularFiles !== coverage.countedFiles + coverage.skippedFiles ||

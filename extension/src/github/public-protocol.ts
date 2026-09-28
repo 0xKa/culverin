@@ -1,4 +1,4 @@
-import { validateResult, type AnalysisResultV1 } from "../counter/result";
+import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import { validRepository, type Resolution } from "./client";
 
 export const PUBLIC_VERSION = 1;
@@ -63,12 +63,12 @@ export type PublicReply = {
   | {
       type: "repository.cache_hit";
       resolution: ResolutionEnvelope;
-      result: AnalysisResultV1;
+      result: AnalysisResultV2;
     }
   | {
       type: "analysis.completed";
       resolution: ResolutionEnvelope;
-      result: AnalysisResultV1;
+      result: AnalysisResultV2;
       fromCache: boolean;
     }
   | {

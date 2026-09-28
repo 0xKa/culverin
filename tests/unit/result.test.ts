@@ -17,7 +17,7 @@ const native = spawnSync(
 if (native.status !== 0) throw new Error(native.stderr);
 const result = JSON.parse(native.stdout);
 const schema = JSON.parse(
-  readFileSync("schemas/analysis-result-v1.schema.json", "utf8"),
+  readFileSync("schemas/analysis-result-v2.schema.json", "utf8"),
 );
 
 describe("analysis result contract", () => {
@@ -61,6 +61,42 @@ describe("analysis result contract", () => {
     expect(
       validateResult({ ...result, languages: [...result.languages].reverse() }),
     ).toBe(false);
+  });
+  test("totals every regular file size and checks it against counted bytes", () => {
+    const bytes = fixture.files.reduce(
+      (sum: number, file: { bytes: number[] }) => sum + file.bytes.length,
+      0,
+    );
+    expect(result.coverage.totalBytes).toBe(bytes);
+    expect(result.coverage.totalBytes).toBeGreaterThan(
+      result.coverage.analyzedBytes,
+    );
+    expect(
+      validateResult({
+        ...result,
+        coverage: {
+          ...result.coverage,
+          totalBytes: result.coverage.analyzedBytes - 1,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      validateResult({
+        ...result,
+        coverage: {
+          ...result.coverage,
+          skippedFiles: 0,
+          regularFiles: result.coverage.countedFiles,
+          skippedByReason: {
+            excluded_by_rule: 0,
+            unsupported_language: 0,
+            binary_content: 0,
+            oversized_source: 0,
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(validateResult({ ...result, schemaVersion: 1 })).toBe(false);
   });
   test("normalizes exclusions and rejects unsafe patterns", () => {
     expect(normalizeExclusions(["b", "a", "b"])).toEqual(["a", "b"]);

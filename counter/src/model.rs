@@ -62,6 +62,7 @@ pub struct Coverage {
     pub regular_files: u64,
     pub counted_files: u64,
     pub analyzed_bytes: u64,
+    pub total_bytes: u64,
     pub skipped_files: u64,
     pub skipped_by_reason: BTreeMap<String, u64>,
     pub complete: bool,

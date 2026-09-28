@@ -35,6 +35,7 @@ impl CounterAnalyzer {
                 regular_files: 0,
                 counted_files: 0,
                 analyzed_bytes: 0,
+                total_bytes: 0,
                 skipped_files: 0,
                 skipped_by_reason,
                 complete: true,
@@ -48,11 +49,7 @@ impl CounterAnalyzer {
     }
     pub fn add_file(&mut self, path: &str, bytes: &[u8]) -> Result<Classification, String> {
         let classification = crate::file::classify_file(path, bytes, &self.rules.exclusions)?;
-        self.coverage.regular_files = self
-            .coverage
-            .regular_files
-            .checked_add(1)
-            .ok_or("counter overflow")?;
+        self.record_file(bytes.len() as u64)?;
         if classification.kind != "counted" {
             self.record_skip(classification.kind)?;
             return Ok(classification);
@@ -72,19 +69,37 @@ impl CounterAnalyzer {
             .ok_or("counter overflow")?;
         Ok(classification)
     }
-    pub fn skip_file(&mut self, path: &str, prefix: &[u8], reason: &str) -> Result<(), String> {
+    pub fn skip_file(
+        &mut self,
+        path: &str,
+        prefix: &[u8],
+        reason: &str,
+        size: u64,
+    ) -> Result<(), String> {
         let classification = self.classify_path(path, prefix)?;
         if classification.kind != reason
             && !(classification.kind == "counted" && reason == "oversized_source")
         {
             return Err("invalid skip reason".into());
         }
+        if (prefix.len() as u64) > size {
+            return Err("invalid skip size".into());
+        }
+        self.record_file(size)?;
+        self.record_skip(reason)
+    }
+    fn record_file(&mut self, size: u64) -> Result<(), String> {
         self.coverage.regular_files = self
             .coverage
             .regular_files
             .checked_add(1)
             .ok_or("counter overflow")?;
-        self.record_skip(reason)
+        self.coverage.total_bytes = self
+            .coverage
+            .total_bytes
+            .checked_add(size)
+            .ok_or("counter overflow")?;
+        Ok(())
     }
     fn record_skip(&mut self, reason: &str) -> Result<(), String> {
         self.coverage.skipped_files = self
@@ -186,7 +201,7 @@ impl CounterAnalyzer {
             return Err("counter overflow".into());
         }
         Ok(AnalysisResult {
-            schema_version: 1,
+            schema_version: 2,
             repository: BTreeMap::from([("id".into(), self.rules.repository_id)]),
             revision: BTreeMap::from([("commitSha".into(), self.rules.commit_sha)]),
             engine: Engine {

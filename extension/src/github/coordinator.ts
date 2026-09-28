@@ -1,4 +1,4 @@
-import type { AnalysisResultV1 } from "../counter/result";
+import type { AnalysisResultV2 } from "../counter/result";
 import type { ResolutionEnvelope } from "./public-protocol";
 
 export const QUEUED_JOBS = 8;
@@ -7,7 +7,7 @@ export const SUBSCRIPTIONS = 32;
 export const PROGRESS_INTERVAL_MS = 250;
 
 export type AnalysisOutput = {
-  result: AnalysisResultV1;
+  result: AnalysisResultV2;
   transport: {
     compressedBytes: number;
     decompressedBytes: number;

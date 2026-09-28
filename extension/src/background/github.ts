@@ -25,7 +25,7 @@ import {
   type PublicRequest,
   type SummaryUpdate,
 } from "../github/public-protocol";
-import type { AnalysisResultV1 } from "../counter/result";
+import type { AnalysisResultV2 } from "../counter/result";
 import { pageRepository } from "../content/repository";
 import {
   PublicResultCache,
@@ -615,7 +615,7 @@ function sameRepository(
 async function updateSummary(
   tabId: number,
   repository: { owner: string; name: string },
-  result: AnalysisResultV1,
+  result: AnalysisResultV2,
 ): Promise<void> {
   if (
     !result.coverage.complete ||

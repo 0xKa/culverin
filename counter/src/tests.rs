@@ -277,6 +277,7 @@ fn known_extensionless_documents_count_as_plain_text() {
         "Changelog",
         "COPYING",
         "NOTICE",
+        "VERSION",
     ] {
         assert_eq!(
             analyzer
@@ -307,8 +308,8 @@ fn known_extensionless_documents_count_as_plain_text() {
         .iter()
         .find(|row| row.language == "Plain Text")
         .unwrap();
-    assert_eq!(text.files, 5);
+    assert_eq!(text.files, 6);
     assert_eq!(text.counts.code, 0);
-    assert_eq!(text.counts.comments, 10);
-    assert_eq!(text.counts.blanks, 5);
+    assert_eq!(text.counts.comments, 12);
+    assert_eq!(text.counts.blanks, 6);
 }

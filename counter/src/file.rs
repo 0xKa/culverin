@@ -41,6 +41,7 @@ fn text_name(name: &str) -> Option<LanguageType> {
         "NEWS",
         "NOTICE",
         "README",
+        "VERSION",
     ];
     let upper = name.to_ascii_uppercase();
     (!name.contains('.')

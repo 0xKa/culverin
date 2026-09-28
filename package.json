@@ -17,6 +17,7 @@
     "test:wasm": "bun run build:wasm && bun tests/wasm-smoke.ts",
     "test:browser": "bun run build && bun tests/browser-smoke.ts",
     "package": "bun run build && bun scripts/package.ts",
+    "test:package": "bun run package && bun scripts/test-package.ts",
     "verify": "bun run icons:check && bun run lint && bun run typecheck && bun run test && bun run test:browser"
   },
   "devDependencies": {

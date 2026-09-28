@@ -11,7 +11,9 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
-const directory = resolve("extension/dist");
+const directory = resolve(
+  process.env.CULVERIN_EXTENSION_DIR ?? "extension/dist",
+);
 assert.deepEqual(readdirSync(directory).sort(), [
   "assets",
   "background.js",

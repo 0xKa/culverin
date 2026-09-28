@@ -4,6 +4,7 @@ import {
   effectiveRulesHash,
   rulesProfile,
   rulesVersion,
+  wrapperVersion,
 } from "../counter/rules";
 import { validEnvelope, type ResolutionEnvelope } from "./public-protocol";
 
@@ -66,7 +67,7 @@ export function resolutionIdentity(
     resolution.sha,
     "tokei",
     "15.0.0",
-    "1",
+    wrapperVersion,
     rulesProfile,
     rulesVersion,
     rulesHash,

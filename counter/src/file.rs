@@ -91,6 +91,7 @@ pub(crate) fn add_stats(
     kind: LanguageType,
     stats: &CodeStats,
     physical: bool,
+    inaccurate: &mut bool,
 ) -> Result<(), String> {
     let name = kind.to_string();
     let row = rows.entry(name.clone()).or_insert_with(|| LanguageCounts {
@@ -101,31 +102,24 @@ pub(crate) fn add_stats(
     if physical {
         row.files = row.files.checked_add(1).ok_or("counter overflow")?;
     }
-    if matches!(
-        kind,
-        LanguageType::Html | LanguageType::Vue | LanguageType::Svelte | LanguageType::Jupyter
-    ) {
+    if kind == LanguageType::Jupyter {
         let mut own = stats.clone();
         for child in stats.blobs.values() {
-            own.code = own
-                .code
-                .checked_sub(child.code)
-                .ok_or("embedded count underflow")?;
-            own.comments = own
-                .comments
-                .checked_sub(child.comments)
-                .ok_or("embedded count underflow")?;
-            own.blanks = own
-                .blanks
-                .checked_sub(child.blanks)
-                .ok_or("embedded count underflow")?;
+            for (count, removed) in [
+                (&mut own.code, child.code),
+                (&mut own.comments, child.comments),
+                (&mut own.blanks, child.blanks),
+            ] {
+                *inaccurate |= *count < removed;
+                *count = count.saturating_sub(removed);
+            }
         }
         row.counts.add(&own)?;
     } else {
         row.counts.add(stats)?;
     }
     for (child, value) in &stats.blobs {
-        add_stats(rows, *child, value, false)?;
+        add_stats(rows, *child, value, false, inaccurate)?;
     }
     Ok(())
 }
@@ -208,11 +202,11 @@ pub(crate) struct FileAnalysis {
 
 pub(crate) fn analyze_counted(path: &str, bytes: &[u8]) -> Result<FileAnalysis, String> {
     let kind = language(path, &bytes[..bytes.len().min(128)]).ok_or("language detection failed")?;
-    let (decoded, inaccurate) = decode(bytes);
+    let (decoded, mut inaccurate) = decode(bytes);
     let stats = kind.parse_from_slice(&decoded, &Config::default());
     let invalid_notebook = kind == LanguageType::Jupyter && !valid_notebook(&decoded);
     let mut file_rows = BTreeMap::new();
-    add_stats(&mut file_rows, kind, &stats, true)?;
+    add_stats(&mut file_rows, kind, &stats, true, &mut inaccurate)?;
     if kind != LanguageType::Jupyter {
         let physical = decoded.iter().filter(|b| **b == b'\n').count() as u64
             + u64::from(!decoded.is_empty() && !decoded.ends_with(b"\n"));

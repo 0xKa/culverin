@@ -285,7 +285,7 @@ test("validates envelope, correlation, and safe errors", () => {
     engine: {
       name: "tokei",
       version: "15.0.0",
-      wrapperVersion: "1",
+      wrapperVersion: "2",
       rulesProfile: "source-v1",
       rulesVersion: "1",
       rulesHash: "b".repeat(64),

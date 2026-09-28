@@ -127,6 +127,32 @@ fn counts_extensionless_shebang_and_preserves_embedded_attribution() {
 }
 
 #[test]
+fn counts_multiline_embedded_blocks_once() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    analyzer
+        .add_file(
+            "index.html",
+            b"<html>\n<head>\n<style>\n.a {\n  color: red;\n}\n</style>\n</head>\n<body>\n<script>\nconst a = 1;\n\nconst b = 2;\nconst c = 3;\n</script>\n</body>\n</html>\n",
+        )
+        .unwrap();
+    let result = analyzer.finish().unwrap();
+    assert!(result.coverage.complete);
+    assert_eq!(result.totals.counts.lines, 17);
+    let lines = |language: &str| {
+        result
+            .languages
+            .iter()
+            .find(|r| r.language == language)
+            .unwrap()
+            .counts
+            .lines
+    };
+    assert_eq!(lines("JavaScript"), 4);
+    assert_eq!(lines("CSS"), 3);
+    assert_eq!(lines("HTML"), 10);
+}
+
+#[test]
 fn malformed_utf8_marks_coverage_inaccurate() {
     let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
     analyzer.add_file("bad.py", b"print('\xff')\n").unwrap();
@@ -135,7 +161,7 @@ fn malformed_utf8_marks_coverage_inaccurate() {
     assert_eq!(result.coverage.counted_files, 1);
     assert_eq!(
         serde_json::to_value(&result).unwrap()["engine"]["wrapperVersion"],
-        json!("1")
+        json!("2")
     );
 }
 

@@ -4,7 +4,7 @@ use crate::model::{
 use crate::rules::{RULES_VERSION, Rules};
 
 const COVERAGE_VERSION: &str = "1";
-const WRAPPER_VERSION: &str = "1";
+const WRAPPER_VERSION: &str = "2";
 use std::collections::BTreeMap;
 
 pub struct CounterAnalyzer {

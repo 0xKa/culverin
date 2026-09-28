@@ -39,7 +39,7 @@ async function result(id = "42"): Promise<AnalysisResultV1> {
     engine: {
       name: "tokei",
       version: "15.0.0",
-      wrapperVersion: "1",
+      wrapperVersion: "2",
       rulesProfile: "source-v1",
       rulesVersion: "1",
       rulesHash: await effectiveRulesHash([]),

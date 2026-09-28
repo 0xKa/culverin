@@ -26,7 +26,7 @@ const initMs = performance.now() - started;
 assert.deepEqual(JSON.parse(counter_metadata()), {
   name: "tokei",
   version: "15.0.0",
-  wrapperVersion: "1",
+  wrapperVersion: "2",
 });
 const cases = ["core", "embedded", "encodings"];
 for (const name of cases) {

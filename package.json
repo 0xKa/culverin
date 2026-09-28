@@ -9,6 +9,8 @@
     "build:wasm": "bash scripts/build-counter.sh",
     "icons:build": "python3 scripts/generate-icons.py",
     "icons:check": "python3 scripts/generate-icons.py --check",
+    "notices:build": "bun scripts/generate-notices.ts",
+    "notices:check": "bun scripts/generate-notices.ts --check",
     "build": "bun run build:wasm && bun run --cwd extension build",
     "dev": "bun run build:wasm && bun run --cwd extension dev",
     "lint": "bunx prettier --check . && bunx eslint extension/src extension/vite.config.ts scripts tests && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
@@ -18,7 +20,7 @@
     "test:browser": "bun run build && bun tests/browser-smoke.ts",
     "package": "bun run build && bun scripts/package.ts",
     "test:package": "bun run package && bun scripts/test-package.ts",
-    "verify": "bun run icons:check && bun run lint && bun run typecheck && bun run test && bun run test:browser"
+    "verify": "bun run icons:check && bun run notices:check && bun run lint && bun run typecheck && bun run test && bun run test:browser"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

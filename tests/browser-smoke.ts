@@ -15,6 +15,7 @@ const directory = resolve(
   process.env.CULVERIN_EXTENSION_DIR ?? "extension/dist",
 );
 assert.deepEqual(readdirSync(directory).sort(), [
+  "THIRD_PARTY_NOTICES.txt",
   "assets",
   "background.js",
   "content.js",

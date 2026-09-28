@@ -16,6 +16,7 @@ const source = resolve(root, "extension/dist");
 const output = resolve(root, "dist");
 
 const ROOT_FILES = [
+  "THIRD_PARTY_NOTICES.txt",
   "assets",
   "background.js",
   "content.js",
@@ -139,10 +140,11 @@ const forbidden = [
 ];
 for (const file of files) {
   check(!file.endsWith(".map"), `source map included: ${file}`);
-  if (!/\.(js|html|json)$/.test(file)) continue;
+  if (!/\.(js|html|json|txt)$/.test(file)) continue;
   const text = readFileSync(resolve(source, file), "utf8");
   for (const value of forbidden)
     check(!text.includes(value), `${file} contains ${value}`);
+  if (file.endsWith(".txt")) continue;
   for (const [origin] of text.matchAll(/https?:\/\/[A-Za-z0-9.-]+/g))
     check(ORIGINS.has(origin), `${file} references ${origin}`);
 }

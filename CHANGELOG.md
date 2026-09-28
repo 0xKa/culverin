@@ -2,6 +2,15 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.0.2 - 2026-09-28
+
+- Adds Culverin ignore to the options page. Turn built-in exclusion groups on or off (dependencies, build output, environments and caches, lockfiles, minified files and source maps), and add your own rules for folders, file endings, names, and paths. Settings sync through Chrome sync when it is on. The popup and the About row note when custom rules are active.
+- Shows the repository size reported by GitHub in the popup as soon as it opens, without downloading anything. This size includes Git history.
+- Shows the total size of the files at the counted commit, including files that are not counted.
+- Shows text lines, the prose in Markdown, MDX, Djot, and plain text files, next to code lines. The popup details list code languages and text formats separately.
+- Counts README, LICENSE, COPYING, NOTICE, AUTHORS, CONTRIBUTORS, CHANGELOG, CHANGES, HISTORY, NEWS, and VERSION files without an extension, and LICENSE-\* files, as plain text. Code-line totals are unchanged with the default settings.
+- Results saved by 0.0.1 are not reused because the counting rules changed. Count each repository again once.
+
 ## 0.0.1 - 2026-09-28
 
 First release.

@@ -42,7 +42,7 @@ async function result(id = "42"): Promise<AnalysisResultV2> {
       version: "15.0.0",
       wrapperVersion: "2",
       rulesProfile: "source-v1",
-      rulesVersion: "1",
+      rulesVersion: "2",
       rulesHash: await effectiveRulesHash([]),
       coveragePolicyVersion: "1",
     },

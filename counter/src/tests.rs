@@ -40,7 +40,7 @@ fn validates_rules_and_canonicalizes_exclusions() {
     assert_eq!(sorted.engine.rules_hash, unsorted.engine.rules_hash);
     assert_eq!(
         sorted.engine.rules_hash,
-        "bf0ff4729cbae29835822ec86026ea30df862fd4b9cd3a3f0b103583e7c8e57a"
+        "e8360163cb0862b7dc3c8aa5c77a67654eebda8a4d4b364534c781eee02079d9"
     );
 }
 
@@ -266,4 +266,49 @@ fn streamed_skip_records_only_valid_classification() {
     assert_eq!(result.coverage.skipped_by_reason["oversized_source"], 1);
     assert_eq!(result.coverage.skipped_by_reason["unsupported_language"], 1);
     assert_eq!(result.coverage.incomplete_reasons, ["oversized_source"]);
+}
+
+#[test]
+fn known_extensionless_documents_count_as_plain_text() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    for path in [
+        "README",
+        "docs/LICENSE-MIT",
+        "Changelog",
+        "COPYING",
+        "NOTICE",
+    ] {
+        assert_eq!(
+            analyzer
+                .add_file(path, b"line one\n\nline two\n")
+                .unwrap()
+                .kind,
+            "counted"
+        );
+    }
+    for path in ["README.bak", "mystery", "LICENSES"] {
+        assert_eq!(
+            analyzer.add_file(path, b"text\n").unwrap().kind,
+            "unsupported_language"
+        );
+    }
+    assert_eq!(
+        analyzer
+            .add_file("tools/NEWS", b"#!/usr/bin/env python\nprint(1)\n")
+            .unwrap()
+            .language
+            .as_deref(),
+        Some("Python")
+    );
+    let result = analyzer.finish().unwrap();
+    assert_eq!(result.engine.rules_version, "2");
+    let text = result
+        .languages
+        .iter()
+        .find(|row| row.language == "Plain Text")
+        .unwrap();
+    assert_eq!(text.files, 5);
+    assert_eq!(text.counts.code, 0);
+    assert_eq!(text.counts.comments, 10);
+    assert_eq!(text.counts.blanks, 5);
 }

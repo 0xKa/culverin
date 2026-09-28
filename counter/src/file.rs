@@ -25,6 +25,32 @@ pub(crate) fn language(path: &str, prefix: &[u8]) -> Option<LanguageType> {
             return Some(*kind);
         }
     }
+    env_shebang(prefix).or_else(|| text_name(name))
+}
+
+fn text_name(name: &str) -> Option<LanguageType> {
+    const NAMES: &[&str] = &[
+        "AUTHORS",
+        "CHANGELOG",
+        "CHANGES",
+        "CONTRIBUTORS",
+        "COPYING",
+        "HISTORY",
+        "LICENCE",
+        "LICENSE",
+        "NEWS",
+        "NOTICE",
+        "README",
+    ];
+    let upper = name.to_ascii_uppercase();
+    (!name.contains('.')
+        && (NAMES.contains(&upper.as_str())
+            || upper.starts_with("LICENSE-")
+            || upper.starts_with("LICENCE-")))
+    .then_some(LanguageType::Text)
+}
+
+fn env_shebang(prefix: &[u8]) -> Option<LanguageType> {
     let first = prefix.split(|b| *b == b'\n').next()?;
     let line = std::str::from_utf8(first).ok()?;
     let command = line

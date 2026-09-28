@@ -809,7 +809,7 @@ sync();
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
   await resumedPopup
     .getByText(
-      /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
+      /Source profile coverage: 2 of 2 regular files counted; 0 skipped/,
     )
     .waitFor();
   assert.equal(
@@ -1467,11 +1467,11 @@ sync();
       complete: boolean;
     };
   };
-  assert.equal(archivedResult.totals.files, 1);
-  assert.equal(archivedResult.totals.lines, 1);
+  assert.equal(archivedResult.totals.files, 2);
+  assert.equal(archivedResult.totals.lines, 2);
   assert.equal(archivedResult.totals.code, 1);
   assert.equal(archivedResult.coverage.regularFiles, 2);
-  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 1);
+  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 0);
   assert.equal(archivedResult.coverage.complete, true);
   const archiveTransport = archived.transport as {
     compressedBytes: number;

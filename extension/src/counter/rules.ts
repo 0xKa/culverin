@@ -1,5 +1,5 @@
 export const rulesProfile = "source-v1";
-export const rulesVersion = "1";
+export const rulesVersion = "2";
 export const coveragePolicyVersion = "1";
 export const wrapperVersion = "2";
 

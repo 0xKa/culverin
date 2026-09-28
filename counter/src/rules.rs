@@ -2,7 +2,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 pub(crate) const MAX_PATH: usize = 4096;
-pub(crate) const RULES_VERSION: &str = "1";
+pub(crate) const RULES_VERSION: &str = "2";
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Rules {

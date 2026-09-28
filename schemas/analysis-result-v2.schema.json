@@ -48,7 +48,7 @@
           "const": "source-v1"
         },
         "rulesVersion": {
-          "const": "1"
+          "const": "2"
         },
         "rulesHash": {
           "type": "string",

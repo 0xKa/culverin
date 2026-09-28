@@ -1,4 +1,4 @@
-import { wrapperVersion } from "./rules";
+import { rulesVersion, wrapperVersion } from "./rules";
 export type LineCounts = {
   lines: number;
   code: number;
@@ -102,7 +102,7 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
     engine.rulesProfile !== "source-v1" ||
     engine.version !== "15.0.0" ||
     engine.wrapperVersion !== wrapperVersion ||
-    engine.rulesVersion !== "1" ||
+    engine.rulesVersion !== rulesVersion ||
     engine.coveragePolicyVersion !== "1" ||
     typeof engine.rulesHash !== "string" ||
     !/^[0-9a-f]{64}$/.test(engine.rulesHash)

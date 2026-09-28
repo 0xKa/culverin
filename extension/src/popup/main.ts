@@ -12,12 +12,14 @@ import {
   type ResolutionEnvelope,
 } from "../github/public-protocol";
 import { formatBytes } from "./size";
+import { isTextLanguage, textLines } from "./text-lines";
 
 const navigationId = crypto.randomUUID();
 const repositoryLabel = document.querySelector<HTMLElement>("#repository")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const analysis = document.querySelector<HTMLElement>("#analysis")!;
 const codeLines = document.querySelector<HTMLElement>("#code-lines")!;
+const textLinesLabel = document.querySelector<HTMLElement>("#text-lines")!;
 const metrics = document.querySelector<HTMLElement>("#metrics")!;
 const sizes = document.querySelector<HTMLElement>("#sizes")!;
 const repositorySize = document.querySelector<HTMLElement>("#repository-size")!;
@@ -67,6 +69,7 @@ function clearResult(): void {
   details.open = false;
   detailContent.replaceChildren();
   codeLines.textContent = "";
+  textLinesLabel.textContent = "";
   metrics.textContent = "";
   snapshotSize.textContent = "Available after analysis";
 }
@@ -93,6 +96,7 @@ function showResult(
 ): void {
   const { totals, coverage, engine } = result;
   codeLines.textContent = `${totals.code.toLocaleString()} code lines`;
+  textLinesLabel.textContent = `${textLines(result.languages).toLocaleString()} text lines`;
   metrics.textContent = `${totals.files.toLocaleString()} files · ${totals.lines.toLocaleString()} physical lines · ${totals.comments.toLocaleString()} comments · ${totals.blanks.toLocaleString()} blanks`;
   showSizes(resolution);
   snapshotSize.textContent = formatBytes(coverage.totalBytes);
@@ -112,7 +116,9 @@ function showResult(
   for (const language of result.languages) {
     const item = document.createElement("li");
     const percent = totals.code === 0 ? 0 : (language.code / totals.code) * 100;
-    item.textContent = `${language.language}: ${language.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${language.files.toLocaleString()} files`;
+    item.textContent = isTextLanguage(language.language)
+      ? `${language.language}: ${language.comments.toLocaleString()} text lines, ${language.files.toLocaleString()} files`
+      : `${language.language}: ${language.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${language.files.toLocaleString()} files`;
     languages.append(item);
   }
   if (result.languages.length) detailContent.append(languages);

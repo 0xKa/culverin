@@ -820,6 +820,13 @@ sync();
     await resumedPopup.locator("#snapshot-size").textContent(),
     "21 B",
   );
+  assert.equal(
+    await resumedPopup.locator("#text-lines").textContent(),
+    "1 text lines",
+  );
+  await resumedPopup
+    .getByText("Plain Text: 1 text lines, 1 files", { exact: true })
+    .waitFor();
   await page.getByText("1 line of code", { exact: true }).waitFor();
   const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();

@@ -824,9 +824,29 @@ sync();
     await resumedPopup.locator("#text-lines").textContent(),
     "1 text lines",
   );
-  await resumedPopup
-    .getByText("Plain Text: 1 text lines, 1 files", { exact: true })
-    .waitFor();
+  assert.deepEqual(
+    await resumedPopup
+      .locator("#detail-content ul")
+      .evaluateAll((lists) =>
+        lists.map((list) => [
+          list.previousElementSibling?.textContent,
+          list.getAttribute("aria-label"),
+          Array.from(list.children, (item) => item.textContent),
+        ]),
+      ),
+    [
+      [
+        "Code",
+        "Languages by code lines",
+        ["Rust: 1 code lines (100.0% of code lines), 1 files"],
+      ],
+      [
+        "Text",
+        "Text formats by text lines",
+        ["Plain Text: 1 text lines (100.0% of text lines), 1 files"],
+      ],
+    ],
+  );
   await page.getByText("1 line of code", { exact: true }).waitFor();
   const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();

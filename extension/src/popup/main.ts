@@ -111,18 +111,42 @@ function showResult(
       "Repository source was downloaded directly from GitHub and analyzed in your browser.",
     ),
   );
-  const languages = document.createElement("ul");
-  languages.setAttribute("aria-label", "Languages by code lines");
-  for (const language of result.languages) {
-    const item = document.createElement("li");
-    const percent = totals.code === 0 ? 0 : (language.code / totals.code) * 100;
-    item.textContent = isTextLanguage(language.language)
-      ? `${language.language}: ${language.comments.toLocaleString()} text lines, ${language.files.toLocaleString()} files`
-      : `${language.language}: ${language.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${language.files.toLocaleString()} files`;
-    languages.append(item);
-  }
-  if (result.languages.length) detailContent.append(languages);
-  else detailContent.append(paragraph("No language totals."));
+  const text = textLines(result.languages);
+  const codeRows = result.languages.filter(
+    (language) => !isTextLanguage(language.language),
+  );
+  const textRows = result.languages.filter((language) =>
+    isTextLanguage(language.language),
+  );
+  const list = (
+    title: string,
+    label: string,
+    rows: typeof result.languages,
+    describe: (row: (typeof result.languages)[number]) => string,
+  ) => {
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    const items = document.createElement("ul");
+    items.setAttribute("aria-label", label);
+    for (const row of rows) {
+      const item = document.createElement("li");
+      item.textContent = describe(row);
+      items.append(item);
+    }
+    detailContent.append(heading, items);
+  };
+  if (codeRows.length)
+    list("Code", "Languages by code lines", codeRows, (row) => {
+      const percent = totals.code === 0 ? 0 : (row.code / totals.code) * 100;
+      return `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
+    });
+  if (textRows.length)
+    list("Text", "Text formats by text lines", textRows, (row) => {
+      const percent = text === 0 ? 0 : (row.comments / text) * 100;
+      return `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
+    });
+  if (!result.languages.length)
+    detailContent.append(paragraph("No language totals."));
   const skipped = coverage.skippedByReason;
   detailContent.append(
     paragraph(

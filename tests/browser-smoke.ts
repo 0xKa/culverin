@@ -40,7 +40,9 @@ assert.deepEqual(
     .sort(),
   [
     "culverin_counter_bg-HASH.wasm",
+    "repository-HASH.js",
     "result-HASH.js",
+    "rules-HASH.js",
     "settings-HASH.js",
     "tar-HASH.js",
     "worker-HASH.js",
@@ -713,8 +715,11 @@ sync();
   await options.goto(
     `chrome-extension://${new URL(worker.url()).host}/options.html`,
   );
-  assert.equal(await options.locator("input").count(), 0);
-  assert.equal(await options.locator("details").count(), 0);
+  assert.equal(
+    await options.locator('input:not([type="checkbox"])').count(),
+    0,
+  );
+  assert.equal(await options.locator("textarea").count(), 1);
   await options.getByRole("button", { name: "Clear public cache" }).click();
   await options.getByText("Public cache cleared.").waitFor();
   const publicFixtureBytes = [
@@ -1005,6 +1010,91 @@ sync();
       globalThis.fetch = scope.fixtureOriginalFetch;
     delete scope.fixtureOriginalFetch;
     delete scope.fixtureFetchCount;
+  });
+  await options.reload();
+  await options.locator("#rules").fill("README\n");
+  await options.getByRole("button", { name: "Save" }).click();
+  await options.getByText(/^Saved\./).waitFor();
+  await worker.evaluate(
+    ({ bytes, sha }) => {
+      const scope = globalThis as typeof globalThis & {
+        fixtureOriginalFetch?: typeof fetch;
+      };
+      scope.fixtureOriginalFetch = fetch;
+      globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`)) {
+          const response = new Response(Uint8Array.from(bytes), {
+            status: 200,
+            headers: { "content-type": "application/gzip" },
+          });
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
+        return scope.fixtureOriginalFetch!(input, init);
+      }) as typeof fetch;
+    },
+    { bytes: publicFixtureBytes, sha: publicSha },
+  );
+  const ignorePopup = await openPopup(page);
+  await ignorePopup
+    .getByText(/Culverin ignore changed since the last count\./)
+    .waitFor();
+  assert.equal(
+    await ignorePopup.locator("#ignore-text").textContent(),
+    "Culverin ignore: 1 rule",
+  );
+  await ignorePopup.getByRole("button", { name: "Analyze repository" }).click();
+  await ignorePopup
+    .getByText("Analyzed locally.", { exact: true })
+    .waitFor({ timeout: 15_000 });
+  await ignorePopup
+    .getByText(
+      /Source profile coverage: 1 of 2 regular files counted; 1 skipped \(1 excluded by Culverin ignore,/,
+    )
+    .waitFor();
+  assert.equal(
+    await ignorePopup.locator("#text-lines").textContent(),
+    "0 text lines",
+  );
+  assert.equal(
+    await ignorePopup.locator("#snapshot-size").textContent(),
+    "21 B",
+  );
+  await ignorePopup.close();
+  const ignoredRow = page.getByRole("button", {
+    name: "1 line of code",
+    exact: true,
+  });
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("[data-culverin-root]")
+        ?.shadowRoot?.querySelector("[title]")
+        ?.getAttribute("title")
+        ?.includes("Culverin ignore active") ?? false,
+  );
+  assert.match(
+    (await ignoredRow.getAttribute("title")) ?? "",
+    /^1 line of code \(Culverin ignore active\)\./,
+  );
+  options.once("dialog", (dialog) => void dialog.accept());
+  await options.getByRole("button", { name: "Reset to defaults" }).click();
+  await options.getByText(/^Saved\./).waitFor();
+  assert.equal(await options.locator("#rules").inputValue(), "");
+  const resetPopup = await openPopup(page);
+  await resetPopup.getByText(cachedStatus).waitFor();
+  assert.equal(await resetPopup.locator("#ignore-summary").isHidden(), true);
+  await resetPopup.getByText("1 text lines", { exact: true }).waitFor();
+  await resetPopup.close();
+  await worker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      fixtureOriginalFetch?: typeof fetch;
+    };
+    if (scope.fixtureOriginalFetch)
+      globalThis.fetch = scope.fixtureOriginalFetch;
+    delete scope.fixtureOriginalFetch;
   });
   const optionsState = await options.evaluate(async () => {
     const send = (type: string) =>

@@ -178,6 +178,7 @@ sync();
           owner: { login: "culverin" },
           private: fixtureMode === "private",
           default_branch: fixtureMode === "empty" ? null : "main",
+          size: 2048,
         }),
       });
     },
@@ -360,6 +361,15 @@ sync();
   await popup
     .getByText(/Ready to analyze main at/)
     .waitFor({ timeout: 15_000 });
+  assert.equal(await popup.locator("#repository-size").textContent(), "2 MB");
+  assert.equal(
+    await popup.locator("#snapshot-label").textContent(),
+    `Files at ${publicSha.slice(0, 12)}`,
+  );
+  assert.equal(
+    await popup.locator("#snapshot-size").textContent(),
+    "Available after analysis",
+  );
   await popup.getByRole("button", { name: "Analyze repository" }).focus();
   assert.equal(
     await popup
@@ -802,6 +812,14 @@ sync();
       /Source profile coverage: 1 of 2 regular files counted; 1 skipped/,
     )
     .waitFor();
+  assert.equal(
+    await resumedPopup.locator("#repository-size").textContent(),
+    "2 MB",
+  );
+  assert.equal(
+    await resumedPopup.locator("#snapshot-size").textContent(),
+    "21 B",
+  );
   await page.getByText("1 line of code", { exact: true }).waitFor();
   const disclosure = resumedPopup.locator("#details");
   await disclosure.locator("summary").focus();
@@ -836,7 +854,10 @@ sync();
     ),
   );
   await accessibility.detach();
-  await resumedPopup.getByText(new RegExp(publicSha.slice(0, 12))).waitFor();
+  await resumedPopup
+    .locator("#detail-content")
+    .getByText(new RegExp(publicSha.slice(0, 12)))
+    .waitFor();
   assert.equal(
     await worker.evaluate(
       () =>

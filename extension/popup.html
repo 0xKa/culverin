@@ -63,6 +63,25 @@
       #detail-content p {
         margin: 6px 0;
       }
+      #sizes:not([hidden]) {
+        display: grid;
+        gap: 2px;
+        margin: 10px 0 0;
+      }
+      #sizes div {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      #sizes dt {
+        overflow-wrap: anywhere;
+      }
+      #sizes dd {
+        margin: 0;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
       .actions {
         justify-content: flex-start;
         margin: 12px 0;
@@ -104,6 +123,19 @@
       <section id="analysis" hidden>
         <p id="code-lines"></p>
         <p id="metrics"></p>
+        <dl id="sizes" hidden>
+          <div>
+            <dt>Repository size (incl. history)</dt>
+            <dd
+              id="repository-size"
+              title="Reported by GitHub; includes the full Git history"
+            ></dd>
+          </div>
+          <div>
+            <dt id="snapshot-label">Files at commit</dt>
+            <dd id="snapshot-size"></dd>
+          </div>
+        </dl>
         <div class="actions">
           <button id="analyze" type="button" disabled>
             Analyze repository

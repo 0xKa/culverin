@@ -16,7 +16,7 @@ Opening or reloading a repository page may request metadata and show a previousl
 
 Source code is streamed to a packaged analysis worker, counted in memory, and discarded. Archives and source files are never written to storage.
 
-Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the time it was stored, and file and line counts per language. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state that is cleared when the browser closes.
+Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the repository size reported by GitHub, the time it was stored, file and line counts per language, and the total size of the files at that commit. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state that is cleared when the browser closes.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 

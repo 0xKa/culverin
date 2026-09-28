@@ -11,6 +11,7 @@ import {
   type PublicRequest,
   type ResolutionEnvelope,
 } from "../github/public-protocol";
+import { formatBytes } from "./size";
 
 const navigationId = crypto.randomUUID();
 const repositoryLabel = document.querySelector<HTMLElement>("#repository")!;
@@ -18,6 +19,10 @@ const status = document.querySelector<HTMLElement>("#status")!;
 const analysis = document.querySelector<HTMLElement>("#analysis")!;
 const codeLines = document.querySelector<HTMLElement>("#code-lines")!;
 const metrics = document.querySelector<HTMLElement>("#metrics")!;
+const sizes = document.querySelector<HTMLElement>("#sizes")!;
+const repositorySize = document.querySelector<HTMLElement>("#repository-size")!;
+const snapshotLabel = document.querySelector<HTMLElement>("#snapshot-label")!;
+const snapshotSize = document.querySelector<HTMLElement>("#snapshot-size")!;
 const analyzeButton = document.querySelector<HTMLButtonElement>("#analyze")!;
 const cancelButton = document.querySelector<HTMLButtonElement>("#cancel")!;
 const details = document.querySelector<HTMLDetailsElement>("#details")!;
@@ -63,6 +68,16 @@ function clearResult(): void {
   detailContent.replaceChildren();
   codeLines.textContent = "";
   metrics.textContent = "";
+  snapshotSize.textContent = "Available after analysis";
+}
+
+function showSizes(resolution: ResolutionEnvelope): void {
+  repositorySize.textContent =
+    resolution.sizeKb === null
+      ? "Not reported"
+      : formatBytes(resolution.sizeKb * 1024);
+  snapshotLabel.textContent = `Files at ${resolution.sha.slice(0, 12)}`;
+  sizes.hidden = false;
 }
 
 function paragraph(text: string, className?: string): HTMLParagraphElement {
@@ -79,6 +94,8 @@ function showResult(
   const { totals, coverage, engine } = result;
   codeLines.textContent = `${totals.code.toLocaleString()} code lines`;
   metrics.textContent = `${totals.files.toLocaleString()} files · ${totals.lines.toLocaleString()} physical lines · ${totals.comments.toLocaleString()} comments · ${totals.blanks.toLocaleString()} blanks`;
+  showSizes(resolution);
+  snapshotSize.textContent = formatBytes(coverage.totalBytes);
   detailContent.replaceChildren(
     paragraph(
       `Default branch ${resolution.defaultBranch} · commit ${resolution.sha.slice(0, 12)}`,
@@ -221,6 +238,7 @@ async function lookup(): Promise<void> {
     if (lookupRequestId !== pending.requestId) return;
     if (reply.type === "repository.cache_miss") {
       clearResult();
+      showSizes(reply.resolution);
       setStatus(
         `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. Analyze downloads a source snapshot from GitHub and counts it locally.`,
       );
@@ -230,6 +248,7 @@ async function lookup(): Promise<void> {
       if (lookupRequestId !== pending.requestId) return;
       if (reply.result.engine.rulesHash !== hash) {
         clearResult();
+        showSizes(reply.resolution);
         setStatus(errors.internal_error);
       } else {
         showResult(reply.result, reply.resolution);
@@ -358,6 +377,7 @@ function leaveRepository(): void {
   clearTimeout(retryTimer);
   repositoryLabel.hidden = true;
   analysis.hidden = true;
+  sizes.hidden = true;
   clearResult();
   setBusy(false);
   setStatus("The active tab changed. Reopen the popup to analyze it.");

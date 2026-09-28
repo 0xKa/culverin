@@ -11,3 +11,7 @@ Culverin is in early development. Please discuss larger behavior changes in an i
 - Playwright's Chromium: `bunx playwright install chromium`, or point `CHROME_BIN` at a compatible Chrome executable.
 
 The icon artwork lives in `assets/`. The PNGs in `extension/public/icons/` are committed because Chrome needs them in the loadable extension.
+
+## Release package
+
+`bun run package` builds the extension, checks the build, and writes `dist/culverin-<version>.zip` with a SHA-256 checksum file. The check fails if the manifest keys, permissions, host permissions, or content security policy change, if an unexpected file or source map is present, or if bundled code contains a local path, a development host, or a URL outside the allowed origins. ZIP entries are sorted and use fixed timestamps and file modes, so the same build output always produces the same checksum. The command prints the source commit and notes uncommitted changes.

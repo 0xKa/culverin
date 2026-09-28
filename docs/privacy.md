@@ -1,19 +1,41 @@
 # Privacy
 
-Culverin analyzes GitHub repositories inside the user's browser. Repository metadata and archives travel from GitHub to the extension; Culverin has no backend, telemetry, or native companion. GitHub still receives the requests needed to resolve a repository and fetch its archive.
+Effective 2026-09-28.
 
-## When data is fetched
+Culverin counts lines of code in public GitHub repositories inside your browser. It has no backend, account, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
-The repository-page summary, toolbar popup, and packaged options page can request repository metadata and the current default-branch commit. A repository page can show a previously completed result after a compatible public resolution, but opening or reloading the page does not download an archive. Only an explicit Analyze action in the popup or options page can start a tar.gz archive download for that commit.
+## What goes to GitHub
 
-GitHub requests use `cache: "no-store"` and `credentials: "omit"`. When a token is connected, the service worker sends it in the Authorization header on requests to the GitHub API. The archive request starts at the GitHub API and follows its redirect to `codeload.github.com`; the extension checks that the final response came from codeload. The extension does not expose a token or a signed archive URL to the content script or analysis worker.
+To show a result, the extension requests repository metadata and the current default-branch commit from `api.github.com`. When you choose Analyze, it downloads that commit's source archive, which GitHub serves from `codeload.github.com`. These requests go directly from your browser to GitHub and are subject to [GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 
-## Data held in the browser
+Requests are sent without your GitHub cookies or any token, with `credentials: "omit"` and `cache: "no-store"`. Culverin does not read your GitHub session and cannot access private repositories.
 
-A token entered on the packaged options page is validated and kept in `chrome.storage.session`, limited to trusted extension contexts. Disconnect removes it. Session storage is cleared when the browser session ends; the extension does not put tokens in persistent extension storage. Clearing private session state removes pending credentials and aborts active work while retaining a connected token for that browser session.
+Opening or reloading a repository page may request metadata and show a previously completed result, but it never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download.
 
-The service worker streams bounded archive chunks to a packaged analysis worker through an offscreen document. The worker retains at most one eligible source file body at a time for counting. Archives and source files are not written to extension storage. Complete public aggregate results can persist in `chrome.storage.local` until evicted or cleared, with a limit of 200 results or 5 MiB. Local storage is restricted to trusted extension contexts. The content script can read a compatible public aggregate cache result, renders only the total code-line count, and never receives credentials, signed archive URLs, or source files. Partial, failed, canceled, and private results are not written to persistent storage. Session storage holds credential state and bounded job interruption markers.
+## What stays in your browser
 
-A cache hit requires a compatible repository resolution confirming public visibility, repository ID, and commit SHA. A resolution can be reused for up to 60 seconds, so a visibility change during that window may not be noticed immediately. When the extension observes that the same repository ID has become private, it removes its persistent public results. Clear public cache, Clear private session, and Disconnect GitHub are separate options-page actions. Multiple Analyze requests for the same result may share one in-browser download; canceling one subscriber leaves other subscribers running.
+Source code is streamed to a packaged analysis worker, counted in memory, and discarded. Archives and source files are never written to storage.
 
-The extension cannot control how GitHub handles requests or how long the browser retains data in network and process memory. Its `no-store` request setting asks the browser not to use its HTTP cache; it is not a claim that all in-memory copies are immediately erased.
+Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the time it was stored, and file and line counts per language. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state that is cleared when the browser closes.
+
+Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
+
+A cached result is shown only after GitHub confirms the repository is still public at the same commit. Metadata can be reused for up to 60 seconds, so a visibility change within that window may not be noticed immediately. When Culverin sees that a repository has become private, it deletes that repository's stored results.
+
+## Permissions
+
+- `storage`: keep completed results and short-lived job state.
+- `offscreen`: run the packaged WebAssembly line counter outside the service worker.
+- `github.com`, `api.github.com`, and `codeload.github.com`: show the lines-of-code row on repository pages, read repository metadata, and download source archives you ask to analyze.
+
+All code, including the WebAssembly counter, is packaged with the extension. No remote code is loaded.
+
+## Removing data
+
+Use **Clear public cache** on the extension's options page to delete stored results. Removing the extension deletes all of its stored data.
+
+The extension cannot control how GitHub handles requests or how long the browser keeps data in network and process memory. The `no-store` setting asks the browser not to use its HTTP cache for these requests.
+
+## Changes and contact
+
+Changes to this policy are published in this file with a new effective date. Questions can be raised as an issue at https://github.com/0xKa/culverin/issues.

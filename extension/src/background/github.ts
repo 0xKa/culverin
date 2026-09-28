@@ -33,7 +33,12 @@ import {
   resolutionIdentity,
 } from "../github/cache";
 import { AnalysisCoordinator, type Marker } from "../github/coordinator";
-import { effectiveRulesHash } from "../counter/rules";
+import {
+  defaultIgnore,
+  effectiveRulesHash,
+  type IgnoreSettings,
+} from "../counter/rules";
+import { readIgnore } from "../ignore/settings";
 
 const VERSION = 1;
 const OPTIONS_URL = chrome.runtime.getURL("options.html");
@@ -42,7 +47,14 @@ const MARKER = "github.job";
 const LAST = "github.last";
 const cache = new PublicResultCache(chrome.storage.local);
 const refs = new ResolutionCache();
-const rulesHash = effectiveRulesHash([]);
+const defaultRulesHash = effectiveRulesHash(defaultIgnore);
+async function currentRules(): Promise<{
+  ignore: IgnoreSettings;
+  hash: string;
+}> {
+  const ignore = await readIgnore();
+  return { ignore, hash: await effectiveRulesHash(ignore) };
+}
 let markerTail: Promise<void> = Promise.resolve();
 function saveMarkers(markers: Marker[]): void {
   markerTail = markerTail
@@ -55,12 +67,22 @@ function saveMarkers(markers: Marker[]): void {
 }
 const coordinator = new AnalysisCoordinator(
   (job, progress) =>
-    analyzeArchive(job.resolution, job.token, job.signal, job.id, progress),
+    analyzeArchive(
+      job.resolution,
+      job.token,
+      job.signal,
+      job.id,
+      progress,
+      job.ignore,
+    ),
   saveMarkers,
 );
 const ready = Promise.all([
   initializeSession(),
   chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
+  chrome.storage.sync
+    .setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })
+    .catch(() => undefined),
 ]).then(async () => {
   const state = await chrome.storage.session.get(MARKER);
   const marker = state[MARKER];
@@ -425,7 +447,10 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
       }
       if (resolved.fresh && refs.isCurrent(resolved.epoch))
         cache.allowRepository(envelope);
-      const cached = await cache.get(envelope).catch(() => undefined);
+      const rules = await currentRules();
+      const cached = await cache
+        .get(envelope, rules.hash)
+        .catch(() => undefined);
       if (controller.signal.aborted || !client.isAlive()) return;
       if (cache.isRevoked(envelope.repositoryId)) {
         reply({ type: "analysis.failed", code: "repository_unavailable" });
@@ -448,13 +473,21 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         return;
       }
       if (request.type === "repository.lookup") {
-        reply({ type: "repository.cache_miss", resolution: envelope });
+        const rulesChanged = await cache
+          .hasOtherRules(envelope, rules.hash)
+          .catch(() => false);
+        if (controller.signal.aborted || !client.isAlive()) return;
+        reply({
+          type: "repository.cache_miss",
+          resolution: envelope,
+          ...(rulesChanged ? { rulesChanged: true as const } : {}),
+        });
         return;
       }
       if (pending.get(owner)?.requestId !== request.requestId) return;
       pending.delete(owner);
       await clearInterrupted(owner);
-      const identity = resolutionIdentity(envelope, await rulesHash);
+      const identity = resolutionIdentity(envelope, rules.hash);
       if (controller.signal.aborted || !client.isAlive()) return;
       if (cache.isRevoked(envelope.repositoryId)) {
         reply({ type: "analysis.failed", code: "repository_unavailable" });
@@ -525,6 +558,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
           },
         },
         Math.max(1, 25_000 - (Date.now() - startedAt)),
+        rules.ignore,
       );
       if (!accepted) reply({ type: "analysis.failed", code: "analysis_busy" });
     } catch (error) {
@@ -619,7 +653,7 @@ async function updateSummary(
 ): Promise<void> {
   if (
     !result.coverage.complete ||
-    result.engine.rulesHash !== (await rulesHash)
+    result.engine.rulesHash !== (await currentRules()).hash
   )
     return;
   const update: SummaryUpdate = {
@@ -627,6 +661,7 @@ async function updateSummary(
     type: "summary.update",
     repository,
     totalCodeLines: result.totals.code,
+    customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
   };
   await chrome.tabs
     .sendMessage(tabId, update, { frameId: 0 })
@@ -935,7 +970,8 @@ export function handleGithub(
         if (pending.get(owner)?.requestId !== request.requestId) return;
         pending.delete(owner);
         await clearInterrupted(owner);
-        const semantic = resolutionIdentity(envelope, await rulesHash);
+        const rules = await currentRules();
+        const semantic = resolutionIdentity(envelope, rules.hash);
         if (controller.signal.aborted) return;
         const identity = auth.token
           ? `authorized:${auth.generation}:${semantic}`
@@ -983,6 +1019,7 @@ export function handleGithub(
               }),
           },
           Math.max(1, 25_000 - (Date.now() - startedAt)),
+          rules.ignore,
         );
         if (!accepted) reply({ state: "busy" });
       } catch (error) {

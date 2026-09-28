@@ -40,8 +40,8 @@ assert.deepEqual(
     .sort(),
   [
     "culverin_counter_bg-HASH.wasm",
-    "repository-HASH.js",
     "result-HASH.js",
+    "settings-HASH.js",
     "tar-HASH.js",
     "worker-HASH.js",
     "worker-HASH.js",
@@ -987,6 +987,14 @@ sync();
     returnByValue: true,
   });
   assert.equal(storageAccess.result.value, "restricted");
+  const ignoreAccess = await isolation.send("Runtime.evaluate", {
+    contextId: contentContext.id,
+    expression:
+      "chrome.storage.sync.get('culverin.ignore').then(() => 'exposed', () => 'restricted')",
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  assert.equal(ignoreAccess.result.value, "restricted");
   await isolation.detach();
   await worker.evaluate(() => {
     const scope = globalThis as typeof globalThis & {

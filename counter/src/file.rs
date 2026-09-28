@@ -1,5 +1,5 @@
 use crate::model::{Classification, Counts, LanguageCounts};
-use crate::rules::{excluded, validate_path};
+use crate::rules::{Rules, validate_path};
 use std::collections::BTreeMap;
 
 pub(crate) const MAX_FILE: usize = 8 * 1024 * 1024;
@@ -154,13 +154,13 @@ pub(crate) fn add_stats(
 pub(crate) fn classify_path(
     path: &str,
     prefix: &[u8],
-    exclusions: &[String],
+    rules: &Rules,
 ) -> Result<Classification, String> {
     validate_path(path)?;
     if prefix.len() > 128 {
         return Err("prefix exceeds byte limit".into());
     }
-    if excluded(path, exclusions) {
+    if rules.excludes(path) {
         return Ok(Classification {
             kind: "excluded_by_rule",
             language: None,
@@ -199,9 +199,9 @@ pub(crate) fn classify_path(
 pub(crate) fn classify_file(
     path: &str,
     bytes: &[u8],
-    exclusions: &[String],
+    rules: &Rules,
 ) -> Result<Classification, String> {
-    let classification = classify_path(path, &bytes[..bytes.len().min(128)], exclusions)?;
+    let classification = classify_path(path, &bytes[..bytes.len().min(128)], rules)?;
     let classification = if classification.kind == "counted" && bytes.len() > MAX_FILE {
         Classification {
             kind: "oversized_source",

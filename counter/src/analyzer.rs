@@ -44,11 +44,17 @@ impl CounterAnalyzer {
             inaccurate: false,
         })
     }
+    pub fn rules(&self) -> &Rules {
+        &self.rules
+    }
+    pub fn rules_hash(&self) -> &str {
+        &self.hash
+    }
     pub fn classify_path(&self, path: &str, prefix: &[u8]) -> Result<Classification, String> {
-        crate::file::classify_path(path, prefix, &self.rules.exclusions)
+        crate::file::classify_path(path, prefix, &self.rules)
     }
     pub fn add_file(&mut self, path: &str, bytes: &[u8]) -> Result<Classification, String> {
-        let classification = crate::file::classify_file(path, bytes, &self.rules.exclusions)?;
+        let classification = crate::file::classify_file(path, bytes, &self.rules)?;
         self.record_file(bytes.len() as u64)?;
         if classification.kind != "counted" {
             self.record_skip(classification.kind)?;

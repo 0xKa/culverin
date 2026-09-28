@@ -1,7 +1,6 @@
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import {
   coveragePolicyVersion,
-  effectiveRulesHash,
   rulesProfile,
   rulesVersion,
   wrapperVersion,
@@ -120,7 +119,6 @@ function lru(a: Entry, b: Entry): number {
 export class PublicResultCache {
   private snapshot: Snapshot | undefined;
   private tail: Promise<void> = Promise.resolve();
-  private readonly hash = effectiveRulesHash([]);
   private revoked = new Set<string>();
 
   constructor(
@@ -201,12 +199,13 @@ export class PublicResultCache {
 
   async get(
     resolution: ResolutionEnvelope,
+    rulesHash: string,
   ): Promise<AnalysisResultV2 | undefined> {
     return this.serial(async () => {
       if (resolution.visibility !== "public" || !validEnvelope(resolution))
         return undefined;
       if (this.revoked.has(resolution.repositoryId)) return undefined;
-      const identity = resolutionIdentity(resolution, await this.hash);
+      const identity = resolutionIdentity(resolution, rulesHash);
       const snapshot = await this.load();
       const entry = snapshot.entries.find((item) => item.identity === identity);
       if (!entry) return undefined;
@@ -234,7 +233,7 @@ export class PublicResultCache {
         !validateResult(result) ||
         !result.coverage.complete ||
         resultIdentity(result) !==
-          resolutionIdentity(resolution, await this.hash) ||
+          resolutionIdentity(resolution, result.engine.rulesHash) ||
         this.revoked.has(resolution.repositoryId)
       )
         return;
@@ -254,6 +253,25 @@ export class PublicResultCache {
       entry.bytes = bytes(entry);
       snapshot.entries.push(entry);
       await this.persist(snapshot);
+    });
+  }
+
+  async hasOtherRules(
+    resolution: ResolutionEnvelope,
+    rulesHash: string,
+  ): Promise<boolean> {
+    return this.serial(async () => {
+      if (
+        resolution.visibility !== "public" ||
+        this.revoked.has(resolution.repositoryId)
+      )
+        return false;
+      return (await this.load()).entries.some(
+        (entry) =>
+          entry.result.repository.id === resolution.repositoryId &&
+          entry.result.revision.commitSha === resolution.sha &&
+          entry.result.engine.rulesHash !== rulesHash,
+      );
     });
   }
 

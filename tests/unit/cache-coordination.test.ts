@@ -16,7 +16,10 @@ import {
   type AnalysisOutput,
   type Subscriber,
 } from "../../extension/src/github/coordinator";
-import { effectiveRulesHash } from "../../extension/src/counter/rules";
+import {
+  defaultIgnore,
+  effectiveRulesHash,
+} from "../../extension/src/counter/rules";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
 
@@ -43,7 +46,7 @@ async function result(id = "42"): Promise<AnalysisResultV2> {
       wrapperVersion: "2",
       rulesProfile: "source-v1",
       rulesVersion: "2",
-      rulesHash: await effectiveRulesHash([]),
+      rulesHash: await effectiveRulesHash(defaultIgnore),
       coveragePolicyVersion: "1",
     },
     totals: { files: 0, lines: 0, code: 0, comments: 0, blanks: 0 },
@@ -95,13 +98,26 @@ describe("public result cache", () => {
     const cache = new PublicResultCache(storage);
     const value = await result();
     await cache.put(resolution(), value);
-    expect(await cache.get(resolution("42", "renamed"))).toEqual(value);
-    expect(await cache.get(resolution("43"))).toBeUndefined();
     expect(
-      await cache.get({ ...resolution(), sha: "b".repeat(40) }),
+      await cache.get(
+        resolution("42", "renamed"),
+        await effectiveRulesHash(defaultIgnore),
+      ),
+    ).toEqual(value);
+    expect(
+      await cache.get(
+        resolution("43"),
+        await effectiveRulesHash(defaultIgnore),
+      ),
+    ).toBeUndefined();
+    expect(
+      await cache.get(
+        { ...resolution(), sha: "b".repeat(40) },
+        await effectiveRulesHash(defaultIgnore),
+      ),
     ).toBeUndefined();
     expect(resultIdentity(value)).toBe(
-      resolutionIdentity(resolution(), await effectiveRulesHash([])),
+      resolutionIdentity(resolution(), await effectiveRulesHash(defaultIgnore)),
     );
     for (const field of [
       "version",
@@ -119,13 +135,19 @@ describe("public result cache", () => {
       resultIdentity(value),
     );
     await cache.purgeRepository("42");
-    expect(await cache.get(resolution())).toBeUndefined();
+    expect(
+      await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
     expect(cache.isRevoked("42")).toBe(true);
     await cache.put(resolution(), value);
-    expect(await cache.get(resolution())).toBeUndefined();
+    expect(
+      await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
     cache.allowRepository(resolution());
     await cache.put(resolution(), value);
-    expect(await cache.get(resolution())).toEqual(value);
+    expect(
+      await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
+    ).toEqual(value);
   });
 
   test("rejects partial and corrupted results, and clears only its namespace", async () => {
@@ -141,14 +163,19 @@ describe("public result cache", () => {
         incompleteReasons: ["counter_inaccurate"],
       },
     });
-    expect(await cache.get(resolution())).toBeUndefined();
+    expect(
+      await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
     await cache.put(resolution(), value);
     const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
       entries: { result: AnalysisResultV2 }[];
     };
     snapshot.entries[0]!.result.revision.commitSha = "b".repeat(40);
     expect(
-      await new PublicResultCache(storage).get(resolution()),
+      await new PublicResultCache(storage).get(
+        resolution(),
+        await effectiveRulesHash(defaultIgnore),
+      ),
     ).toBeUndefined();
     expect(
       (storage.values[PUBLIC_CACHE_KEY] as { entries: unknown[] }).entries,
@@ -169,11 +196,38 @@ describe("public result cache", () => {
     entry.result = { ...entry.result, schemaVersion: 1, coverage };
     entry.identity = entry.identity.replace(/2\]$/, "1]");
     expect(
-      await new PublicResultCache(storage).get(resolution()),
+      await new PublicResultCache(storage).get(
+        resolution(),
+        await effectiveRulesHash(defaultIgnore),
+      ),
     ).toBeUndefined();
     expect(
       (storage.values[PUBLIC_CACHE_KEY] as { entries: unknown[] }).entries,
     ).toEqual([]);
+  });
+
+  test("keeps results per ignore rules and reports results under other rules", async () => {
+    const storage = new MemoryStorage();
+    const cache = new PublicResultCache(storage);
+    const custom = { disabledGroups: [], exclusions: ["docs/"] };
+    const customHash = await effectiveRulesHash(custom);
+    const defaultHash = await effectiveRulesHash(defaultIgnore);
+    const value = await result();
+    await cache.put(resolution(), value);
+    expect(await cache.get(resolution(), customHash)).toBeUndefined();
+    expect(await cache.hasOtherRules(resolution(), customHash)).toBe(true);
+    expect(await cache.hasOtherRules(resolution(), defaultHash)).toBe(false);
+    const customValue = structuredClone(value);
+    customValue.engine.rulesHash = customHash;
+    await cache.put(resolution(), customValue);
+    expect(await cache.get(resolution(), customHash)).toEqual(customValue);
+    expect(await cache.get(resolution(), defaultHash)).toEqual(value);
+    expect(
+      await cache.hasOtherRules(
+        { ...resolution(), sha: "b".repeat(40) },
+        customHash,
+      ),
+    ).toBe(false);
   });
 
   test("evicts by entry budget and survives a quota failure", async () => {
@@ -185,11 +239,23 @@ describe("public result cache", () => {
       entries: unknown[];
     };
     expect(snapshot.entries.length).toBe(200);
-    expect(await cache.get(resolution("1"))).toBeUndefined();
-    expect(await cache.get(resolution("201"))).toBeDefined();
+    expect(
+      await cache.get(resolution("1"), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
+    expect(
+      await cache.get(
+        resolution("201"),
+        await effectiveRulesHash(defaultIgnore),
+      ),
+    ).toBeDefined();
     storage.failWrites = 1;
     await cache.put(resolution("202"), await result("202"));
-    expect(await cache.get(resolution("202"))).toBeDefined();
+    expect(
+      await cache.get(
+        resolution("202"),
+        await effectiveRulesHash(defaultIgnore),
+      ),
+    ).toBeDefined();
   });
 
   test("enforces byte budget using actual storage accounting", async () => {
@@ -211,14 +277,20 @@ describe("public result cache", () => {
     };
     await cache.put(resolution("1"), await large("1"));
     await cache.put(resolution("2"), await large("2"));
-    expect(await cache.get(resolution("1"))).toBeUndefined();
-    expect(await cache.get(resolution("2"))).toBeDefined();
+    expect(
+      await cache.get(resolution("1"), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
+    expect(
+      await cache.get(resolution("2"), await effectiveRulesHash(defaultIgnore)),
+    ).toBeDefined();
     storage.overhead = 3 * 1024 * 1024;
     await cache.put(resolution("3"), await large("3"));
     expect(await storage.getBytesInUse(PUBLIC_CACHE_KEY)).toBeLessThanOrEqual(
       PUBLIC_CACHE_BYTES,
     );
-    expect(await cache.get(resolution("3"))).toBeUndefined();
+    expect(
+      await cache.get(resolution("3"), await effectiveRulesHash(defaultIgnore)),
+    ).toBeUndefined();
   });
 
   test("serializes concurrent writes", async () => {
@@ -358,6 +430,36 @@ test("coordinator shares jobs, bounds queued work, and scopes cancellation", asy
   expect(done).toEqual(["second"]);
   coordinator.abortAll("cancel");
   expect(coordinator.subscriptionCount()).toBeLessThan(SUBSCRIPTIONS);
+});
+
+test("coordinator runs jobs with the ignore rules they were requested with", async () => {
+  const seen: unknown[] = [];
+  const coordinator = new AnalysisCoordinator(
+    (job) => {
+      seen.push(job.ignore);
+      return new Promise<AnalysisOutput>(() => undefined);
+    },
+    () => undefined,
+  );
+  const ignore = { disabledGroups: ["build" as const], exclusions: ["docs/"] };
+  coordinator.subscribe(
+    "custom",
+    resolution(),
+    undefined,
+    "",
+    {
+      requestId: crypto.randomUUID(),
+      owner: "a",
+      public: true,
+      onProgress: () => undefined,
+      onComplete: () => undefined,
+      onFailure: () => undefined,
+    },
+    25_000,
+    ignore,
+  );
+  expect(seen).toEqual([ignore]);
+  coordinator.detachOwner("a");
 });
 
 test("queued work expires before archive execution", async () => {

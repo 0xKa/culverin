@@ -24,7 +24,10 @@ describe("analysis result contract", () => {
   test("native result matches the TypeScript validator and canonical hash", async () => {
     expect(validateResult(result)).toBe(true);
     expect(result.engine.rulesHash).toBe(
-      await effectiveRulesHash(["custom", "custom"]),
+      await effectiveRulesHash({
+        disabledGroups: [],
+        exclusions: ["custom", "custom"],
+      }),
     );
     expect(coverageIdentity("15.0.0", "1", result.engine.rulesHash)).toContain(
       result.engine.rulesHash,

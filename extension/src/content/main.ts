@@ -1,4 +1,4 @@
-import { effectiveRulesHash } from "../counter/rules";
+import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
   PUBLIC_PORT,
   validPublicReply,
@@ -90,12 +90,16 @@ function rateLimit(current: View, retryAt?: number): void {
   }, until - Date.now());
 }
 
-async function compatibleTotal(
+const defaultRulesHash = effectiveRulesHash(defaultIgnore);
+
+async function completeState(
   result: Extract<PublicReply, { type: "repository.cache_hit" }>["result"],
-): Promise<number | undefined> {
-  return result.engine.rulesHash === (await effectiveRulesHash([]))
-    ? result.totals.code
-    : undefined;
+): Promise<RowState> {
+  return {
+    kind: "complete",
+    total: result.totals.code,
+    customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
+  };
 }
 
 async function lookup(current: View): Promise<void> {
@@ -126,14 +130,11 @@ async function lookup(current: View): Promise<void> {
       setState(current, { kind: "idle" });
       return;
     }
-    const total = reply.result.coverage.complete
-      ? await compatibleTotal(reply.result)
+    const state = reply.result.coverage.complete
+      ? await completeState(reply.result)
       : undefined;
     if (!active()) return;
-    setState(
-      current,
-      total === undefined ? { kind: "idle" } : { kind: "complete", total },
-    );
+    setState(current, state ?? { kind: "idle" });
   } catch {
     if (active()) setState(current, { kind: "idle" });
   } finally {
@@ -157,16 +158,11 @@ async function finishAnalysis(
 ): Promise<void> {
   if (!currentView(current) || current.analysisRequestId !== requestId) return;
   if (reply.type === "analysis.completed") {
-    const total = await compatibleTotal(reply.result);
+    const state = await completeState(reply.result);
     if (!currentView(current) || !stopAnalysis(current, requestId)) return;
-    if (total === undefined)
-      setState(current, {
-        kind: "retry",
-        detail: failureMessages.internal_error,
-      });
-    else if (!reply.result.coverage.complete)
+    if (!reply.result.coverage.complete)
       setState(current, partialState(reply.result.coverage.incompleteReasons));
-    else setState(current, { kind: "complete", total });
+    else setState(current, state);
     return;
   }
   stopAnalysis(current, requestId);
@@ -268,7 +264,11 @@ function create(repository: PageRepository): View {
       return;
     if (requestId) stopAnalysis(current, requestId);
     current.lookupRequestId = undefined;
-    setState(current, { kind: "complete", total: message.totalCodeLines });
+    setState(current, {
+      kind: "complete",
+      total: message.totalCodeLines,
+      customIgnore: message.customIgnore,
+    });
   };
   chrome.runtime.onMessage.addListener(current.messageListener);
   return current;

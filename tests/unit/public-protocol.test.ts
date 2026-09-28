@@ -210,8 +210,14 @@ test("validates popup requests and compact page summary updates", () => {
     type: "summary.update",
     repository: { owner: "owner", name: "repo" },
     totalCodeLines: 125,
+    customIgnore: false,
   };
   expect(validSummaryUpdate(update)).toBe(true);
+  expect(validSummaryUpdate({ ...update, customIgnore: true })).toBe(true);
+  expect(validSummaryUpdate({ ...update, customIgnore: "yes" })).toBe(false);
+  const withoutFlag: Partial<typeof update> = { ...update };
+  delete withoutFlag.customIgnore;
+  expect(validSummaryUpdate(withoutFlag)).toBe(false);
   expect(validSummaryUpdate({ ...update, totalCodeLines: -1 })).toBe(false);
   expect(validSummaryUpdate({ ...update, totalCodeLines: "125" })).toBe(false);
   expect(validSummaryUpdate({ ...update, token: "secret" })).toBe(false);
@@ -272,6 +278,16 @@ test("validates envelope, correlation, and safe errors", () => {
     resolution: envelope,
   };
   expect(validPublicReply(reply, requestId, navigationId)).toBe(true);
+  expect(
+    validPublicReply({ ...reply, rulesChanged: true }, requestId, navigationId),
+  ).toBe(true);
+  expect(
+    validPublicReply(
+      { ...reply, rulesChanged: false },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(false);
   expect(validPublicReply(reply, requestId, crypto.randomUUID())).toBe(false);
   expect(
     validPublicReply(

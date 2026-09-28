@@ -1,5 +1,15 @@
 import { validateResult } from "../counter/result";
+import { normalizeIgnore } from "../counter/rules";
 import { ARCHIVE_LIMITS, type ArchiveMetrics } from "./tar";
+
+function validIgnore(value: unknown): boolean {
+  try {
+    normalizeIgnore(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 type Reply = (value: unknown) => void;
 type Active = {
@@ -102,9 +112,14 @@ export function handleArchiveHost(
     if (
       typeof rules.repositoryId !== "string" ||
       typeof rules.commitSha !== "string" ||
-      Object.keys(rules).length !== 2 ||
+      Object.keys(rules).sort().join("|") !==
+        "commitSha|disabledGroups|exclusions|repositoryId" ||
       !/^[1-9][0-9]*$/.test(rules.repositoryId) ||
-      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(rules.commitSha)
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(rules.commitSha) ||
+      !validIgnore({
+        disabledGroups: rules.disabledGroups,
+        exclusions: rules.exclusions,
+      })
     ) {
       respond({ state: "failed", code: "archive_invalid" });
       return false;

@@ -26,6 +26,7 @@ export type SummaryUpdate = {
   type: "summary.update";
   repository: { owner: string; name: string };
   totalCodeLines: number;
+  customIgnore: boolean;
 };
 
 export type ResolutionEnvelope = Resolution & { resolvedAt: number };
@@ -59,7 +60,11 @@ export type PublicReply = {
   requestId: string;
   navigationId: string;
 } & (
-  | { type: "repository.cache_miss"; resolution: ResolutionEnvelope }
+  | {
+      type: "repository.cache_miss";
+      resolution: ResolutionEnvelope;
+      rulesChanged?: true;
+    }
   | {
       type: "repository.cache_hit";
       resolution: ResolutionEnvelope;
@@ -168,6 +173,7 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
       "type",
       "repository",
       "totalCodeLines",
+      "customIgnore",
     ]) ||
     value.protocolVersion !== PUBLIC_VERSION ||
     value.type !== "summary.update" ||
@@ -180,7 +186,8 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
     return false;
   return (
     Number.isSafeInteger(value.totalCodeLines) &&
-    (value.totalCodeLines as number) >= 0
+    (value.totalCodeLines as number) >= 0 &&
+    typeof value.customIgnore === "boolean"
   );
 }
 
@@ -283,7 +290,12 @@ export function validPublicReply(
   const base = ["protocolVersion", "type", "requestId", "navigationId"];
   if (value.type === "repository.cache_miss")
     return (
-      exact(value, [...base, "resolution"]) &&
+      exact(value, [
+        ...base,
+        "resolution",
+        ...(value.rulesChanged === undefined ? [] : ["rulesChanged"]),
+      ]) &&
+      (value.rulesChanged === undefined || value.rulesChanged === true) &&
       validEnvelope(value.resolution) &&
       value.resolution.visibility === "public"
     );

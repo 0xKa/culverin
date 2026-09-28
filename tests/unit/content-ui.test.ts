@@ -30,6 +30,15 @@ test("describes complete counts with exact tooltips and opens details", () => {
     title: "1 line of code. Open Culverin for details",
     action: "details",
   });
+  expect(
+    rowView({ kind: "complete", total: 412_345, customIgnore: true }),
+  ).toEqual({
+    count: "412.3k",
+    label: "lines of code",
+    title:
+      "412,345 lines of code (Culverin ignore active). Open Culverin for details",
+    action: "details",
+  });
 });
 
 test("offers explicit analysis and cancellation actions", () => {

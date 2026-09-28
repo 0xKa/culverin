@@ -12,6 +12,7 @@ export type CounterRules = {
   repositoryId: string;
   commitSha: string;
   exclusions?: string[];
+  disabledGroups?: string[];
 };
 
 import init, {

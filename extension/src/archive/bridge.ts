@@ -1,6 +1,10 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import { validateResult } from "../counter/result";
-import { effectiveRulesHash } from "../counter/rules";
+import {
+  defaultIgnore,
+  effectiveRulesHash,
+  type IgnoreSettings,
+} from "../counter/rules";
 import { openArchive, type Resolution } from "../github/client";
 import {
   ARCHIVE_LIMITS,
@@ -97,13 +101,22 @@ export async function analyzeArchive(
     phase: "downloading" | "decompressing",
     processedBytes?: number,
   ) => void,
+  ignore: IgnoreSettings = defaultIgnore,
 ): Promise<{
   result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
   wasmLinearMemoryBytes: number;
 }> {
   const stream = await openArchive(fetch, resolution, token, signal);
-  return analyzeArchiveStream(stream, resolution, signal, jobId, 0, onProgress);
+  return analyzeArchiveStream(
+    stream,
+    resolution,
+    signal,
+    jobId,
+    0,
+    onProgress,
+    ignore,
+  );
 }
 
 export async function analyzeArchiveStream(
@@ -116,6 +129,7 @@ export async function analyzeArchiveStream(
     phase: "downloading" | "decompressing",
     processedBytes?: number,
   ) => void,
+  ignore: IgnoreSettings = defaultIgnore,
 ): Promise<{
   result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
@@ -143,6 +157,8 @@ export async function analyzeArchiveStream(
         rules: {
           repositoryId: resolution.repositoryId,
           commitSha: resolution.sha,
+          disabledGroups: ignore.disabledGroups,
+          exclusions: ignore.exclusions,
         },
         blockMs,
       }),
@@ -187,7 +203,7 @@ export async function analyzeArchiveStream(
       outcome.wasmLinearMemoryBytes === undefined ||
       outcome.result.repository.id !== resolution.repositoryId ||
       outcome.result.revision.commitSha !== resolution.sha ||
-      outcome.result.engine.rulesHash !== (await effectiveRulesHash([]))
+      outcome.result.engine.rulesHash !== (await effectiveRulesHash(ignore))
     )
       throw new ArchiveError("counter_failed");
     return {

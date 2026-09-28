@@ -1,4 +1,5 @@
-import { effectiveRulesHash } from "../counter/rules";
+import { effectiveRulesHash, isDefaultIgnore } from "../counter/rules";
+import { describeIgnore, readIgnore } from "../ignore/settings";
 import type { AnalysisResultV2 } from "../counter/result";
 import { pageRepository, type PageRepository } from "../content/repository";
 import { failureMessages } from "../github/failure-messages";
@@ -22,6 +23,8 @@ const codeLines = document.querySelector<HTMLElement>("#code-lines")!;
 const textLinesLabel = document.querySelector<HTMLElement>("#text-lines")!;
 const metrics = document.querySelector<HTMLElement>("#metrics")!;
 const sizes = document.querySelector<HTMLElement>("#sizes")!;
+const ignoreSummary = document.querySelector<HTMLElement>("#ignore-summary")!;
+const ignoreText = document.querySelector<HTMLElement>("#ignore-text")!;
 const repositorySize = document.querySelector<HTMLElement>("#repository-size")!;
 const snapshotLabel = document.querySelector<HTMLElement>("#snapshot-label")!;
 const snapshotSize = document.querySelector<HTMLElement>("#snapshot-size")!;
@@ -29,6 +32,8 @@ const analyzeButton = document.querySelector<HTMLButtonElement>("#analyze")!;
 const cancelButton = document.querySelector<HTMLButtonElement>("#cancel")!;
 const details = document.querySelector<HTMLDetailsElement>("#details")!;
 const detailContent = document.querySelector<HTMLElement>("#detail-content")!;
+const rulesChanged =
+  "Culverin ignore changed. Reopen the popup to see results for the current rules.";
 const errors: Record<PublicErrorCode, string> = {
   ...failureMessages,
   analysis_interrupted: "Analysis was interrupted. Click Analyze to try again.",
@@ -72,6 +77,13 @@ function clearResult(): void {
   textLinesLabel.textContent = "";
   metrics.textContent = "";
   snapshotSize.textContent = "Available after analysis";
+}
+
+async function currentRulesHash(): Promise<string> {
+  const ignore = await readIgnore();
+  ignoreText.textContent = `Culverin ignore: ${describeIgnore(ignore)}`;
+  ignoreSummary.hidden = isDefaultIgnore(ignore);
+  return effectiveRulesHash(ignore);
 }
 
 function showSizes(resolution: ResolutionEnvelope): void {
@@ -150,7 +162,7 @@ function showResult(
   const skipped = coverage.skippedByReason;
   detailContent.append(
     paragraph(
-      `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by source profile, ${skipped.unsupported_language.toLocaleString()} unsupported language, ${skipped.binary_content.toLocaleString()} binary, ${skipped.oversized_source.toLocaleString()} oversized).`,
+      `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by Culverin ignore, ${skipped.unsupported_language.toLocaleString()} unsupported language, ${skipped.binary_content.toLocaleString()} binary, ${skipped.oversized_source.toLocaleString()} oversized).`,
     ),
   );
   if (!coverage.complete) {
@@ -269,17 +281,19 @@ async function lookup(): Promise<void> {
     if (reply.type === "repository.cache_miss") {
       clearResult();
       showSizes(reply.resolution);
+      await currentRulesHash();
+      if (lookupRequestId !== pending.requestId) return;
       setStatus(
-        `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. Analyze downloads a source snapshot from GitHub and counts it locally.`,
+        `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. ${reply.rulesChanged ? "Culverin ignore changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`,
       );
       void resume();
     } else if (reply.type === "repository.cache_hit") {
-      const hash = await effectiveRulesHash([]);
+      const hash = await currentRulesHash();
       if (lookupRequestId !== pending.requestId) return;
       if (reply.result.engine.rulesHash !== hash) {
         clearResult();
         showSizes(reply.resolution);
-        setStatus(errors.internal_error);
+        setStatus(rulesChanged);
       } else {
         showResult(reply.result, reply.resolution);
         setStatus(
@@ -326,10 +340,10 @@ async function finishAnalysis(
 ): Promise<void> {
   if (activeRequestId !== requestId) return;
   if (reply.type === "analysis.completed") {
-    const hash = await effectiveRulesHash([]);
+    const hash = await currentRulesHash();
     if (activeRequestId !== requestId) return;
     if (reply.result.engine.rulesHash !== hash) {
-      setStatus(errors.internal_error);
+      setStatus(rulesChanged);
     } else {
       showResult(reply.result, reply.resolution);
       setStatus(
@@ -408,6 +422,7 @@ function leaveRepository(): void {
   repositoryLabel.hidden = true;
   analysis.hidden = true;
   sizes.hidden = true;
+  ignoreSummary.hidden = true;
   clearResult();
   setBusy(false);
   setStatus("The active tab changed. Reopen the popup to analyze it.");
@@ -436,9 +451,10 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
   if (target && tabId !== target.tabId) leaveRepository();
 });
 
-document.querySelector("#settings")!.addEventListener("click", () => {
-  void chrome.runtime.openOptionsPage();
-});
+for (const selector of ["#settings", "#ignore-edit"])
+  document.querySelector(selector)!.addEventListener("click", () => {
+    void chrome.runtime.openOptionsPage();
+  });
 analyzeButton.addEventListener("click", () => void analyze());
 cancelButton.addEventListener("click", () => void cancel());
 

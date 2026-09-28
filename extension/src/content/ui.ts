@@ -13,7 +13,7 @@ export type RowState =
   | { kind: "hidden" }
   | { kind: "idle" }
   | { kind: "running"; phase: AnalysisPhase }
-  | { kind: "complete"; total: number }
+  | { kind: "complete"; total: number; customIgnore?: boolean }
   | { kind: "retry"; detail: string }
   | { kind: "notice"; label: string; detail: string };
 
@@ -129,7 +129,7 @@ export function rowView(state: VisibleRowState): RowView {
     return {
       count: compactCount(state.total),
       label,
-      title: `${state.total.toLocaleString("en")} ${label}. Open Culverin for details`,
+      title: `${state.total.toLocaleString("en")} ${label}${state.customIgnore ? " (Culverin ignore active)" : ""}. Open Culverin for details`,
       action: "details",
     };
   }

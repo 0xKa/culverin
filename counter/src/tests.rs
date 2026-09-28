@@ -8,6 +8,7 @@ fn rules(exclusions: &[&str]) -> Rules {
         repository_id: "1".into(),
         commit_sha: "a".repeat(40),
         exclusions: exclusions.iter().map(|s| (*s).into()).collect(),
+        disabled_groups: vec![],
     }
 }
 
@@ -40,7 +41,7 @@ fn validates_rules_and_canonicalizes_exclusions() {
     assert_eq!(sorted.engine.rules_hash, unsorted.engine.rules_hash);
     assert_eq!(
         sorted.engine.rules_hash,
-        "e8360163cb0862b7dc3c8aa5c77a67654eebda8a4d4b364534c781eee02079d9"
+        "84a096db78f16d5b32a486bf2ad46766f85c4c43432848390d1af9bfeb66dec2"
     );
 }
 
@@ -169,19 +170,19 @@ fn malformed_utf8_marks_coverage_inaccurate() {
 fn size_limit_applies_only_to_eligible_sources() {
     let bytes = vec![b'x'; MAX_FILE + 1];
     assert_eq!(
-        crate::file::classify_file("large.rs", &bytes[..MAX_FILE], &[])
+        crate::file::classify_file("large.rs", &bytes[..MAX_FILE], &rules(&[]))
             .unwrap()
             .kind,
         "counted"
     );
     assert_eq!(
-        crate::file::classify_file("large.rs", &bytes, &[])
+        crate::file::classify_file("large.rs", &bytes, &rules(&[]))
             .unwrap()
             .kind,
         "oversized_source"
     );
     assert_eq!(
-        crate::file::classify_file("vendor/large.rs", &bytes, &[])
+        crate::file::classify_file("vendor/large.rs", &bytes, &rules(&[]))
             .unwrap()
             .kind,
         "excluded_by_rule"
@@ -193,6 +194,7 @@ fn counts_and_skips() {
         repository_id: "1".into(),
         commit_sha: "a".repeat(40),
         exclusions: vec![],
+        disabled_groups: vec![],
     };
     let mut a = CounterAnalyzer::new(rules).unwrap();
     a.add_file("src/main.rs", b"fn main() {}\n").unwrap();
@@ -210,6 +212,7 @@ fn malformed_notebook_marks_result_inaccurate() {
         repository_id: "1".into(),
         commit_sha: "a".repeat(40),
         exclusions: vec![],
+        disabled_groups: vec![],
     };
     let mut analyzer = CounterAnalyzer::new(rules).unwrap();
     analyzer.add_file("bad.ipynb", b"{bad json").unwrap();
@@ -224,6 +227,7 @@ fn oversized_source_is_partial_and_file_is_skipped() {
         repository_id: "1".into(),
         commit_sha: "a".repeat(40),
         exclusions: vec![],
+        disabled_groups: vec![],
     };
     let mut analyzer = CounterAnalyzer::new(rules).unwrap();
     let outcome = analyzer
@@ -312,4 +316,89 @@ fn known_extensionless_documents_count_as_plain_text() {
     assert_eq!(text.counts.code, 0);
     assert_eq!(text.counts.comments, 12);
     assert_eq!(text.counts.blanks, 6);
+}
+
+fn kind(rules: &Rules, path: &str) -> &'static str {
+    crate::file::classify_path(path, b"fn main() {}\n", rules)
+        .unwrap()
+        .kind
+}
+
+#[test]
+fn custom_rules_match_names_folders_suffixes_and_paths() {
+    let active = CounterAnalyzer::new(rules(&[
+        "fixtures/",
+        "*.snap",
+        "schema.rs",
+        "docs/generated",
+        "tools/gen/",
+    ]))
+    .unwrap()
+    .rules()
+    .clone();
+    for path in [
+        "fixtures/a.rs",
+        "src/fixtures/deep/a.rs",
+        "src/app.snap",
+        "schema.rs",
+        "api/schema.rs",
+        "docs/generated",
+        "docs/generated/a.rs",
+        "tools/gen/a.rs",
+    ] {
+        assert_eq!(kind(&active, path), "excluded_by_rule", "{path}");
+    }
+    for path in [
+        "src/fixtures.rs",
+        "fixtures",
+        "src/snap.rs",
+        "src/schema.rs.bak.rs",
+        "docs/generated.rs",
+        "src/docs/generated/a.rs",
+        "tools/gen",
+        "tools/generator/a.rs",
+    ] {
+        assert_ne!(kind(&active, path), "excluded_by_rule", "{path}");
+    }
+}
+
+#[test]
+fn disabled_groups_restore_built_in_exclusions() {
+    let mut custom = rules(&[]);
+    custom.disabled_groups = vec!["build".into(), "minified".into(), "build".into()];
+    let analyzer = CounterAnalyzer::new(custom).unwrap();
+    let hash = analyzer.rules_hash().to_owned();
+    let active = analyzer.rules().clone();
+    assert_eq!(active.disabled_groups, ["build", "minified"]);
+    assert_eq!(kind(&active, "build/main.rs"), "counted");
+    assert_eq!(kind(&active, "target/main.rs"), "counted");
+    assert_eq!(kind(&active, "app.min.js"), "counted");
+    assert_eq!(kind(&active, "vendor/main.rs"), "excluded_by_rule");
+    assert_eq!(kind(&active, "Cargo.lock"), "excluded_by_rule");
+    assert_ne!(hash, CounterAnalyzer::new(rules(&[])).unwrap().rules_hash());
+    let mut invalid = rules(&[]);
+    invalid.disabled_groups = vec!["everything".into()];
+    assert_eq!(
+        CounterAnalyzer::new(invalid).err().unwrap(),
+        "invalid disabled groups"
+    );
+}
+
+#[test]
+fn rejects_unsupported_rule_syntax() {
+    for rule in [
+        "", "/abs", "a\\b", "a?", "*", "*.", "*.a/b", "*.a*", "src/*.rs", "**/x", "a//b", "./a",
+        "a/../b", "a//",
+    ] {
+        assert_eq!(
+            CounterAnalyzer::new(rules(&[rule])).err().unwrap(),
+            "invalid exclusions",
+            "{rule:?}"
+        );
+    }
+    let long = "a".repeat(257);
+    assert!(CounterAnalyzer::new(rules(&[&long])).is_err());
+    let many: Vec<String> = (0..65).map(|n| format!("r{n}")).collect();
+    let many: Vec<&str> = many.iter().map(String::as_str).collect();
+    assert!(CounterAnalyzer::new(rules(&many)).is_err());
 }

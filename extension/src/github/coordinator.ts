@@ -1,4 +1,5 @@
 import type { AnalysisResultV2 } from "../counter/result";
+import { defaultIgnore, type IgnoreSettings } from "../counter/rules";
 import type { ResolutionEnvelope } from "./public-protocol";
 
 export const QUEUED_JOBS = 8;
@@ -35,6 +36,7 @@ type Job = {
   resolution: ResolutionEnvelope;
   token?: string;
   generation: string;
+  ignore: IgnoreSettings;
   id: string;
   controller: AbortController;
   subscribers: Map<string, Subscriber>;
@@ -62,6 +64,7 @@ export class AnalysisCoordinator {
         resolution: ResolutionEnvelope;
         token?: string;
         generation: string;
+        ignore: IgnoreSettings;
         signal: AbortSignal;
       },
       progress: (
@@ -126,6 +129,7 @@ export class AnalysisCoordinator {
         resolution: job.resolution,
         token: job.token,
         generation: job.generation,
+        ignore: job.ignore,
         signal: job.controller.signal,
       },
       progress,
@@ -165,6 +169,7 @@ export class AnalysisCoordinator {
     generation: string,
     subscriber: Subscriber,
     deadlineMs = 25_000,
+    ignore: IgnoreSettings = defaultIgnore,
   ): boolean {
     this.detachOwner(subscriber.owner);
     if (this.subscriptionCount() >= SUBSCRIPTIONS) return false;
@@ -182,6 +187,7 @@ export class AnalysisCoordinator {
         resolution,
         token,
         generation,
+        ignore,
         id: crypto.randomUUID(),
         controller: new AbortController(),
         subscribers: new Map(),

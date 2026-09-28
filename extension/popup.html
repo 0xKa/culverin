@@ -68,6 +68,18 @@
       #detail-content p {
         margin: 6px 0;
       }
+      #ignore-summary:not([hidden]) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 8px 0 0;
+        border-left: 3px solid color-mix(in srgb, CanvasText 40%, transparent);
+        padding-left: 8px;
+      }
+      #ignore-edit {
+        padding: 2px 8px;
+      }
       #sizes:not([hidden]) {
         display: grid;
         gap: 2px;
@@ -137,6 +149,10 @@
           title="Non-blank prose lines in Markdown, MDX, Djot, and plain text files"
         ></p>
         <p id="metrics"></p>
+        <p id="ignore-summary" hidden>
+          <span id="ignore-text"></span>
+          <button id="ignore-edit" type="button">Edit</button>
+        </p>
         <dl id="sizes" hidden>
           <div>
             <dt>Repository size (incl. history)</dt>

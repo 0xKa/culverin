@@ -194,6 +194,7 @@ export function validEnvelope(value: unknown): value is ResolutionEnvelope {
       "defaultBranch",
       "visibility",
       "sha",
+      "sizeKb",
       "resolvedAt",
     ])
   )
@@ -210,6 +211,8 @@ export function validEnvelope(value: unknown): value is ResolutionEnvelope {
     (value.visibility === "public" || value.visibility === "private") &&
     typeof value.sha === "string" &&
     /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.sha) &&
+    (value.sizeKb === null ||
+      (Number.isSafeInteger(value.sizeKb) && (value.sizeKb as number) >= 0)) &&
     Number.isSafeInteger(value.resolvedAt) &&
     (value.resolvedAt as number) > 0 &&
     (value.resolvedAt as number) <= Date.now() + 60_000

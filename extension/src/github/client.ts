@@ -10,6 +10,7 @@ export type Resolution = {
   defaultBranch: string;
   visibility: "public" | "private";
   sha: string;
+  sizeKb: number | null;
 };
 
 export type AcquisitionErrorCode =
@@ -178,6 +179,7 @@ export async function resolveRepository(
   const canonicalName = metadata?.name;
   const id = metadata?.id;
   const branch = metadata?.default_branch;
+  const size = metadata?.size;
   const visibility =
     metadata?.private === true
       ? "private"
@@ -218,6 +220,10 @@ export async function resolveRepository(
     defaultBranch: branch,
     visibility,
     sha: sha.toLowerCase(),
+    sizeKb:
+      Number.isSafeInteger(size) && (size as number) >= 0
+        ? (size as number)
+        : null,
   };
 }
 

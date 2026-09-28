@@ -33,6 +33,7 @@ function metadata(branch: string | null = "main"): string {
     owner: { login: "owner" },
     private: false,
     default_branch: branch,
+    size: 1024,
   });
 }
 
@@ -61,6 +62,7 @@ test("resolves canonical identity and SHA with bounded no-store requests", async
     visibility: "public",
     defaultBranch: "main",
     sha,
+    sizeKb: 1024,
   });
   expect(requests.map((r) => r.url)).toEqual([
     "https://api.github.com/repos/Owner/old-name",
@@ -75,6 +77,30 @@ test("resolves canonical identity and SHA with bounded no-store requests", async
     requests.every((r) => !(r.init.headers as Headers).has("Authorization")),
   ).toBe(true);
   expect(requests.some((r) => r.url.includes("tarball"))).toBe(false);
+});
+
+test("keeps resolving when GitHub omits or malforms the repository size", async () => {
+  for (const size of [undefined, null, -1, 1.5, "1024", 2 ** 53]) {
+    let calls = 0;
+    const fetcher = (async () =>
+      ++calls === 1
+        ? response(
+            JSON.stringify({ ...JSON.parse(metadata()), size }),
+            "https://api.github.com/repos/owner/canonical",
+          )
+        : response(
+            JSON.stringify({ sha }),
+            "https://api.github.com/repos/owner/canonical/commits/main",
+          )) as Fetcher;
+    const result = await resolveRepository(
+      fetcher,
+      "owner",
+      "canonical",
+      undefined,
+      controller.signal,
+    );
+    expect(result.sizeKb).toBeNull();
+  }
 });
 
 test("rejects invalid repository components and oversized metadata", async () => {
@@ -139,6 +165,7 @@ test("rejects wrong archive origin before reading and checks content length", as
     defaultBranch: "main",
     visibility: "public" as const,
     sha,
+    sizeKb: 1024,
   };
   const wrong = (async () =>
     response("body", "https://evil.example/archive")) as Fetcher;
@@ -162,6 +189,7 @@ test("streams and discards archive bytes with a hard count", async () => {
     defaultBranch: "main",
     visibility: "public" as const,
     sha,
+    sizeKb: 1024,
   };
   let request: RequestInit | undefined;
   const fetcher = (async (_url: string, init: RequestInit) => {
@@ -189,6 +217,7 @@ test("rejects a streaming archive overrun and cancels the reader", async () => {
     defaultBranch: "main",
     visibility: "public" as const,
     sha,
+    sizeKb: 1024,
   };
   let canceled = false;
   const fetcher: Fetcher = async () =>

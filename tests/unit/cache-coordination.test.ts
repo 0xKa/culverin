@@ -28,6 +28,7 @@ const resolution = (id = "42", name = "repo"): ResolutionEnvelope => ({
   defaultBranch: "main",
   visibility: "public",
   sha,
+  sizeKb: 2048,
   resolvedAt: Date.now(),
 });
 

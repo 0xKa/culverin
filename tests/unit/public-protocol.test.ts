@@ -22,6 +22,7 @@ const envelope = {
   defaultBranch: "main",
   visibility: "public",
   sha,
+  sizeKb: 2048,
   resolvedAt: Date.now(),
 };
 
@@ -255,6 +256,14 @@ test("validates envelope, correlation, and safe errors", () => {
   expect(validEnvelope(envelope)).toBe(true);
   expect(validEnvelope({ ...envelope, repositoryId: "0042" })).toBe(false);
   expect(validEnvelope({ ...envelope, resolvedAt: Infinity })).toBe(false);
+  expect(validEnvelope({ ...envelope, sizeKb: null })).toBe(true);
+  expect(validEnvelope({ ...envelope, sizeKb: 0 })).toBe(true);
+  expect(validEnvelope({ ...envelope, sizeKb: -1 })).toBe(false);
+  expect(validEnvelope({ ...envelope, sizeKb: 1.5 })).toBe(false);
+  expect(validEnvelope({ ...envelope, sizeKb: "2048" })).toBe(false);
+  const withoutSize: Partial<typeof envelope> = { ...envelope };
+  delete withoutSize.sizeKb;
+  expect(validEnvelope(withoutSize)).toBe(false);
   const reply = {
     protocolVersion: 1,
     type: "repository.cache_miss",

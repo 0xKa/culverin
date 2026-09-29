@@ -384,6 +384,7 @@ type PublicClient = {
   owner: string;
   prefix: string;
   page: boolean;
+  force?: boolean;
   isAlive: () => boolean;
   reply: (request: PublicRequest, payload: PublicPayload) => void;
   progress: (
@@ -482,18 +483,37 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
       pending.set(owner, { requestId: request.requestId, controller });
     try {
       const key = `public:${repository.owner.toLowerCase()}/${repository.name.toLowerCase()}`;
-      const resolved = await refs.resolveWithStatus(key, async () => {
-        if (Date.now() < publicRateLimitedUntil)
-          throw new Error("rate_limited");
-        const resolved = await resolveRepository(
-          anonymousFetch,
-          repository.owner,
-          repository.name,
-          undefined,
-          AbortSignal.timeout(10_000),
-        );
-        return { ...resolved, resolvedAt: Date.now() };
-      });
+      const resolved =
+        !client.page && request.type === "repository.lookup"
+          ? await refs.peek(key)
+          : await refs.resolveWithStatus(
+              key,
+              async () => {
+                if (Date.now() < publicRateLimitedUntil)
+                  throw new Error("rate_limited");
+                const resolved = await resolveRepository(
+                  anonymousFetch,
+                  repository.owner,
+                  repository.name,
+                  undefined,
+                  AbortSignal.timeout(10_000),
+                );
+                return { ...resolved, resolvedAt: Date.now() };
+              },
+              client.force,
+            );
+      if (!resolved) {
+        if (client.isAlive())
+          reply(
+            Date.now() < publicRateLimitedUntil
+              ? {
+                  type: "analysis.failed",
+                  ...publicFailure("rate_limited", publicRateLimitedUntil),
+                }
+              : { type: "repository.not_cached" },
+          );
+        return;
+      }
       const envelope = resolved.envelope;
       if (
         controller.signal.aborted ||
@@ -782,7 +802,7 @@ chrome.tabs.onUpdated.addListener((tabId, _change, tab) => {
 
 function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
   if (!validPopupPublicRequest(value)) return;
-  const { tabId, ...publicRequest } = value;
+  const { tabId, reanalyze, ...publicRequest } = value;
   const reply = (payload: PublicPayload) =>
     postToPopup(port, publicRequest, payload);
   if (publicRequest.type === "analysis.cancel") {
@@ -859,6 +879,7 @@ function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
       owner,
       prefix: `u:${tabId}:`,
       page: false,
+      force: reanalyze === true,
       isAlive: () => popupJobs.get(tabId) === next,
       reply: (_current, payload) => settlePopupJob(tabId, next, payload),
       progress: (_current, phase, processedBytes) => {

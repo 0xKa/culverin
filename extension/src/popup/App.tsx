@@ -181,9 +181,9 @@ export function App() {
             type="button"
             className="px-2.5 py-1.5"
             disabled={view.analyzeDisabled}
-            onClick={() => void analyze()}
+            onClick={() => void analyze(view.reanalyze)}
           >
-            Analyze repository
+            {view.reanalyze ? "Reanalyze" : "Analyze repository"}
           </Button>
           <Button
             id="cancel"

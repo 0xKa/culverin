@@ -11,6 +11,7 @@ export type PopupView = {
   ignoreSummary?: string;
   result?: ResultView;
   detailsOpen: boolean;
+  reanalyze: boolean;
   apiLimit?: ApiLimitView;
 };
 
@@ -21,6 +22,7 @@ export const initialView: PopupView = {
   cancelVisible: false,
   snapshotSize: "Available after analysis",
   detailsOpen: false,
+  reanalyze: false,
 };
 
 export type PopupEvent =
@@ -56,6 +58,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         result: undefined,
         snapshotSize: "Available after analysis",
         detailsOpen: false,
+        reanalyze: false,
       };
     case "sizes":
       return { ...view, sizes: event.value };
@@ -66,6 +69,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         snapshotSize: event.value.snapshotSize,
         result: event.value,
         detailsOpen: true,
+        reanalyze: true,
       };
     case "ignore":
       return { ...view, ignoreSummary: event.value };

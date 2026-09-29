@@ -19,7 +19,10 @@ export type PublicRequest = {
   targetRequestId?: string;
 };
 
-export type PopupPublicRequest = PublicRequest & { tabId: number };
+export type PopupPublicRequest = PublicRequest & {
+  tabId: number;
+  reanalyze?: true;
+};
 
 export type SummaryUpdate = {
   protocolVersion: 1;
@@ -164,6 +167,11 @@ export function validPopupPublicRequest(
     return false;
   const request = { ...value };
   delete request.tabId;
+  if (request.reanalyze !== undefined) {
+    if (request.reanalyze !== true || request.type !== "analysis.request")
+      return false;
+    delete request.reanalyze;
+  }
   return validPublicRequest(request) && request.type !== "popup.open";
 }
 

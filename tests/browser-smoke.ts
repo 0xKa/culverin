@@ -367,26 +367,17 @@ sync();
     await popup.locator("#repository").waitFor({ state: "visible" });
     return popup;
   };
+  const uncheckedStatus =
+    "Analyze checks GitHub and counts the source locally.";
+  const beforePopupApiRequests = fixtureApiRequests;
   await openActionPopup(page);
   const firstActionPopup = await actionPopup();
-  await firstActionPopup.status(/^Ready to analyze main at /);
+  await firstActionPopup.status(/^Analyze checks GitHub and counts/);
   await firstActionPopup.close();
   const popup = await openPopup(page);
-  await popup
-    .getByText(/Ready to analyze main at/)
-    .waitFor({ timeout: 15_000 });
-  assert.equal(await popup.locator("#repository-size").textContent(), "2 MB");
-  await popup
-    .locator("#api-limit", { hasText: "API 57/60" })
-    .waitFor({ timeout: 5000 });
-  assert.equal(
-    await popup.locator("#snapshot-label").textContent(),
-    `Files at ${publicSha.slice(0, 12)}`,
-  );
-  assert.equal(
-    await popup.locator("#snapshot-size").textContent(),
-    "Available after analysis",
-  );
+  await popup.getByText(uncheckedStatus).waitFor({ timeout: 15_000 });
+  assert.equal(await popup.locator("#sizes").isHidden(), true);
+  assert.equal(fixtureApiRequests, beforePopupApiRequests);
   await popup.getByRole("button", { name: "Analyze repository" }).focus();
   assert.equal(
     await popup
@@ -458,6 +449,28 @@ sync();
     .waitFor({ timeout: 15_000 });
   assert.equal(fixtureArchiveRequests, 1);
   await failedPopup.close();
+  const beforeKnownPopupApiRequests = fixtureApiRequests;
+  const knownPopup = await openPopup(page);
+  await knownPopup
+    .getByText(/Ready to analyze main at/)
+    .waitFor({ timeout: 15_000 });
+  assert.equal(
+    await knownPopup.locator("#repository-size").textContent(),
+    "2 MB",
+  );
+  await knownPopup
+    .locator("#api-limit", { hasText: "API 57/60" })
+    .waitFor({ timeout: 5000 });
+  assert.equal(
+    await knownPopup.locator("#snapshot-label").textContent(),
+    `Files at ${publicSha.slice(0, 12)}`,
+  );
+  assert.equal(
+    await knownPopup.locator("#snapshot-size").textContent(),
+    "Available after analysis",
+  );
+  assert.equal(fixtureApiRequests, beforeKnownPopupApiRequests);
+  await knownPopup.close();
   await page.reload();
   await page.getByText("Count lines of code").waitFor();
   assert.equal(fixtureArchiveRequests, 1);
@@ -701,6 +714,8 @@ sync();
   await page.getByText("Count lines of code").waitFor();
   assert.equal(fixtureApiRequests, beforeUncachedApiRequests);
   const emptyPopup = await openPopup(page);
+  await emptyPopup.getByText(uncheckedStatus).waitFor();
+  await emptyPopup.getByRole("button", { name: "Analyze repository" }).click();
   await emptyPopup
     .getByText("This repository has no default-branch commit to analyze.")
     .waitFor();
@@ -711,6 +726,10 @@ sync();
   await summary.waitFor({ state: "attached" });
   await page.getByText("Count lines of code").waitFor();
   const privatePopup = await openPopup(page);
+  await privatePopup.getByText(uncheckedStatus).waitFor();
+  await privatePopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
   await privatePopup
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
@@ -820,7 +839,7 @@ sync();
   );
   await openActionPopup(page);
   const resultPopup = await actionPopup();
-  await resultPopup.status(/^Ready to analyze main at /);
+  await resultPopup.status(/^Analyze checks GitHub and counts/);
   assert.equal(
     await worker.evaluate(
       () =>
@@ -980,26 +999,24 @@ sync();
   await page.mouse.move(0, 0);
   const restartPopup = await openPopup(page);
   const cachedStatus =
-    "Cached local analysis. Public visibility metadata may be up to 20 minutes old.";
+    "Cached local analysis, checked on GitHub in the last 20 minutes. Select Reanalyze to check for a newer commit.";
   await restartPopup.getByText(cachedStatus).waitFor();
+  const beforeReanalyzeApiRequests = fixtureApiRequests;
+  const beforeReanalyzeArchiveRequests = fixtureArchiveRequests;
   const restartControl = await context.newCDPSession(page);
   await restartControl.send("ServiceWorker.enable");
   await restartControl.send("ServiceWorker.stopAllWorkers");
   await restartControl.detach();
   await page.waitForTimeout(1000);
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
   await restartPopup
-    .getByRole("button", { name: "Analyze repository" })
-    .click();
-  await restartPopup.waitForFunction(
-    () =>
-      document.querySelector("#status")?.textContent !==
-      "Resolving default branch…",
-  );
-  assert.equal(
-    await restartPopup.locator("#status").textContent(),
-    cachedStatus,
-  );
+    .getByText(
+      "No new commit since the last analysis. Showing the cached result.",
+    )
+    .waitFor();
   await restartPopup.getByText("1 code lines", { exact: true }).waitFor();
+  assert.equal(fixtureApiRequests, beforeReanalyzeApiRequests + 2);
+  assert.equal(fixtureArchiveRequests, beforeReanalyzeArchiveRequests);
   const impostorDisconnected = await harness.evaluate(
     () =>
       new Promise<boolean>((resolve) => {
@@ -1314,7 +1331,7 @@ sync();
   await page.reload();
   await page.getByText("Count lines of code").waitFor();
   const partialPopup = await openPopup(page);
-  await partialPopup.getByText(/Ready to analyze main at/).waitFor();
+  await partialPopup.getByText(uncheckedStatus).waitFor();
   await partialPopup
     .getByRole("button", { name: "Analyze repository" })
     .click();
@@ -2375,6 +2392,10 @@ sync();
   await countButton.waitFor();
   assert.equal(fixtureApiRequests, beforeLimitedPage);
   const limitedPopup = await openPopup(page);
+  await limitedPopup.getByText(uncheckedStatus).waitFor();
+  await limitedPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
   await limitedPopup
     .getByText(/GitHub rate limit reached. Retry after/)
     .waitFor();

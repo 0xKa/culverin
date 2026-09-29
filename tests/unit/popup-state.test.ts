@@ -23,8 +23,10 @@ test("tracks repository, busy state, sizes, result and details", () => {
     noLanguages: "No language totals.",
     coverage: "",
   };
+  expect(ready.reanalyze).toBe(false);
   const shown = reduce(ready, { type: "result", value: result, sizes });
   expect(shown.detailsOpen).toBe(true);
+  expect(shown.reanalyze).toBe(true);
   expect(shown.snapshotSize).toBe("20 B");
   expect(reduce(shown, { type: "details", open: false }).detailsOpen).toBe(
     false,
@@ -34,6 +36,7 @@ test("tracks repository, busy state, sizes, result and details", () => {
   expect(cleared.sizes).toEqual(sizes);
   expect(cleared.snapshotSize).toBe("Available after analysis");
   expect(cleared.detailsOpen).toBe(false);
+  expect(cleared.reanalyze).toBe(false);
 });
 
 test("leaving a repository resets every repository-specific field", () => {
@@ -47,6 +50,7 @@ test("leaving a repository resets every repository-specific field", () => {
     snapshotSize: "20 B",
     ignoreSummary: "Culverin ignore: 1 rule",
     detailsOpen: true,
+    reanalyze: true,
   };
   expect(reduce(active, { type: "left" })).toEqual({
     ...initialView,

@@ -19,6 +19,8 @@ import { rememberSection, type SectionId } from "../settings/sections";
 
 const navigationId = crypto.randomUUID();
 let dispatch: (event: PopupEvent) => void = () => undefined;
+const cachedStatus =
+  "Cached local analysis, checked on GitHub in the last 20 minutes. Select Reanalyze to check for a newer commit.";
 const rulesChanged =
   "Culverin ignore changed. Reopen the popup to see results for the current rules.";
 const errors: Record<PublicErrorCode, string> = {
@@ -43,6 +45,8 @@ const waiting = new Map<
 >();
 let lookupRequestId: string | undefined;
 let activeRequestId: string | undefined;
+let shownSha: string | undefined;
+let reanalyzedSha: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryUntil = 0;
@@ -56,6 +60,7 @@ function setBusy(busy: boolean): void {
 }
 
 function clearResult(): void {
+  shownSha = undefined;
   dispatch({ type: "clearResult" });
 }
 
@@ -78,6 +83,7 @@ function showResult(
   result: AnalysisResultV2,
   resolution: ResolutionEnvelope,
 ): void {
+  shownSha = resolution.sha;
   dispatch({
     type: "result",
     value: resultView(result, resolution),
@@ -175,7 +181,7 @@ async function lookup(): Promise<void> {
   if (!pending) return;
   lookupRequestId = pending.requestId;
   dispatch({ type: "lookup" });
-  setStatus("Resolving default branch…");
+  setStatus("Checking saved results…");
   const lookupTimer = setTimeout(() => {
     if (lookupRequestId === pending.requestId) {
       lookupRequestId = undefined;
@@ -186,7 +192,13 @@ async function lookup(): Promise<void> {
   try {
     const reply = await pending.response;
     if (lookupRequestId !== pending.requestId) return;
-    if (reply.type === "repository.cache_miss") {
+    if (reply.type === "repository.not_cached") {
+      clearResult();
+      await currentRulesHash();
+      if (lookupRequestId !== pending.requestId) return;
+      setStatus("Analyze checks GitHub and counts the source locally.");
+      void resume();
+    } else if (reply.type === "repository.cache_miss") {
       clearResult();
       showSizes(reply.resolution);
       await currentRulesHash();
@@ -204,9 +216,7 @@ async function lookup(): Promise<void> {
         setStatus(rulesChanged);
       } else {
         showResult(reply.result, reply.resolution);
-        setStatus(
-          "Cached local analysis. Public visibility metadata may be up to 20 minutes old.",
-        );
+        setStatus(cachedStatus);
       }
     } else if (reply.type === "analysis.failed") handleFailure(reply);
     else setStatus(errors.internal_error);
@@ -255,11 +265,13 @@ async function finishAnalysis(
     } else {
       showResult(reply.result, reply.resolution);
       setStatus(
-        reply.fromCache
-          ? "Cached local analysis. Public visibility metadata may be up to 20 minutes old."
-          : reply.result.coverage.complete
-            ? "Analyzed locally."
-            : "Partial local analysis.",
+        reply.fromCache && reply.resolution.sha === reanalyzedSha
+          ? "No new commit since the last analysis. Showing the cached result."
+          : reply.fromCache
+            ? cachedStatus
+            : reply.result.coverage.complete
+              ? "Analyzed locally."
+              : "Partial local analysis.",
       );
     }
   } else if (reply.type === "analysis.failed") handleFailure(reply);
@@ -267,11 +279,13 @@ async function finishAnalysis(
   stopWatching(requestId);
 }
 
-export async function analyze(): Promise<void> {
+export async function analyze(reanalyze = false): Promise<void> {
   if (!target || activeRequestId || lookupRequestId) return;
   const pending = send("analysis.request", {
     repository: target.repository,
+    ...(reanalyze ? { reanalyze: true } : {}),
   });
+  reanalyzedSha = reanalyze ? shownSha : undefined;
   if (!pending) return;
   watchAnalysis(pending.requestId);
   setBusy(true);

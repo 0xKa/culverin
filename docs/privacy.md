@@ -10,7 +10,7 @@ To show a result, the extension requests repository metadata and the current def
 
 Requests are sent without your GitHub cookies or any token, with `credentials: "omit"` and `cache: "no-store"`. Culverin does not read your GitHub session and cannot access private repositories.
 
-By default, opening or reloading a repository page sends no request to GitHub unless Culverin already has a completed result for that repository; it then requests metadata to check that the result is still current. It never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download. Opening the toolbar popup on a repository page requests metadata to show the branch, commit, and repository size.
+By default, opening or reloading a repository page sends no request to GitHub unless Culverin already has a completed result for that repository; it then requests metadata to check that the result is still current. It never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download. Opening the toolbar popup sends no request to GitHub; it shows only what Culverin already checked in the last 20 minutes.
 
 If you choose to count when a repository page opens, in the Counting section of the settings page, opening a repository page always requests metadata and, when there is no current result, downloads that commit's source archive as if you had selected Analyze. Culverin tries this at most once per repository commit and settings in each browser session.
 
@@ -24,7 +24,7 @@ Your Culverin ignore settings, the built-in exclusion groups you turned off and 
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 
-A cached result is shown only after GitHub confirms the repository is still public at the same commit. Metadata can be reused for up to 20 minutes, so a visibility change or a new commit within that window may not be noticed until the metadata expires. When Culverin sees that a repository has become private, it deletes that repository's stored results.
+A cached result is shown only after GitHub confirms the repository is still public at the same commit. Metadata can be reused for up to 20 minutes, so a visibility change or a new commit within that window may not be noticed until the metadata expires or you select Reanalyze in the toolbar popup, which checks GitHub again. When Culverin sees that a repository has become private, it deletes that repository's stored results.
 
 ## Permissions
 

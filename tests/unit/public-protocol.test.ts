@@ -205,6 +205,21 @@ test("validates popup requests and compact page summary updates", () => {
     false,
   );
   expect(validPopupPublicRequest({ ...popupRequest, other: true })).toBe(false);
+  const reanalyze = {
+    ...popupRequest,
+    type: "analysis.request",
+    reanalyze: true,
+  };
+  expect(validPopupPublicRequest(reanalyze)).toBe(true);
+  expect(validPopupPublicRequest({ ...reanalyze, reanalyze: false })).toBe(
+    false,
+  );
+  expect(
+    validPopupPublicRequest({ ...reanalyze, type: "repository.lookup" }),
+  ).toBe(false);
+  const pageReanalyze: Partial<typeof reanalyze> = { ...reanalyze };
+  delete pageReanalyze.tabId;
+  expect(validPublicRequest(pageReanalyze)).toBe(false);
   const update = {
     protocolVersion: 1,
     type: "summary.update",

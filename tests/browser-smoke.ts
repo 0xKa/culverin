@@ -2358,6 +2358,10 @@ sync();
   await countingSettings
     .locator('input[name="count-trigger"][value="manual"]:checked')
     .waitFor();
+  assert.match(
+    (await countingSettings.locator("#api-usage").textContent()) ?? "",
+    /^GitHub API usage: \d+\/60 · resets at /,
+  );
   await countingSettings.getByText("Why does a check use 2 requests?").click();
   await countingSettings
     .getByText(/^The first asks for the repository's details/)

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   currentRemaining,
+  currentUsed,
   mergeRateLimit,
   readRateLimit,
   validRateLimit,
@@ -84,6 +85,8 @@ test("treats a passed reset time as a full allowance", () => {
   const value = { limit: 60, remaining: 3, reset: 5000 };
   expect(currentRemaining(value, 4999)).toBe(3);
   expect(currentRemaining(value, 5000)).toBe(60);
+  expect(currentUsed(value, 4999)).toBe(57);
+  expect(currentUsed(value, 5000)).toBe(0);
   const pending = apiLimitView(value, 4999);
   expect(pending.text).toBe("API 3/60");
   expect(pending.title).toContain("Resets at");

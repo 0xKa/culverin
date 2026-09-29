@@ -1,6 +1,12 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import {
+  currentUsed,
+  RATE_LIMIT_KEY,
+  validRateLimit,
+  type RateLimit,
+} from "../github/rate-limit";
+import {
   readCountTrigger,
   writeCountTrigger,
   type CountTrigger,
@@ -40,10 +46,27 @@ function Question({
 export function CountingSection({ hidden }: { hidden: boolean }) {
   const [trigger, setTrigger] = useState<CountTrigger>();
   const [status, setStatus] = useState("");
+  const [rateLimit, setRateLimit] = useState<RateLimit>();
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
+    const show = (value: unknown) =>
+      setRateLimit(validRateLimit(value) ? value : undefined);
+    const changed = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ) => {
+      if (area === "session" && RATE_LIMIT_KEY in changes)
+        show(changes[RATE_LIMIT_KEY]!.newValue);
+    };
+    chrome.storage.onChanged.addListener(changed);
+    void chrome.storage.session
+      .get(RATE_LIMIT_KEY)
+      .then((state) => show(state[RATE_LIMIT_KEY]))
+      .catch(() => undefined);
+    return () => chrome.storage.onChanged.removeListener(changed);
   }, []);
+  const now = Date.now();
 
   async function change(next: CountTrigger): Promise<void> {
     setTrigger(next);
@@ -89,8 +112,31 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
       </h3>
       <p>
         Checking a repository uses 2 of your 60 GitHub requests per hour. The
-        toolbar popup shows how many are left, such as{" "}
-        <span className="whitespace-nowrap">API 57/60</span>.
+        toolbar popup shows how many are left.
+      </p>
+      <p id="api-usage" className="my-2">
+        <span className="font-semibold tabular-nums">
+          GitHub API usage:{" "}
+          {rateLimit
+            ? `${currentUsed(rateLimit, now)}/${rateLimit.limit}`
+            : "not known yet"}
+        </span>
+        {!rateLimit && (
+          <span className="text-muted">
+            {" "}
+            · appears after Culverin next checks GitHub
+          </span>
+        )}
+        {rateLimit && now < rateLimit.reset && (
+          <span className="text-muted">
+            {" "}
+            · resets at{" "}
+            {new Date(rateLimit.reset).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
       </p>
       <Question summary="Why is there a limit?">
         <p>

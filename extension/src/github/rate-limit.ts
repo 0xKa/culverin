@@ -46,3 +46,7 @@ export function mergeRateLimit(
 export function currentRemaining(value: RateLimit, now: number): number {
   return now >= value.reset ? value.limit : value.remaining;
 }
+
+export function currentUsed(value: RateLimit, now: number): number {
+  return value.limit - currentRemaining(value, now);
+}

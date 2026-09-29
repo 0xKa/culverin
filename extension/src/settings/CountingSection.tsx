@@ -146,6 +146,9 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
           )}
         </p>
       </div>
+      <h3 id="questions-heading" className="mt-6 mb-2 text-[1.17em] font-bold">
+        Common questions
+      </h3>
       <Question summary="Why is there a limit?">
         <p>
           GitHub allows 60 requests per hour to anyone who isn't signed in.

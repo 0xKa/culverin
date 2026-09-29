@@ -8,6 +8,7 @@
   --color-subtle: color-mix(in srgb, CanvasText 40%, transparent);
   --color-divider: color-mix(in srgb, CanvasText 25%, transparent);
   --color-selected: color-mix(in srgb, CanvasText 8%, transparent);
+  --color-ok: #1a7f37;
   --color-warning: #bf8700;
   --color-error: #cf222e;
   --font-sans: system-ui, sans-serif;

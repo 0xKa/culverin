@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import {
-  currentUsed,
+  currentRemaining,
   RATE_LIMIT_KEY,
   validRateLimit,
   type RateLimit,
@@ -12,6 +12,7 @@ import {
   type CountTrigger,
 } from "../counting/trigger";
 import { Status } from "../ui/Status";
+import { UsageMeter } from "../ui/UsageMeter";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
@@ -115,10 +116,15 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
         toolbar popup shows how many are left.
       </p>
       <p id="api-usage" className="my-2">
+        {rateLimit && (
+          <>
+            <UsageMeter id="api-usage-meter" value={rateLimit} now={now} />{" "}
+          </>
+        )}
         <span className="font-semibold tabular-nums">
           GitHub API usage:{" "}
           {rateLimit
-            ? `${currentUsed(rateLimit, now)}/${rateLimit.limit}`
+            ? `${currentRemaining(rateLimit, now)}/${rateLimit.limit} left`
             : "not known yet"}
         </span>
         {!rateLimit && (

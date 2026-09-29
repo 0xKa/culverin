@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from "preact/hooks";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
+import { UsageMeter } from "../ui/UsageMeter";
 import { analyze, cancel, openSettings, startPopup } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
 
@@ -14,8 +15,15 @@ function Header({ view }: { view: PopupView }) {
             id="api-limit"
             hidden={!view.apiLimit}
             title={view.apiLimit?.title}
-            className="text-muted text-sm tabular-nums"
+            className="text-muted flex items-center gap-1.5 text-sm tabular-nums"
           >
+            {view.apiLimit && (
+              <UsageMeter
+                id="api-limit-meter"
+                value={view.apiLimit.value}
+                now={view.apiLimit.now}
+              />
+            )}
             {view.apiLimit?.text}
           </span>
           <Button

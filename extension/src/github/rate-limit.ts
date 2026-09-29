@@ -50,3 +50,14 @@ export function currentRemaining(value: RateLimit, now: number): number {
 export function currentUsed(value: RateLimit, now: number): number {
   return value.limit - currentRemaining(value, now);
 }
+
+export type UsageLevel = "low" | "medium" | "high";
+
+export function usageLevel(value: RateLimit, now: number): UsageLevel {
+  const used = (currentUsed(value, now) / value.limit) * 100;
+  return used >= 80 ? "high" : used >= 50 ? "medium" : "low";
+}
+
+export function remainingPercent(value: RateLimit, now: number): number {
+  return Math.round((currentRemaining(value, now) / value.limit) * 100);
+}

@@ -462,6 +462,10 @@ sync();
     .locator("#api-limit", { hasText: "API 57/60" })
     .waitFor({ timeout: 5000 });
   assert.equal(
+    await knownPopup.locator("#api-limit-meter").getAttribute("data-level"),
+    "low",
+  );
+  assert.equal(
     await knownPopup.locator("#snapshot-label").textContent(),
     `Files at ${publicSha.slice(0, 12)}`,
   );
@@ -2359,8 +2363,8 @@ sync();
     .locator('input[name="count-trigger"][value="manual"]:checked')
     .waitFor();
   assert.match(
-    (await countingSettings.locator("#api-usage").textContent()) ?? "",
-    /^GitHub API usage: \d+\/60 · resets at /,
+    ((await countingSettings.locator("#api-usage").textContent()) ?? "").trim(),
+    /^GitHub API usage: \d+\/60 left · resets at /,
   );
   await countingSettings.getByText("Why does a check use 2 requests?").click();
   await countingSettings

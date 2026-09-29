@@ -59,7 +59,12 @@ test("leaving a repository resets every repository-specific field", () => {
 });
 
 test("keeps the API limit when leaving a repository", () => {
-  const apiLimit = { text: "API 57/60", title: "" };
+  const apiLimit = {
+    text: "API 57/60",
+    title: "",
+    value: { limit: 60, remaining: 57, reset: 1 },
+    now: 0,
+  };
   const shown = reduce(initialView, { type: "apiLimit", value: apiLimit });
   expect(shown.apiLimit).toEqual(apiLimit);
   expect(reduce(shown, { type: "left" }).apiLimit).toEqual(apiLimit);

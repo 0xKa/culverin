@@ -9,7 +9,12 @@ export type SizesView = {
   snapshotLabel: string;
 };
 
-export type ApiLimitView = { text: string; title: string };
+export type ApiLimitView = {
+  text: string;
+  title: string;
+  value: RateLimit;
+  now: number;
+};
 
 export type ResultView = {
   codeLines: string;
@@ -83,5 +88,7 @@ export function apiLimitView(value: RateLimit, now: number): ApiLimitView {
       now >= value.reset
         ? title
         : `${title} Resets at ${new Date(value.reset).toLocaleTimeString()}.`,
+    value,
+    now,
   };
 }

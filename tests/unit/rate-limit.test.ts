@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import {
   currentRemaining,
   currentUsed,
+  remainingPercent,
+  usageLevel,
   mergeRateLimit,
   readRateLimit,
   validRateLimit,
@@ -79,6 +81,20 @@ test("validates stored values", () => {
   );
   expect(validRateLimit({ limit: 60, remaining: "1", reset: 1 })).toBe(false);
   expect(validRateLimit(null)).toBe(false);
+});
+
+test("grades usage by the share of the limit already used", () => {
+  const at = (remaining: number) => ({ limit: 60, remaining, reset: 5000 });
+  expect(usageLevel(at(60), 0)).toBe("low");
+  expect(usageLevel(at(31), 0)).toBe("low");
+  expect(usageLevel(at(30), 0)).toBe("medium");
+  expect(usageLevel(at(13), 0)).toBe("medium");
+  expect(usageLevel(at(12), 0)).toBe("high");
+  expect(usageLevel(at(0), 0)).toBe("high");
+  expect(usageLevel(at(0), 5000)).toBe("low");
+  expect(remainingPercent(at(46), 0)).toBe(77);
+  expect(remainingPercent(at(0), 0)).toBe(0);
+  expect(remainingPercent(at(0), 5000)).toBe(100);
 });
 
 test("treats a passed reset time as a full allowance", () => {

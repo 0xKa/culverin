@@ -34,7 +34,7 @@ All code, including the WebAssembly counter, is packaged with the extension. No 
 
 ## Removing data
 
-Use **Clear public cache** on the extension's settings page to delete stored results, and **Reset to defaults** under Culverin ignore to delete your ignore settings. Removing the extension deletes all of its stored data.
+Use **Clear public cache** in the Storage section of the extension's settings page to delete stored results, and **Reset to defaults** under Culverin ignore to delete your ignore settings. Removing the extension deletes all of its stored data.
 
 The extension cannot control how GitHub handles requests or how long the browser keeps data in network and process memory. The `no-store` setting asks the browser not to use its HTTP cache for these requests.
 

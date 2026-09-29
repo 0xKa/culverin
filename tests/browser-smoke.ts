@@ -718,17 +718,52 @@ sync();
   assert.equal(await page.locator("[data-culverin-root]").count(), 0);
   const settingsPage = await context.newPage();
   await settingsPage.goto(
-    `chrome-extension://${new URL(worker.url()).host}/settings.html`,
+    `chrome-extension://${new URL(worker.url()).host}/settings.html#storage`,
   );
   assert.equal(
     await settingsPage.locator('input:not([type="checkbox"])').count(),
     0,
   );
   assert.equal(await settingsPage.locator("textarea").count(), 1);
+  const settingsNav = settingsPage.getByRole("navigation", {
+    name: "Settings sections",
+  });
+  assert.equal(
+    await settingsNav
+      .getByRole("link", { name: "Storage" })
+      .getAttribute("aria-current"),
+    "page",
+  );
+  assert.equal(await settingsPage.locator("#rules").isHidden(), true);
   await settingsPage
     .getByRole("button", { name: "Clear public cache" })
     .click();
   await settingsPage.getByText("Public cache cleared.").waitFor();
+  await settingsNav.getByRole("link", { name: "Culverin ignore" }).click();
+  await settingsPage.locator("#rules").waitFor({ state: "visible" });
+  assert.equal(new URL(settingsPage.url()).hash, "#ignore");
+  assert.equal(
+    await settingsPage
+      .getByRole("button", { name: "Clear public cache" })
+      .isHidden(),
+    true,
+  );
+  await settingsPage.locator("#rules").fill("draft\n");
+  await settingsNav.getByRole("link", { name: "Storage" }).focus();
+  await settingsPage.keyboard.press("Enter");
+  await settingsPage
+    .getByRole("button", { name: "Clear public cache" })
+    .waitFor({ state: "visible" });
+  assert.equal(
+    await settingsNav
+      .getByRole("link", { name: "Storage" })
+      .evaluate((link) => getComputedStyle(link).outlineStyle),
+    "solid",
+  );
+  await settingsPage.goBack();
+  await settingsPage.locator("#rules").waitFor({ state: "visible" });
+  assert.equal(await settingsPage.locator("#rules").inputValue(), "draft\n");
+  await settingsPage.locator("#rules").fill("");
   const publicFixtureBytes = [
     ...readFileSync("tests/fixtures/archive-source.tar.gz"),
   ];
@@ -2305,6 +2340,13 @@ sync();
   await openedSettingsPage.waitForLoadState();
   assert.equal(new URL(openedSettingsPage.url()).pathname, "/settings.html");
   assert.equal(await openedSettingsPage.title(), "Culverin settings");
+  await openedSettingsPage.locator("#rules").waitFor({ state: "visible" });
+  assert.equal(
+    await openedSettingsPage
+      .getByRole("link", { name: "Culverin ignore" })
+      .getAttribute("aria-current"),
+    "page",
+  );
   await openedSettingsPage.close();
   await settingsLauncher.close();
   console.log(

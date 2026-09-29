@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import icon from "../../../assets/dark/culverin-dark-stats.svg";
 import { CountingSection } from "./CountingSection";
 import { IgnoreSection } from "./IgnoreSection";
 import {
@@ -42,7 +43,10 @@ export function App() {
   return (
     <div className="mx-auto my-8 max-w-[960px] px-5 leading-[1.5]">
       <header className="mb-6">
-        <h1 className="mb-1 text-[2em] font-bold">Culverin</h1>
+        <h1 className="mb-1 flex items-center gap-3 text-[2em] font-bold">
+          <img src={icon} alt="" className="size-[1.25em]" />
+          Culverin
+        </h1>
         <p>
           Repository source is downloaded directly from GitHub and analyzed in
           your browser when you select Analyze, or when you open a repository

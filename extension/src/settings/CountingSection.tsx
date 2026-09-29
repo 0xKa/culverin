@@ -115,35 +115,37 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
         Checking a repository uses 2 of your 60 GitHub requests per hour. The
         toolbar popup shows how many are left.
       </p>
-      <p id="api-usage" className="my-2">
-        {rateLimit && (
-          <>
-            <UsageMeter id="api-usage-meter" value={rateLimit} now={now} />{" "}
-          </>
-        )}
-        <span className="font-semibold tabular-nums">
-          GitHub API usage:{" "}
-          {rateLimit
-            ? `${currentRemaining(rateLimit, now)}/${rateLimit.limit} left`
-            : "not known yet"}
-        </span>
-        {!rateLimit && (
-          <span className="text-muted">
-            {" "}
-            · appears after Culverin next checks GitHub
-          </span>
-        )}
-        {rateLimit && now < rateLimit.reset && (
-          <span className="text-muted">
-            {" "}
-            · resets at{" "}
-            {new Date(rateLimit.reset).toLocaleTimeString([], {
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </span>
-        )}
-      </p>
+      <div id="api-usage" className="my-3">
+        <p className="m-0 font-semibold">GitHub API usage</p>
+        <p className="m-0 flex items-center gap-2">
+          {rateLimit ? (
+            <>
+              <UsageMeter
+                id="api-usage-meter"
+                value={rateLimit}
+                now={now}
+                className="h-2 w-28"
+              />
+              <span className="font-semibold tabular-nums">
+                {currentRemaining(rateLimit, now)}/{rateLimit.limit}
+              </span>
+              {now < rateLimit.reset && (
+                <span className="text-muted">
+                  resets at{" "}
+                  {new Date(rateLimit.reset).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted">
+              Not known yet. It appears after Culverin next checks GitHub.
+            </span>
+          )}
+        </p>
+      </div>
       <Question summary="Why is there a limit?">
         <p>
           GitHub allows 60 requests per hour to anyone who isn't signed in.

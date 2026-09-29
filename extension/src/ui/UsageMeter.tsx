@@ -10,10 +10,12 @@ export function UsageMeter({
   id,
   value,
   now,
+  className = "h-1.5 w-10",
 }: {
   id: string;
   value: RateLimit;
   now: number;
+  className?: string;
 }) {
   const level = usageLevel(value, now);
   return (
@@ -21,7 +23,7 @@ export function UsageMeter({
       id={id}
       aria-hidden="true"
       data-level={level}
-      className="bg-divider inline-block h-1.5 w-10 overflow-hidden rounded-full align-middle"
+      className={`bg-divider inline-block shrink-0 overflow-hidden rounded-full align-middle ${className}`}
     >
       <span
         className={`block h-full ${fill[level]}`}

@@ -2364,7 +2364,7 @@ sync();
     .waitFor();
   assert.match(
     ((await countingSettings.locator("#api-usage").textContent()) ?? "").trim(),
-    /^GitHub API usage: \d+\/60 left · resets at /,
+    /^GitHub API usage\d+\/60resets at /,
   );
   await countingSettings.getByText("Why does a check use 2 requests?").click();
   await countingSettings

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  cachedResultSummaries,
   PUBLIC_CACHE_KEY,
   PUBLIC_CACHE_BYTES,
   PublicResultCache,
@@ -95,6 +96,37 @@ class MemoryStorage implements PublicStorage {
 }
 
 describe("public result cache", () => {
+  test("lists valid stored results for display, most recently viewed first", async () => {
+    let now = 1_000;
+    const storage = new MemoryStorage();
+    const cache = new PublicResultCache(storage, () => now);
+    await cache.put(resolution("42", "repo"), await result("42"));
+    now = 2_000;
+    await cache.put(resolution("43", "other"), await result("43"));
+    const stored = storage.values[PUBLIC_CACHE_KEY] as {
+      version: 1;
+      entries: unknown[];
+    };
+    const listed = cachedResultSummaries({
+      ...stored,
+      entries: [...stored.entries, { identity: "forged" }],
+    });
+    expect(listed.map((entry) => [entry.name, entry.storedAt])).toEqual([
+      ["other", 2_000],
+      ["repo", 1_000],
+    ]);
+    expect(listed[0]).toMatchObject({
+      owner: "owner",
+      sha,
+      codeLines: 0,
+      files: 0,
+      topLanguage: undefined,
+    });
+    expect(listed[0]!.bytes).toBeGreaterThan(0);
+    expect(cachedResultSummaries(undefined)).toEqual([]);
+    expect(cachedResultSummaries({ version: 2, entries: [] })).toEqual([]);
+  });
+
   test("finds cached results by repository name under the same rules", async () => {
     const cache = new PublicResultCache(new MemoryStorage());
     const hash = await effectiveRulesHash(defaultIgnore);

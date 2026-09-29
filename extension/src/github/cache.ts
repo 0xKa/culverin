@@ -108,6 +108,49 @@ function validEntry(value: unknown): value is Entry {
   );
 }
 
+export type CachedResultSummary = {
+  identity: string;
+  owner: string;
+  name: string;
+  sha: string;
+  codeLines: number;
+  files: number;
+  topLanguage?: string;
+  rulesHash: string;
+  storedAt: number;
+  lastAccess: number;
+  bytes: number;
+};
+
+export function cachedResultSummaries(value: unknown): CachedResultSummary[] {
+  if (
+    !record(value) ||
+    value.version !== 1 ||
+    !Array.isArray(value.entries) ||
+    value.entries.length > PUBLIC_CACHE_ENTRIES
+  )
+    return [];
+  return value.entries
+    .filter(validEntry)
+    .map((entry) => ({
+      identity: entry.identity,
+      owner: entry.resolution.owner,
+      name: entry.resolution.name,
+      sha: entry.result.revision.commitSha,
+      codeLines: entry.result.totals.code,
+      files: entry.result.totals.files,
+      topLanguage: entry.result.languages.reduce<
+        AnalysisResultV2["languages"][number] | undefined
+      >((top, row) => (!top || row.code > top.code ? row : top), undefined)
+        ?.language,
+      rulesHash: entry.result.engine.rulesHash,
+      storedAt: entry.storedAt,
+      lastAccess: entry.lastAccess,
+      bytes: entry.bytes,
+    }))
+    .sort((a, b) => b.lastAccess - a.lastAccess);
+}
+
 function size(snapshot: Snapshot): number {
   return bytes({ [PUBLIC_CACHE_KEY]: snapshot });
 }

@@ -43,7 +43,6 @@ assert.deepEqual(
     "preact-HASH.js",
     "repository-HASH.js",
     "result-HASH.js",
-    "rules-HASH.js",
     "settings-HASH.js",
     "styles-HASH.css",
     "styles-HASH.js",
@@ -774,6 +773,9 @@ sync();
     .getByRole("button", { name: "Clear public cache" })
     .click();
   await settingsPage.getByText("Public cache cleared.").waitFor();
+  await settingsPage
+    .locator("#cache-summary", { hasText: "No saved results." })
+    .waitFor();
   await settingsNav.getByRole("link", { name: "Culverin ignore" }).click();
   await settingsPage.locator("#rules").waitFor({ state: "visible" });
   assert.equal(new URL(settingsPage.url()).hash, "#ignore");
@@ -2375,6 +2377,17 @@ sync();
   await clearPublicCache();
   await page.reload();
   await page.getByText("0 lines of code", { exact: true }).waitFor();
+  await countingSettings.getByRole("link", { name: "Storage" }).click();
+  await countingSettings
+    .locator("#cache-summary", { hasText: "1 result for 1 repository" })
+    .waitFor();
+  assert.equal(
+    await countingSettings
+      .getByRole("link", { name: "culverin/bootstrap-fixture" })
+      .getAttribute("href"),
+    "https://github.com/culverin/bootstrap-fixture",
+  );
+  await countingSettings.getByRole("link", { name: "Counting" }).click();
   const beforeRestartedLookup = fixtureApiRequests;
   const lookupRestart = await context.newCDPSession(page);
   await lookupRestart.send("ServiceWorker.enable");

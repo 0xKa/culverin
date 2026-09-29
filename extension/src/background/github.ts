@@ -39,6 +39,7 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { readIgnore } from "../ignore/settings";
+import { isPageUrl } from "./page-url";
 
 const VERSION = 1;
 const SETTINGS_URL = chrome.runtime.getURL("settings.html");
@@ -249,7 +250,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "culverin.options") {
     if (
       sender?.id !== chrome.runtime.id ||
-      sender.url !== SETTINGS_URL ||
+      !isPageUrl(sender.url, SETTINGS_URL) ||
       sender.frameId !== 0 ||
       !sender.documentId
     ) {
@@ -835,7 +836,7 @@ export function handleGithub(
   if (handlePublic(value, sender, respond)) return true;
   if (
     sender.id !== chrome.runtime.id ||
-    sender.url !== SETTINGS_URL ||
+    !isPageUrl(sender.url, SETTINGS_URL) ||
     typeof sender.documentId !== "string" ||
     sender.frameId !== 0 ||
     !validRequest(value)

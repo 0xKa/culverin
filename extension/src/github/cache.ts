@@ -1,6 +1,7 @@
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import {
   coveragePolicyVersion,
+  engineVersion,
   rulesProfile,
   rulesVersion,
   wrapperVersion,
@@ -67,7 +68,7 @@ export function resolutionIdentity(
     resolution.repositoryId,
     resolution.sha,
     "tokei",
-    "15.0.0",
+    engineVersion,
     wrapperVersion,
     rulesProfile,
     rulesVersion,

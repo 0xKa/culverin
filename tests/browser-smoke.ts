@@ -2381,6 +2381,23 @@ sync();
     .waitFor();
   await manualTrigger.check();
   await countingSettings.getByText(/^Saved\./).waitFor();
+  await countingSettings.getByRole("link", { name: "About" }).click();
+  const aboutDetails = countingSettings.locator("#about-details");
+  await aboutDetails.waitFor({ state: "visible" });
+  assert.match((await aboutDetails.textContent()) ?? "", /Version0\.0\.\d+/);
+  assert.match((await aboutDetails.textContent()) ?? "", /Tokei 15\.0\.0/);
+  assert.equal(
+    await countingSettings
+      .getByRole("link", { name: "Source code" })
+      .getAttribute("href"),
+    "https://github.com/0xKa/culverin",
+  );
+  assert.equal(
+    await countingSettings
+      .getByRole("link", { name: "Third-party notices" })
+      .getAttribute("href"),
+    "THIRD_PARTY_NOTICES.txt",
+  );
   await countingSettings.getByRole("link", { name: "Culverin ignore" }).click();
   await countingSettings.locator("#rules").waitFor({ state: "visible" });
   await countingSettings.close();

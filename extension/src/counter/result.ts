@@ -1,4 +1,4 @@
-import { rulesVersion, wrapperVersion } from "./rules";
+import { engineVersion, rulesVersion, wrapperVersion } from "./rules";
 export type LineCounts = {
   lines: number;
   code: number;
@@ -100,7 +100,7 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
     ]) ||
     engine.name !== "tokei" ||
     engine.rulesProfile !== "source-v1" ||
-    engine.version !== "15.0.0" ||
+    engine.version !== engineVersion ||
     engine.wrapperVersion !== wrapperVersion ||
     engine.rulesVersion !== rulesVersion ||
     engine.coveragePolicyVersion !== "1" ||

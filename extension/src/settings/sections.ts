@@ -2,6 +2,7 @@ export const sections = [
   { id: "storage", label: "Storage" },
   { id: "ignore", label: "Culverin ignore" },
   { id: "counting", label: "Counting" },
+  { id: "about", label: "About" },
 ] as const;
 
 export type SectionId = (typeof sections)[number]["id"];

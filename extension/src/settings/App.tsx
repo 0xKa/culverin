@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import icon from "../../../assets/dark/culverin-dark-stats.svg";
+import { AboutSection } from "./AboutSection";
 import { CountingSection } from "./CountingSection";
 import { IgnoreSection } from "./IgnoreSection";
 import {
@@ -74,6 +75,7 @@ export function App() {
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
           <CountingSection hidden={active !== "counting"} />
+          <AboutSection hidden={active !== "about"} />
         </main>
       </div>
     </div>

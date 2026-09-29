@@ -205,7 +205,7 @@ async function lookup(): Promise<void> {
       } else {
         showResult(reply.result, reply.resolution);
         setStatus(
-          "Cached local analysis. Public visibility metadata may be up to one minute old.",
+          "Cached local analysis. Public visibility metadata may be up to 20 minutes old.",
         );
       }
     } else if (reply.type === "analysis.failed") handleFailure(reply);
@@ -256,7 +256,7 @@ async function finishAnalysis(
       showResult(reply.result, reply.resolution);
       setStatus(
         reply.fromCache
-          ? "Cached local analysis. Public visibility metadata may be up to one minute old."
+          ? "Cached local analysis. Public visibility metadata may be up to 20 minutes old."
           : reply.result.coverage.complete
             ? "Analyzed locally."
             : "Partial local analysis.",

@@ -18,13 +18,13 @@ If you choose to count when a repository page opens, in the Counting section of 
 
 Source code is streamed to a packaged analysis worker, counted in memory, and discarded. Archives and source files are never written to storage.
 
-Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the repository size reported by GitHub, the time it was stored, file and line counts per language, and the total size of the files at that commit. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state, GitHub's most recent API rate-limit counts, and the list of automatic counts already tried, all cleared when the browser closes.
+Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the repository size reported by GitHub, the time it was stored, file and line counts per language, and the total size of the files at that commit. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state, GitHub's most recent API rate-limit counts, repository metadata from the last 20 minutes, and the list of automatic counts already tried, all cleared when the browser closes.
 
 Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice is kept the same way when you change it from the default. The settings page also remembers which of its sections you last opened, in the extension's local page storage.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 
-A cached result is shown only after GitHub confirms the repository is still public at the same commit. Metadata can be reused for up to 60 seconds, so a visibility change within that window may not be noticed immediately. When Culverin sees that a repository has become private, it deletes that repository's stored results.
+A cached result is shown only after GitHub confirms the repository is still public at the same commit. Metadata can be reused for up to 20 minutes, so a visibility change or a new commit within that window may not be noticed until the metadata expires. When Culverin sees that a repository has become private, it deletes that repository's stored results.
 
 ## Permissions
 

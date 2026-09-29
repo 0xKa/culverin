@@ -35,6 +35,7 @@ import {
 import type { AnalysisResultV2 } from "../counter/result";
 import { pageRepository } from "../content/repository";
 import {
+  PUBLIC_RESOLUTION_TTL,
   PublicResultCache,
   ResolutionCache,
   resolutionIdentity,
@@ -56,7 +57,18 @@ const POPUP_URL = chrome.runtime.getURL("popup.html");
 const MARKER = "github.job";
 const LAST = "github.last";
 const cache = new PublicResultCache(chrome.storage.local);
-const refs = new ResolutionCache();
+const refs = new ResolutionCache(
+  Date.now,
+  PUBLIC_RESOLUTION_TTL,
+  chrome.storage.session,
+);
+const optionRefs = new ResolutionCache();
+async function invalidateResolutions(repositoryId: string): Promise<void> {
+  await Promise.all([
+    refs.invalidateRepository(repositoryId),
+    optionRefs.invalidateRepository(repositoryId),
+  ]);
+}
 const defaultRulesHash = effectiveRulesHash(defaultIgnore);
 async function currentRules(): Promise<{
   ignore: IgnoreSettings;
@@ -492,7 +504,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         return;
       if (envelope.visibility !== "public") {
         await cache.purgeRepository(envelope.repositoryId);
-        refs.invalidateRepository(envelope.repositoryId);
+        await invalidateResolutions(envelope.repositoryId);
         coordinator.abortPublicRepository(envelope.repositoryId);
         reply({ type: "analysis.failed", code: "repository_unavailable" });
         return;
@@ -926,7 +938,7 @@ export function handleGithub(
     }
     if (request.type === "cache.clear-public") {
       await cache.clear();
-      refs.clear();
+      await Promise.all([refs.clear(), optionRefs.clear()]);
       await chrome.storage.session.remove(AUTO_COUNT_KEY);
       reply({ state: "public-cache-cleared" });
       return;
@@ -997,7 +1009,7 @@ export function handleGithub(
       try {
         const auth = await activeToken();
         const key = `options:${auth.generation}:${request.owner.toLowerCase()}/${request.name.toLowerCase()}`;
-        const resolved = await refs.resolveWithStatus(key, async () => ({
+        const resolved = await optionRefs.resolveWithStatus(key, async () => ({
           ...(await resolveRepository(
             fetch,
             request.owner!,
@@ -1015,13 +1027,13 @@ export function handleGithub(
         }
         if (envelope.visibility === "private") {
           await cache.purgeRepository(envelope.repositoryId);
-          refs.invalidateRepository(envelope.repositoryId);
+          await invalidateResolutions(envelope.repositoryId);
           coordinator.abortPublicRepository(envelope.repositoryId);
         }
         if (
           envelope.visibility === "public" &&
           resolved.fresh &&
-          refs.isCurrent(resolved.epoch)
+          optionRefs.isCurrent(resolved.epoch)
         )
           cache.allowRepository(envelope);
         if (request.type === "repository.lookup") {

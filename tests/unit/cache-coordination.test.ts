@@ -3,7 +3,9 @@ import {
   PUBLIC_CACHE_KEY,
   PUBLIC_CACHE_BYTES,
   PublicResultCache,
+  PUBLIC_RESOLUTION_TTL,
   ResolutionCache,
+  RESOLUTION_KEY,
   RESOLUTION_TTL,
   resolutionIdentity,
   resultIdentity,
@@ -363,15 +365,88 @@ test("resolution cache coalesces, expires at 60 seconds, and purges by ID", asyn
   now++;
   await refs.resolve("public:owner/repo", fetcher);
   expect(calls).toBe(2);
-  refs.invalidateRepository("42");
+  await refs.invalidateRepository("42");
   await refs.resolve("public:owner/repo", fetcher);
   expect(calls).toBe(3);
   const reused = await refs.resolveWithStatus("public:owner/repo", fetcher);
   expect(reused.fresh).toBe(false);
-  refs.invalidateRepository("42");
+  await refs.invalidateRepository("42");
   const renewed = await refs.resolveWithStatus("public:owner/repo", fetcher);
   expect(renewed.fresh).toBe(true);
   expect(refs.isCurrent(renewed.epoch)).toBe(true);
+});
+
+test("public resolutions persist for 20 minutes across worker restarts", async () => {
+  let now = Date.now();
+  const storage = new MemoryStorage();
+  let calls = 0;
+  const fetcher = async () => {
+    calls++;
+    return { ...resolution(), resolvedAt: now };
+  };
+  const first = new ResolutionCache(() => now, PUBLIC_RESOLUTION_TTL, storage);
+  await first.resolve("public:owner/repo", fetcher);
+  await Promise.resolve();
+  expect(storage.values[RESOLUTION_KEY]).toHaveLength(1);
+  now += PUBLIC_RESOLUTION_TTL - 1;
+  const restarted = new ResolutionCache(
+    () => now,
+    PUBLIC_RESOLUTION_TTL,
+    storage,
+  );
+  expect((await restarted.peek("public:owner/repo"))?.envelope.sha).toBe(sha);
+  expect(await restarted.peek("public:owner/other")).toBeUndefined();
+  const reused = await restarted.resolveWithStatus(
+    "public:owner/repo",
+    fetcher,
+  );
+  expect([reused.fresh, calls]).toEqual([false, 1]);
+  const forced = await restarted.resolveWithStatus(
+    "public:owner/repo",
+    fetcher,
+    true,
+  );
+  expect([forced.fresh, calls]).toEqual([true, 2]);
+  now += PUBLIC_RESOLUTION_TTL;
+  expect(await restarted.peek("public:owner/repo")).toBeUndefined();
+  await restarted.resolve("public:owner/repo", fetcher);
+  expect(calls).toBe(3);
+  await restarted.invalidateRepository("42");
+  await Promise.resolve();
+  expect(storage.values[RESOLUTION_KEY]).toBeUndefined();
+});
+
+test("clearing resolutions ignores a load that was still pending", async () => {
+  const storage = new MemoryStorage();
+  const stored = () => [
+    { key: "public:owner/repo", envelope: resolution(), lastAccess: 1 },
+  ];
+  storage.values[RESOLUTION_KEY] = stored();
+  let release = () => undefined as void;
+  const refs = new ResolutionCache(Date.now, PUBLIC_RESOLUTION_TTL, {
+    get: async (key) => {
+      await new Promise<void>((resolve) => (release = resolve));
+      return storage.get(key);
+    },
+    set: (items) => storage.set(items),
+    remove: (key) => storage.remove(key),
+  });
+  const pending = refs.peek("public:owner/repo");
+  await refs.clear();
+  release();
+  expect(await pending).toBeUndefined();
+  expect(storage.values[RESOLUTION_KEY]).toBeUndefined();
+  storage.values[RESOLUTION_KEY] = [
+    ...stored(),
+    { key: "public:owner/bad", envelope: { sha }, lastAccess: 1 },
+  ];
+  const restarted = new ResolutionCache(
+    Date.now,
+    PUBLIC_RESOLUTION_TTL,
+    storage,
+  );
+  expect(await restarted.peek("public:owner/repo")).toBeDefined();
+  expect(await restarted.peek("public:owner/bad")).toBeUndefined();
 });
 
 test("resolution cache evicts the oldest entry at its entry limit", async () => {

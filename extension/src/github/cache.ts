@@ -13,6 +13,8 @@ export const PUBLIC_CACHE_BYTES = 5 * 1024 * 1024;
 export const RESOLUTION_ENTRIES = 100;
 export const RESOLUTION_BYTES = 512 * 1024;
 export const RESOLUTION_TTL = 60_000;
+export const PUBLIC_RESOLUTION_TTL = 20 * 60_000;
+export const RESOLUTION_KEY = "github.resolutions";
 
 type Entry = {
   identity: string;
@@ -344,12 +346,87 @@ type ResolvedReference = {
   epoch: number;
 };
 
+export type ResolutionStore = {
+  get(key: string): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+  remove(key: string): Promise<void>;
+};
+
+function validRefEntry(value: unknown): value is RefEntry {
+  return (
+    record(value) &&
+    exact(value, ["key", "envelope", "lastAccess"]) &&
+    typeof value.key === "string" &&
+    value.key.length <= 512 &&
+    validEnvelope(value.envelope) &&
+    validTime(value.lastAccess)
+  );
+}
+
 export class ResolutionCache {
   private entries: RefEntry[] = [];
   private inflight = new Map<string, Promise<ResolvedReference>>();
   private epoch = 0;
+  private loaded: Promise<void> | undefined;
+  private clears = 0;
+  private writes: Promise<void> = Promise.resolve();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly ttl = RESOLUTION_TTL,
+    private readonly store?: ResolutionStore,
+  ) {}
+
+  private load(): Promise<void> {
+    if (!this.store) return Promise.resolve();
+    const clears = this.clears;
+    this.loaded ??= this.store
+      .get(RESOLUTION_KEY)
+      .then((state) => {
+        const value = state[RESOLUTION_KEY];
+        if (clears !== this.clears || !Array.isArray(value)) return;
+        const keys = new Set(this.entries.map((entry) => entry.key));
+        this.entries = [
+          ...value
+            .filter(validRefEntry)
+            .filter((entry) => !keys.has(entry.key)),
+          ...this.entries,
+        ];
+        this.bound();
+      })
+      .catch(() => undefined);
+    return this.loaded;
+  }
+
+  private persist(): void {
+    const store = this.store;
+    if (!store) return;
+    const entries = this.entries.slice();
+    this.writes = this.writes
+      .then(() =>
+        entries.length
+          ? store.set({ [RESOLUTION_KEY]: entries })
+          : store.remove(RESOLUTION_KEY),
+      )
+      .catch(() => undefined);
+  }
+
+  private bound(): void {
+    const now = this.now();
+    this.entries = this.entries.filter(
+      (entry) => now - entry.envelope.resolvedAt < this.ttl,
+    );
+    this.entries.sort(
+      (a, b) =>
+        a.lastAccess - b.lastAccess ||
+        (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+    );
+    while (
+      this.entries.length > RESOLUTION_ENTRIES ||
+      bytes(this.entries) > RESOLUTION_BYTES
+    )
+      this.entries.shift();
+  }
 
   async resolve(
     key: string,
@@ -358,15 +435,29 @@ export class ResolutionCache {
     return (await this.resolveWithStatus(key, fetcher)).envelope;
   }
 
+  async peek(key: string): Promise<ResolvedReference | undefined> {
+    await this.load();
+    const now = this.now();
+    const hit = this.entries.find(
+      (entry) =>
+        entry.key === key && now - entry.envelope.resolvedAt < this.ttl,
+    );
+    return hit && { envelope: hit.envelope, fresh: false, epoch: this.epoch };
+  }
+
   async resolveWithStatus(
     key: string,
     fetcher: () => Promise<ResolutionEnvelope>,
+    force = false,
   ): Promise<ResolvedReference> {
+    await this.load();
     const now = this.now();
     this.entries = this.entries.filter(
-      (entry) => now - entry.envelope.resolvedAt < RESOLUTION_TTL,
+      (entry) => now - entry.envelope.resolvedAt < this.ttl,
     );
-    const hit = this.entries.find((entry) => entry.key === key);
+    const hit = force
+      ? undefined
+      : this.entries.find((entry) => entry.key === key);
     if (hit) {
       hit.lastAccess = now;
       return { envelope: hit.envelope, fresh: false, epoch: this.epoch };
@@ -380,16 +471,8 @@ export class ResolutionCache {
       if (validEnvelope(envelope)) {
         this.entries = this.entries.filter((entry) => entry.key !== key);
         this.entries.push({ key, envelope, lastAccess: this.now() });
-        this.entries.sort(
-          (a, b) =>
-            a.lastAccess - b.lastAccess ||
-            (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
-        );
-        while (
-          this.entries.length > RESOLUTION_ENTRIES ||
-          bytes(this.entries) > RESOLUTION_BYTES
-        )
-          this.entries.shift();
+        this.bound();
+        this.persist();
       }
       return { envelope, fresh: true, epoch };
     });
@@ -405,15 +488,21 @@ export class ResolutionCache {
     return epoch === this.epoch;
   }
 
-  invalidateRepository(repositoryId: string): void {
+  async invalidateRepository(repositoryId: string): Promise<void> {
     this.epoch++;
+    await this.load();
     this.entries = this.entries.filter(
       (entry) => entry.envelope.repositoryId !== repositoryId,
     );
+    this.persist();
   }
 
-  clear(): void {
+  async clear(): Promise<void> {
     this.epoch++;
+    this.clears++;
+    this.loaded = Promise.resolve();
     this.entries = [];
+    this.persist();
+    await this.writes;
   }
 }

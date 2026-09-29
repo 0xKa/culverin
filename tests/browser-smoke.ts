@@ -980,7 +980,7 @@ sync();
   await page.mouse.move(0, 0);
   const restartPopup = await openPopup(page);
   const cachedStatus =
-    "Cached local analysis. Public visibility metadata may be up to one minute old.";
+    "Cached local analysis. Public visibility metadata may be up to 20 minutes old.";
   await restartPopup.getByText(cachedStatus).waitFor();
   const restartControl = await context.newCDPSession(page);
   await restartControl.send("ServiceWorker.enable");
@@ -2346,6 +2346,14 @@ sync();
   await clearPublicCache();
   await page.reload();
   await page.getByText("0 lines of code", { exact: true }).waitFor();
+  const beforeRestartedLookup = fixtureApiRequests;
+  const lookupRestart = await context.newCDPSession(page);
+  await lookupRestart.send("ServiceWorker.enable");
+  await lookupRestart.send("ServiceWorker.stopAllWorkers");
+  await lookupRestart.detach();
+  await page.reload();
+  await page.getByText("0 lines of code", { exact: true }).waitFor();
+  assert.equal(fixtureApiRequests, beforeRestartedLookup);
   await countingSettings.reload();
   await countingSettings
     .locator('input[name="count-trigger"][value="open"]:checked')

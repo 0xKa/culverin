@@ -48,6 +48,7 @@ assert.deepEqual(
     "styles-HASH.css",
     "styles-HASH.js",
     "tar-HASH.js",
+    "trigger-HASH.js",
     "worker-HASH.js",
     "worker-HASH.js",
   ],
@@ -730,7 +731,9 @@ sync();
     `chrome-extension://${new URL(worker.url()).host}/settings.html#storage`,
   );
   assert.equal(
-    await settingsPage.locator('input:not([type="checkbox"])').count(),
+    await settingsPage
+      .locator('input:not([type="checkbox"]):not([type="radio"])')
+      .count(),
     0,
   );
   assert.equal(await settingsPage.locator("textarea").count(), 1);
@@ -2325,6 +2328,38 @@ sync();
   await page.setViewportSize({ width: 1280, height: 720 });
   await countButton.waitFor();
   assert.equal(await summary.count(), 1);
+  const countingSettings = await context.newPage();
+  await countingSettings.goto(
+    `chrome-extension://${new URL(worker.url()).host}/settings.html#counting`,
+  );
+  const manualTrigger = countingSettings.getByRole("radio", {
+    name: "When I select Count lines or Analyze",
+  });
+  const openTrigger = countingSettings.getByRole("radio", {
+    name: "When I open the repository page",
+  });
+  await countingSettings
+    .locator('input[name="count-trigger"][value="manual"]:checked')
+    .waitFor();
+  await openTrigger.check();
+  await countingSettings.getByText(/^Saved\./).waitFor();
+  await clearPublicCache();
+  await page.reload();
+  await page.getByText("0 lines of code", { exact: true }).waitFor();
+  await countingSettings.reload();
+  await countingSettings
+    .locator('input[name="count-trigger"][value="open"]:checked')
+    .waitFor();
+  await manualTrigger.check();
+  await countingSettings.getByText(/^Saved\./).waitFor();
+  await countingSettings.getByRole("link", { name: "Culverin ignore" }).click();
+  await countingSettings.locator("#rules").waitFor({ state: "visible" });
+  await countingSettings.close();
+  await clearPublicCache();
+  const beforeManualPage = fixtureApiRequests;
+  await page.reload();
+  await countButton.waitFor();
+  assert.equal(fixtureApiRequests, beforeManualPage);
   fixtureMode = "rate";
   await clearPublicCache();
   const beforeLimitedPage = fixtureApiRequests;

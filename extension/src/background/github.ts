@@ -46,6 +46,8 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { readIgnore } from "../ignore/settings";
+import { readCountTrigger } from "../counting/trigger";
+import { AUTO_COUNT_KEY, autoCountClaims } from "../counting/claims";
 import { isPageUrl } from "./page-url";
 
 const VERSION = 1;
@@ -73,6 +75,7 @@ function saveMarkers(markers: Marker[]): void {
     })
     .catch(() => undefined);
 }
+const claimAutoCount = autoCountClaims(chrome.storage.session);
 let rateLimitTail: Promise<void> = Promise.resolve();
 const anonymousFetch: Fetcher = async (input, init) => {
   const response = await fetch(input, init);
@@ -441,9 +444,11 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         return;
       }
     }
+    const pageLookup = client.page && request.type === "repository.lookup";
+    const trigger = pageLookup ? await readCountTrigger() : "manual";
     if (
-      client.page &&
-      request.type === "repository.lookup" &&
+      pageLookup &&
+      trigger === "manual" &&
       !(await cache
         .hasRepository(repository, (await currentRules()).hash)
         .catch(() => true))
@@ -523,11 +528,16 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         const rulesChanged = await cache
           .hasOtherRules(envelope, rules.hash)
           .catch(() => false);
+        const autoCount =
+          trigger === "open" &&
+          client.isAlive() &&
+          (await claimAutoCount(resolutionIdentity(envelope, rules.hash)));
         if (controller.signal.aborted || !client.isAlive()) return;
         reply({
           type: "repository.cache_miss",
           resolution: envelope,
           ...(rulesChanged ? { rulesChanged: true as const } : {}),
+          ...(autoCount ? { autoCount: true as const } : {}),
         });
         return;
       }
@@ -917,6 +927,7 @@ export function handleGithub(
     if (request.type === "cache.clear-public") {
       await cache.clear();
       refs.clear();
+      await chrome.storage.session.remove(AUTO_COUNT_KEY);
       reply({ state: "public-cache-cleared" });
       return;
     }

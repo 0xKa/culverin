@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { CountingSection } from "./CountingSection";
 import { IgnoreSection } from "./IgnoreSection";
 import {
   initialSection,
@@ -44,8 +45,9 @@ export function App() {
         <h1 className="mb-1 text-[2em] font-bold">Culverin</h1>
         <p>
           Repository source is downloaded directly from GitHub and analyzed in
-          your browser only when you select Analyze. This version analyzes
-          public repositories only.
+          your browser when you select Analyze, or when you open a repository
+          page if you turn that on under Counting. This version analyzes public
+          repositories only.
         </p>
       </header>
       <div className="grid gap-6 md:grid-cols-[12rem_1fr]">
@@ -67,6 +69,7 @@ export function App() {
         <main>
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
+          <CountingSection hidden={active !== "counting"} />
         </main>
       </div>
     </div>

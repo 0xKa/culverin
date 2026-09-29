@@ -288,6 +288,12 @@ test("validates envelope, correlation, and safe errors", () => {
       navigationId,
     ),
   ).toBe(false);
+  expect(
+    validPublicReply({ ...reply, autoCount: true }, requestId, navigationId),
+  ).toBe(true);
+  expect(
+    validPublicReply({ ...reply, autoCount: false }, requestId, navigationId),
+  ).toBe(false);
   const notCached = {
     protocolVersion: 1,
     type: "repository.not_cached",

@@ -126,6 +126,10 @@ async function lookup(current: View): Promise<void> {
       else setState(current, lookupFailureState(reply.code));
       return;
     }
+    if (reply.type === "repository.cache_miss" && reply.autoCount) {
+      void analyze(current);
+      return;
+    }
     if (reply.type !== "repository.cache_hit") {
       setState(current, { kind: "idle" });
       return;

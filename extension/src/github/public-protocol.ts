@@ -64,6 +64,7 @@ export type PublicReply = {
       type: "repository.cache_miss";
       resolution: ResolutionEnvelope;
       rulesChanged?: true;
+      autoCount?: true;
     }
   | { type: "repository.not_cached" }
   | {
@@ -295,8 +296,10 @@ export function validPublicReply(
         ...base,
         "resolution",
         ...(value.rulesChanged === undefined ? [] : ["rulesChanged"]),
+        ...(value.autoCount === undefined ? [] : ["autoCount"]),
       ]) &&
       (value.rulesChanged === undefined || value.rulesChanged === true) &&
+      (value.autoCount === undefined || value.autoCount === true) &&
       validEnvelope(value.resolution) &&
       value.resolution.visibility === "public"
     );

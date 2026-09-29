@@ -13,7 +13,7 @@ function Header({ view }: { view: PopupView }) {
           id="settings"
           type="button"
           className="px-2.5 py-1.5"
-          onClick={openSettings}
+          onClick={() => openSettings()}
         >
           Settings
         </Button>
@@ -58,7 +58,7 @@ function Totals({ view }: { view: PopupView }) {
           id="ignore-edit"
           type="button"
           className="px-2 py-0.5"
-          onClick={openSettings}
+          onClick={() => openSettings("ignore")}
         >
           Edit
         </Button>

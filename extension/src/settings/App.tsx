@@ -1,15 +1,41 @@
 import { useEffect, useState } from "preact/hooks";
 import { IgnoreSection } from "./IgnoreSection";
-import { sectionFromHash, sections } from "./sections";
+import {
+  initialSection,
+  parseSection,
+  readSection,
+  rememberSection,
+  SECTION_KEY,
+  sections,
+} from "./sections";
 import { StorageSection } from "./StorageSection";
 
 export function App() {
-  const [active, setActive] = useState(() => sectionFromHash(location.hash));
+  const [active, setActive] = useState(() =>
+    initialSection(location.hash, readSection()),
+  );
 
   useEffect(() => {
-    const update = () => setActive(sectionFromHash(location.hash));
-    addEventListener("hashchange", update);
-    return () => removeEventListener("hashchange", update);
+    rememberSection(active);
+    if (location.hash !== `#${active}`)
+      history.replaceState(null, "", `#${active}`);
+  }, [active]);
+
+  useEffect(() => {
+    const fromHash = () => {
+      const next = parseSection(location.hash);
+      if (next) setActive(next);
+    };
+    const fromStorage = (event: StorageEvent) => {
+      const next = event.key === SECTION_KEY && parseSection(event.newValue);
+      if (next) setActive(next);
+    };
+    addEventListener("hashchange", fromHash);
+    addEventListener("storage", fromStorage);
+    return () => {
+      removeEventListener("hashchange", fromHash);
+      removeEventListener("storage", fromStorage);
+    };
   }, []);
 
   return (

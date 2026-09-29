@@ -1104,6 +1104,14 @@ sync();
     await ignorePopup.locator("#snapshot-size").textContent(),
     "21 B",
   );
+  await settingsNav.getByRole("link", { name: "Storage" }).click();
+  await settingsPage.locator("#rules").waitFor({ state: "hidden" });
+  const pagesBeforeEdit = context.pages().length;
+  await ignorePopup.getByRole("button", { name: "Edit" }).click();
+  await settingsPage.locator("#rules").waitFor({ state: "visible" });
+  assert.equal(new URL(settingsPage.url()).hash, "#ignore");
+  await ignorePopup.waitForTimeout(300);
+  assert.equal(context.pages().length, pagesBeforeEdit);
   await ignorePopup.close();
   const ignoredRow = page.getByRole("button", {
     name: "1 line of code",
@@ -2347,7 +2355,25 @@ sync();
       .getAttribute("aria-current"),
     "page",
   );
+  await openedSettingsPage.getByRole("link", { name: "Storage" }).click();
+  await openedSettingsPage
+    .getByRole("button", { name: "Clear public cache" })
+    .waitFor({ state: "visible" });
   await openedSettingsPage.close();
+  const reopenedSettings = context.waitForEvent("page");
+  await settingsLauncher.getByRole("button", { name: "Settings" }).click();
+  const reopenedSettingsPage = await reopenedSettings;
+  await reopenedSettingsPage
+    .getByRole("button", { name: "Clear public cache" })
+    .waitFor({ state: "visible" });
+  assert.equal(new URL(reopenedSettingsPage.url()).hash, "#storage");
+  assert.equal(
+    await reopenedSettingsPage
+      .getByRole("link", { name: "Storage" })
+      .getAttribute("aria-current"),
+    "page",
+  );
+  await reopenedSettingsPage.close();
   await settingsLauncher.close();
   console.log(
     `Browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,

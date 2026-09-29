@@ -14,6 +14,7 @@ import {
 import type { AnalysisResultV2 } from "../counter/result";
 import { resultView, sizesView } from "./view";
 import type { PopupEvent } from "./state";
+import { rememberSection, type SectionId } from "../settings/sections";
 
 const navigationId = crypto.randomUUID();
 let dispatch: (event: PopupEvent) => void = () => undefined;
@@ -351,7 +352,8 @@ function onActivated({ tabId }: { tabId: number }): void {
   if (target && tabId !== target.tabId) leaveRepository();
 }
 
-export function openSettings(): void {
+export function openSettings(section?: SectionId): void {
+  if (section) rememberSection(section);
   void chrome.runtime.openOptionsPage();
 }
 

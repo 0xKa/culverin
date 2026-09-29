@@ -18,7 +18,7 @@ Source code is streamed to a packaged analysis worker, counted in memory, and di
 
 Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Each result holds the repository name and ID, default branch, commit, the repository size reported by GitHub, the time it was stored, file and line counts per language, and the total size of the files at that commit. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state that is cleared when the browser closes.
 
-Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page.
+Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. The settings page also remembers which of its sections you last opened, in the extension's local page storage.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 

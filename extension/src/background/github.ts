@@ -368,6 +368,7 @@ type PublicClient = {
   repository: { owner: string; name: string };
   owner: string;
   prefix: string;
+  page: boolean;
   isAlive: () => boolean;
   reply: (request: PublicRequest, payload: PublicPayload) => void;
   progress: (
@@ -439,6 +440,24 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         reply({ type: "analysis.failed", code: "analysis_busy" });
         return;
       }
+    }
+    if (
+      client.page &&
+      request.type === "repository.lookup" &&
+      !(await cache
+        .hasRepository(repository, (await currentRules()).hash)
+        .catch(() => true))
+    ) {
+      if (!client.isAlive()) return;
+      reply(
+        Date.now() < publicRateLimitedUntil
+          ? {
+              type: "analysis.failed",
+              ...publicFailure("rate_limited", publicRateLimitedUntil),
+            }
+          : { type: "repository.not_cached" },
+      );
+      return;
     }
     const controller = new AbortController();
     const startedAt = Date.now();
@@ -655,6 +674,7 @@ function handlePublic(
     repository,
     owner: publicOwner(tabId, documentId, request.navigationId),
     prefix,
+    page: true,
     isAlive: () => publicPorts.has(key),
     reply: (current, payload) => respond(publicReply(current, payload)),
     progress: (current, phase, processedBytes) =>
@@ -794,6 +814,7 @@ function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
         repository,
         owner,
         prefix: `u:${tabId}:`,
+        page: false,
         isAlive: () => popupPorts.has(port),
         reply: (current, payload) => {
           postToPopup(port, current, payload);
@@ -815,6 +836,7 @@ function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
       repository,
       owner,
       prefix: `u:${tabId}:`,
+      page: false,
       isAlive: () => popupJobs.get(tabId) === next,
       reply: (_current, payload) => settlePopupJob(tabId, next, payload),
       progress: (_current, phase, processedBytes) => {

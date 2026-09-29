@@ -694,26 +694,26 @@ sync();
   };
   fixtureMode = "empty";
   await clearPublicCache();
+  const beforeUncachedApiRequests = fixtureApiRequests;
   await page.reload();
   await summary.waitFor({ state: "attached" });
+  await page.getByText("Count lines of code").waitFor();
+  assert.equal(fixtureApiRequests, beforeUncachedApiRequests);
   const emptyPopup = await openPopup(page);
   await emptyPopup
     .getByText("This repository has no default-branch commit to analyze.")
     .waitFor();
   await emptyPopup.close();
-  await page.waitForTimeout(500);
-  assert.equal(await summary.isHidden(), true);
   fixtureMode = "private";
   await clearPublicCache();
   await page.reload();
   await summary.waitFor({ state: "attached" });
+  await page.getByText("Count lines of code").waitFor();
   const privatePopup = await openPopup(page);
   await privatePopup
     .getByText(/Repository unavailable or access is restricted/)
     .waitFor();
   await privatePopup.close();
-  await page.waitForTimeout(500);
-  assert.equal(await summary.isHidden(), true);
   assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
@@ -2327,6 +2327,16 @@ sync();
   assert.equal(await summary.count(), 1);
   fixtureMode = "rate";
   await clearPublicCache();
+  const beforeLimitedPage = fixtureApiRequests;
+  await page.reload();
+  await countButton.waitFor();
+  assert.equal(fixtureApiRequests, beforeLimitedPage);
+  const limitedPopup = await openPopup(page);
+  await limitedPopup
+    .getByText(/GitHub rate limit reached. Retry after/)
+    .waitFor();
+  const limitedRequests = fixtureApiRequests;
+  await limitedPopup.close();
   await page.reload();
   await page.getByText("GitHub rate limit, try later").waitFor();
   assert.match(
@@ -2336,13 +2346,6 @@ sync();
     /^GitHub rate limit reached. Retry after /,
   );
   assert.equal(await page.getByRole("button", { name: /lines/ }).count(), 0);
-  const limitedPopup = await openPopup(page);
-  await limitedPopup
-    .getByText(/GitHub rate limit reached. Retry after/)
-    .waitFor();
-  const limitedRequests = fixtureApiRequests;
-  await limitedPopup.close();
-  await page.reload();
   const cachedLimitPopup = await openPopup(page);
   await cachedLimitPopup
     .getByText(/GitHub rate limit reached. Retry after/)

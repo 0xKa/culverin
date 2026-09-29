@@ -1,6 +1,6 @@
 # Privacy
 
-Effective 2026-09-28.
+Effective 2026-09-29.
 
 Culverin counts lines of code in public GitHub repositories inside your browser. It has no backend, account, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
@@ -10,7 +10,7 @@ To show a result, the extension requests repository metadata and the current def
 
 Requests are sent without your GitHub cookies or any token, with `credentials: "omit"` and `cache: "no-store"`. Culverin does not read your GitHub session and cannot access private repositories.
 
-Opening or reloading a repository page may request metadata and show a previously completed result, but it never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download.
+Opening or reloading a repository page sends no request to GitHub unless Culverin already has a completed result for that repository; it then requests metadata to check that the result is still current. It never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download. Opening the toolbar popup on a repository page requests metadata to show the branch, commit, and repository size.
 
 ## What stays in your browser
 

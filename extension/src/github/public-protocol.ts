@@ -65,6 +65,7 @@ export type PublicReply = {
       resolution: ResolutionEnvelope;
       rulesChanged?: true;
     }
+  | { type: "repository.not_cached" }
   | {
       type: "repository.cache_hit";
       resolution: ResolutionEnvelope;
@@ -299,6 +300,7 @@ export function validPublicReply(
       validEnvelope(value.resolution) &&
       value.resolution.visibility === "public"
     );
+  if (value.type === "repository.not_cached") return exact(value, base);
   if (
     value.type === "repository.cache_hit" ||
     value.type === "analysis.completed"

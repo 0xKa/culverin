@@ -93,6 +93,31 @@ class MemoryStorage implements PublicStorage {
 }
 
 describe("public result cache", () => {
+  test("finds cached results by repository name under the same rules", async () => {
+    const cache = new PublicResultCache(new MemoryStorage());
+    const hash = await effectiveRulesHash(defaultIgnore);
+    expect(
+      await cache.hasRepository({ owner: "owner", name: "repo" }, hash),
+    ).toBe(false);
+    await cache.put(resolution(), await result());
+    expect(
+      await cache.hasRepository({ owner: "OWNER", name: "Repo" }, hash),
+    ).toBe(true);
+    expect(
+      await cache.hasRepository({ owner: "owner", name: "other" }, hash),
+    ).toBe(false);
+    expect(
+      await cache.hasRepository(
+        { owner: "owner", name: "repo" },
+        "c".repeat(64),
+      ),
+    ).toBe(false);
+    await cache.purgeRepository("42");
+    expect(
+      await cache.hasRepository({ owner: "owner", name: "repo" }, hash),
+    ).toBe(false);
+  });
+
   test("reuses stable ID and SHA through rename, but invalidates semantic changes", async () => {
     const storage = new MemoryStorage();
     const cache = new PublicResultCache(storage);

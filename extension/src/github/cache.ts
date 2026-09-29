@@ -275,6 +275,23 @@ export class PublicResultCache {
     });
   }
 
+  async hasRepository(
+    repository: { owner: string; name: string },
+    rulesHash: string,
+  ): Promise<boolean> {
+    const owner = repository.owner.toLowerCase();
+    const name = repository.name.toLowerCase();
+    return this.serial(async () =>
+      (await this.load()).entries.some(
+        (entry) =>
+          !this.revoked.has(entry.resolution.repositoryId) &&
+          entry.resolution.owner.toLowerCase() === owner &&
+          entry.resolution.name.toLowerCase() === name &&
+          entry.result.engine.rulesHash === rulesHash,
+      ),
+    );
+  }
+
   async purgeRepository(repositoryId: string): Promise<void> {
     return this.serial(async () => {
       this.revoked.add(repositoryId);

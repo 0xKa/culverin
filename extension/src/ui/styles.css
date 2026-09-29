@@ -44,6 +44,14 @@ summary {
   font-weight: 600;
 }
 
+.popup-body {
+  width: 360px;
+  max-height: 560px;
+  margin: 0;
+  overflow-y: auto;
+  line-height: 1.45;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

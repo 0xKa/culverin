@@ -23,10 +23,10 @@ assert.deepEqual(readdirSync(directory).sort(), [
   "manifest.json",
   "offscreen.html",
   "offscreen.js",
-  "options.html",
-  "options.js",
   "popup.html",
   "popup.js",
+  "settings.html",
+  "settings.js",
 ]);
 assert.deepEqual(readdirSync(resolve(directory, "icons")).sort(), [
   "icon-128.png",
@@ -63,8 +63,10 @@ const manifest = JSON.parse(
     default_title: string;
   };
   content_security_policy: { extension_pages: string };
+  options_page: string;
 };
 assert.deepEqual(manifest.permissions, ["storage", "offscreen"]);
+assert.equal(manifest.options_page, "settings.html");
 assert.deepEqual(manifest.action, {
   default_icon: {
     "16": "icons/icon-16.png",
@@ -84,7 +86,7 @@ assert.equal(
   manifest.content_security_policy.extension_pages,
   "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.github.com https://codeload.github.com https://github.com",
 );
-for (const file of ["options.js", "content.js", "offscreen.js"]) {
+for (const file of ["settings.js", "content.js", "offscreen.js"]) {
   assert.equal(
     readFileSync(resolve(directory, file), "utf8").includes("github.active"),
     false,
@@ -662,7 +664,7 @@ sync();
       (await context.waitForEvent("serviceworker"));
     const control = await context.newPage();
     await control.goto(
-      `chrome-extension://${new URL(worker.url()).host}/options.html`,
+      `chrome-extension://${new URL(worker.url()).host}/settings.html`,
     );
     const state = await control.evaluate(
       () =>
@@ -714,17 +716,19 @@ sync();
   );
   await page.goto("https://github.com/settings/profile");
   assert.equal(await page.locator("[data-culverin-root]").count(), 0);
-  const options = await context.newPage();
-  await options.goto(
-    `chrome-extension://${new URL(worker.url()).host}/options.html`,
+  const settingsPage = await context.newPage();
+  await settingsPage.goto(
+    `chrome-extension://${new URL(worker.url()).host}/settings.html`,
   );
   assert.equal(
-    await options.locator('input:not([type="checkbox"])').count(),
+    await settingsPage.locator('input:not([type="checkbox"])').count(),
     0,
   );
-  assert.equal(await options.locator("textarea").count(), 1);
-  await options.getByRole("button", { name: "Clear public cache" }).click();
-  await options.getByText("Public cache cleared.").waitFor();
+  assert.equal(await settingsPage.locator("textarea").count(), 1);
+  await settingsPage
+    .getByRole("button", { name: "Clear public cache" })
+    .click();
+  await settingsPage.getByText("Public cache cleared.").waitFor();
   const publicFixtureBytes = [
     ...readFileSync("tests/fixtures/archive-source.tar.gz"),
   ];
@@ -1014,10 +1018,10 @@ sync();
     delete scope.fixtureOriginalFetch;
     delete scope.fixtureFetchCount;
   });
-  await options.reload();
-  await options.locator("#rules").fill("README\n");
-  await options.getByRole("button", { name: "Save" }).click();
-  await options.getByText(/^Saved\./).waitFor();
+  await settingsPage.reload();
+  await settingsPage.locator("#rules").fill("README\n");
+  await settingsPage.getByRole("button", { name: "Save" }).click();
+  await settingsPage.getByText(/^Saved\./).waitFor();
   await worker.evaluate(
     ({ bytes, sha }) => {
       const scope = globalThis as typeof globalThis & {
@@ -1082,10 +1086,10 @@ sync();
     (await ignoredRow.getAttribute("title")) ?? "",
     /^1 line of code \(Culverin ignore active\)\./,
   );
-  options.once("dialog", (dialog) => void dialog.accept());
-  await options.getByRole("button", { name: "Reset to defaults" }).click();
-  await options.getByText(/^Saved\./).waitFor();
-  assert.equal(await options.locator("#rules").inputValue(), "");
+  settingsPage.once("dialog", (dialog) => void dialog.accept());
+  await settingsPage.getByRole("button", { name: "Reset to defaults" }).click();
+  await settingsPage.getByText(/^Saved\./).waitFor();
+  assert.equal(await settingsPage.locator("#rules").inputValue(), "");
   const resetPopup = await openPopup(page);
   await resetPopup.getByText(cachedStatus).waitFor();
   assert.equal(await resetPopup.locator("#ignore-summary").isHidden(), true);
@@ -1099,7 +1103,7 @@ sync();
       globalThis.fetch = scope.fixtureOriginalFetch;
     delete scope.fixtureOriginalFetch;
   });
-  const optionsState = await options.evaluate(async () => {
+  const settingsState = await settingsPage.evaluate(async () => {
     const send = (type: string) =>
       new Promise<{ state: string; connected?: boolean }>((resolve) =>
         chrome.runtime.sendMessage(
@@ -1157,14 +1161,14 @@ sync();
       ]),
     };
   });
-  assert.equal(optionsState.initial.connected, false);
-  assert.equal(optionsState.submitted, undefined);
-  assert.equal(optionsState.idle.state, "idle");
-  assert.equal(optionsState.cleared.state, "cleared");
-  assert.equal(optionsState.disconnected.state, "disconnected");
-  assert.equal(optionsState.after.connected, false);
-  assert.deepEqual(optionsState.storage, {});
-  const rejectedPublicFromOptions = await options.evaluate(
+  assert.equal(settingsState.initial.connected, false);
+  assert.equal(settingsState.submitted, undefined);
+  assert.equal(settingsState.idle.state, "idle");
+  assert.equal(settingsState.cleared.state, "cleared");
+  assert.equal(settingsState.disconnected.state, "disconnected");
+  assert.equal(settingsState.after.connected, false);
+  assert.deepEqual(settingsState.storage, {});
+  const rejectedPublicFromSettings = await settingsPage.evaluate(
     () =>
       new Promise<Record<string, unknown>>((resolve) =>
         chrome.runtime.sendMessage(
@@ -1181,8 +1185,8 @@ sync();
   );
   assert.deepEqual(
     {
-      state: rejectedPublicFromOptions.state,
-      code: rejectedPublicFromOptions.code,
+      state: rejectedPublicFromSettings.state,
+      code: rejectedPublicFromSettings.code,
     },
     { state: "failed", code: "invalid_repository" },
   );
@@ -1199,7 +1203,7 @@ sync();
   await page.getByText("1 line of code", { exact: true }).waitFor();
   assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "private";
-  const privateObservation = await options.evaluate(
+  const privateObservation = await settingsPage.evaluate(
     () =>
       new Promise<Record<string, unknown>>((resolve) =>
         chrome.runtime.sendMessage(
@@ -1219,7 +1223,7 @@ sync();
     (privateObservation.resolution as { visibility: string }).visibility,
     "private",
   );
-  const afterPrivate = await options.evaluate(async () => {
+  const afterPrivate = await settingsPage.evaluate(async () => {
     const state = await chrome.storage.local.get("culverin.public-results.v1");
     return (state["culverin.public-results.v1"] as { entries: unknown[] })
       .entries.length;
@@ -1264,7 +1268,7 @@ sync();
     .waitFor({ timeout: 15_000 });
   assert.equal(await page.getByText("Count lines of code").count(), 1);
   await partialPopup.close();
-  const persistedPartial = await options.evaluate(async () => {
+  const persistedPartial = await settingsPage.evaluate(async () => {
     const state = await chrome.storage.local.get("culverin.public-results.v1");
     return (state["culverin.public-results.v1"] as { entries: unknown[] })
       .entries.length;
@@ -1290,7 +1294,7 @@ sync();
     .getByRole("button", { name: "Analyze repository" })
     .click();
   await interruptedArchive;
-  const competing = await options.evaluate(async () => {
+  const competing = await settingsPage.evaluate(async () => {
     const navigationId = crypto.randomUUID();
     const requestId = crypto.randomUUID();
     const send = (type: string, extra: Record<string, unknown> = {}) =>
@@ -1366,12 +1370,12 @@ sync();
   await detachedArchive;
   await detachedPopup.close();
   await page.waitForTimeout(300);
-  const continuingJobs = await options.evaluate(async () => {
+  const continuingJobs = await settingsPage.evaluate(async () => {
     const state = await chrome.storage.session.get("github.job");
     return state["github.job"] as { owner: string }[] | undefined;
   });
   assert.equal(continuingJobs?.length, 1);
-  const detachedJobs = await options.evaluate(async () => {
+  const detachedJobs = await settingsPage.evaluate(async () => {
     for (let attempt = 0; attempt < 500; attempt++) {
       const state = await chrome.storage.session.get("github.job");
       if (state["github.job"] === undefined) return undefined;
@@ -1441,11 +1445,11 @@ sync();
     );
     await livePopup.close();
     await livePage.close();
-    const beforeOptionsLookup = requests.filter(
+    const beforeSettingsLookup = requests.filter(
       (request) => request.origin === "https://codeload.github.com",
     ).length;
     const sendLive = (type: string) =>
-      options.evaluate(
+      settingsPage.evaluate(
         (type) =>
           new Promise<{
             state?: string;
@@ -1472,14 +1476,14 @@ sync();
       requests.filter(
         (request) => request.origin === "https://codeload.github.com",
       ).length,
-      beforeOptionsLookup,
+      beforeSettingsLookup,
     );
     assert.equal((await sendLive("analysis.request")).state, "analyzed");
     assert.equal(
       requests.filter(
         (request) => request.origin === "https://codeload.github.com",
       ).length,
-      beforeOptionsLookup + 1,
+      beforeSettingsLookup + 1,
     );
     assert.ok(
       requests.some((request) => request.origin === "https://api.github.com"),
@@ -1955,13 +1959,13 @@ sync();
         }),
     );
   assert.equal(await probeHost(), true);
-  const acquisitionNavigationId = await options.evaluate(async () => {
+  const acquisitionNavigationId = await settingsPage.evaluate(async () => {
     const contexts = await chrome.runtime.getContexts({
       contextTypes: ["TAB"],
       documentUrls: [location.href],
     });
     const documentId = contexts[0]?.documentId;
-    if (!documentId) throw new Error("Options document identity unavailable");
+    if (!documentId) throw new Error("Settings document identity unavailable");
     const navigationId = crypto.randomUUID();
     await chrome.storage.session.set({
       "github.job": [
@@ -1977,7 +1981,7 @@ sync();
   await cdp.send("ServiceWorker.stopWorker", { versionId });
   await new Promise((resolve) => setTimeout(resolve, 3_500));
   assert.equal(await probeHost(), false, "orphan lease terminated the worker");
-  const acquisitionStatus = await options.evaluate(
+  const acquisitionStatus = await settingsPage.evaluate(
     (navigationId) =>
       new Promise<Record<string, unknown>>((resolve) =>
         chrome.runtime.sendMessage(
@@ -1994,7 +1998,7 @@ sync();
   );
   assert.equal(acquisitionStatus.state, "interrupted");
   assert.deepEqual(
-    await options.evaluate(() => chrome.storage.session.get("github.job")),
+    await settingsPage.evaluate(() => chrome.storage.session.get("github.job")),
     {},
   );
   const recoveredStatus = await harness.evaluate(
@@ -2228,7 +2232,7 @@ sync();
   assert.equal(await rowTitle(), "Click to cancel");
   await running.click();
   await countButton.waitFor();
-  const canceledPageJobs = await options.evaluate(async () => {
+  const canceledPageJobs = await settingsPage.evaluate(async () => {
     for (let attempt = 0; attempt < 100; attempt++) {
       const state = await chrome.storage.session.get("github.job");
       if (state["github.job"] === undefined) return undefined;
@@ -2293,6 +2297,16 @@ sync();
     .waitFor();
   assert.equal(fixtureApiRequests, limitedRequests);
   await cachedLimitPopup.close();
+  await settingsPage.close();
+  const settingsLauncher = await openPopup(page);
+  const openedSettings = context.waitForEvent("page");
+  await settingsLauncher.getByRole("button", { name: "Settings" }).click();
+  const openedSettingsPage = await openedSettings;
+  await openedSettingsPage.waitForLoadState();
+  assert.equal(new URL(openedSettingsPage.url()).pathname, "/settings.html");
+  assert.equal(await openedSettingsPage.title(), "Culverin settings");
+  await openedSettingsPage.close();
+  await settingsLauncher.close();
   console.log(
     `Browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,
   );

@@ -24,10 +24,10 @@ const ROOT_FILES = [
   "manifest.json",
   "offscreen.html",
   "offscreen.js",
-  "options.html",
-  "options.js",
   "popup.html",
   "popup.js",
+  "settings.html",
+  "settings.js",
 ];
 const ICONS = ["icon-128.png", "icon-16.png", "icon-32.png", "icon-48.png"];
 const ASSET = /^[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.(js|css|wasm)$/;

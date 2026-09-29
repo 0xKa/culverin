@@ -41,7 +41,7 @@ import {
 import { readIgnore } from "../ignore/settings";
 
 const VERSION = 1;
-const OPTIONS_URL = chrome.runtime.getURL("options.html");
+const SETTINGS_URL = chrome.runtime.getURL("settings.html");
 const POPUP_URL = chrome.runtime.getURL("popup.html");
 const MARKER = "github.job";
 const LAST = "github.last";
@@ -249,7 +249,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "culverin.options") {
     if (
       sender?.id !== chrome.runtime.id ||
-      sender.url !== OPTIONS_URL ||
+      sender.url !== SETTINGS_URL ||
       sender.frameId !== 0 ||
       !sender.documentId
     ) {
@@ -835,7 +835,7 @@ export function handleGithub(
   if (handlePublic(value, sender, respond)) return true;
   if (
     sender.id !== chrome.runtime.id ||
-    sender.url !== OPTIONS_URL ||
+    sender.url !== SETTINGS_URL ||
     typeof sender.documentId !== "string" ||
     sender.frameId !== 0 ||
     !validRequest(value)

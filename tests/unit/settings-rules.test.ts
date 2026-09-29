@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { parseRules } from "../../extension/src/options/rules-input";
+import { parseRules } from "../../extension/src/settings/rules-input";
 
 test("ignores blank lines, deduplicates rules, and reports exact usage", () => {
   expect(parseRules("\n README \n\nREADME\n *.md \n")).toEqual({

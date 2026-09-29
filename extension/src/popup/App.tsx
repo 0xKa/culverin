@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from "preact/hooks";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
-import { analyze, cancel, openOptions, startPopup } from "./controller";
+import { analyze, cancel, openSettings, startPopup } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
 
 function Header({ view }: { view: PopupView }) {
@@ -13,7 +13,7 @@ function Header({ view }: { view: PopupView }) {
           id="settings"
           type="button"
           className="px-2.5 py-1.5"
-          onClick={openOptions}
+          onClick={openSettings}
         >
           Settings
         </Button>
@@ -58,7 +58,7 @@ function Totals({ view }: { view: PopupView }) {
           id="ignore-edit"
           type="button"
           className="px-2 py-0.5"
-          onClick={openOptions}
+          onClick={openSettings}
         >
           Edit
         </Button>

@@ -351,7 +351,7 @@ function onActivated({ tabId }: { tabId: number }): void {
   if (target && tabId !== target.tabId) leaveRepository();
 }
 
-export function openOptions(): void {
+export function openSettings(): void {
   void chrome.runtime.openOptionsPage();
 }
 

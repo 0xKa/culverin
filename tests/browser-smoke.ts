@@ -40,6 +40,8 @@ assert.deepEqual(
     .sort(),
   [
     "culverin_counter_bg-HASH.wasm",
+    "options-HASH.css",
+    "preact-HASH.js",
     "repository-HASH.js",
     "result-HASH.js",
     "rules-HASH.js",

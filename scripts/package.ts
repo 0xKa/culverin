@@ -30,7 +30,7 @@ const ROOT_FILES = [
   "popup.js",
 ];
 const ICONS = ["icon-128.png", "icon-16.png", "icon-32.png", "icon-48.png"];
-const ASSET = /^[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.(js|wasm)$/;
+const ASSET = /^[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.(js|css|wasm)$/;
 const ORIGINS = new Set([
   "https://github.com",
   "https://api.github.com",
@@ -140,13 +140,17 @@ const forbidden = [
 ];
 for (const file of files) {
   check(!file.endsWith(".map"), `source map included: ${file}`);
-  if (!/\.(js|html|json|txt)$/.test(file)) continue;
+  if (!/\.(js|css|html|json|txt)$/.test(file)) continue;
   const text = readFileSync(resolve(source, file), "utf8");
   for (const value of forbidden)
     check(!text.includes(value), `${file} contains ${value}`);
   if (file.endsWith(".txt")) continue;
   for (const [origin] of text.matchAll(/https?:\/\/[A-Za-z0-9.-]+/g))
-    check(ORIGINS.has(origin), `${file} references ${origin}`);
+    check(
+      ORIGINS.has(origin) ||
+        (file.endsWith(".css") && origin === "https://tailwindcss.com"),
+      `${file} references ${origin}`,
+    );
 }
 
 if (failures.length) {

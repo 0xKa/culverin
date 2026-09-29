@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import { resolve } from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   publicDir: "public",
+  plugins: [tailwindcss()],
   build: {
     outDir: "dist",
     modulePreload: false,
@@ -19,6 +21,9 @@ export default defineConfig({
         entryFileNames: "[name].js",
         chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash][extname]",
+        advancedChunks: {
+          groups: [{ name: "preact", test: /node_modules[\\/]preact/ }],
+        },
       },
     },
   },

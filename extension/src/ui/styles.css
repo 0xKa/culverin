@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: Canvas;
+  --color-ink: CanvasText;
+  --color-highlight: Highlight;
+  --color-muted: color-mix(in srgb, CanvasText 70%, transparent);
+  --color-subtle: color-mix(in srgb, CanvasText 40%, transparent);
+  --color-divider: color-mix(in srgb, CanvasText 25%, transparent);
+  --color-warning: #bf8700;
+  --color-error: #cf222e;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
+button {
+  border: 1px solid CanvasText;
+  border-radius: 2px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid Highlight;
+  outline-offset: 3px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

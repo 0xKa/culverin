@@ -1,5 +1,6 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import type { ResolutionEnvelope } from "../github/public-protocol";
+import { currentRemaining, type RateLimit } from "../github/rate-limit";
 import { formatBytes } from "./size";
 import { isTextLanguage, textLines } from "./text-lines";
 
@@ -7,6 +8,8 @@ export type SizesView = {
   repositorySize: string;
   snapshotLabel: string;
 };
+
+export type ApiLimitView = { text: string; title: string };
 
 export type ResultView = {
   codeLines: string;
@@ -68,5 +71,17 @@ export function resultView(
     warning: coverage.complete
       ? undefined
       : `Partial analysis: ${coverage.incompleteReasons.map((reason) => (reason === "oversized_source" ? "some source files exceeded the safe size limit" : "some source counts may be inaccurate")).join("; ")}.`,
+  };
+}
+
+export function apiLimitView(value: RateLimit, now: number): ApiLimitView {
+  const title =
+    "Unauthenticated GitHub API requests left for your network. Each repository lookup uses up to 2.";
+  return {
+    text: `API ${currentRemaining(value, now).toLocaleString()}/${value.limit.toLocaleString()}`,
+    title:
+      now >= value.reset
+        ? title
+        : `${title} Resets at ${new Date(value.reset).toLocaleTimeString()}.`,
   };
 }

@@ -53,3 +53,11 @@ test("leaving a repository resets every repository-specific field", () => {
     status: "The active tab changed. Reopen the popup to analyze it.",
   });
 });
+
+test("keeps the API limit when leaving a repository", () => {
+  const apiLimit = { text: "API 57/60", title: "" };
+  const shown = reduce(initialView, { type: "apiLimit", value: apiLimit });
+  expect(shown.apiLimit).toEqual(apiLimit);
+  expect(reduce(shown, { type: "left" }).apiLimit).toEqual(apiLimit);
+  expect(reduce(shown, { type: "apiLimit" }).apiLimit).toBeUndefined();
+});

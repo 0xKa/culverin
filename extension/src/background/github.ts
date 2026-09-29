@@ -10,7 +10,14 @@ import {
   resolveRepository,
   safeFailure,
   validRepository,
+  type Fetcher,
 } from "../github/client";
+import {
+  mergeRateLimit,
+  RATE_LIMIT_KEY,
+  readRateLimit,
+  validRateLimit,
+} from "../github/rate-limit";
 import { analyzeArchive } from "../archive/bridge";
 import { ArchiveError } from "../archive/tar";
 import {
@@ -66,6 +73,26 @@ function saveMarkers(markers: Marker[]): void {
     })
     .catch(() => undefined);
 }
+let rateLimitTail: Promise<void> = Promise.resolve();
+const anonymousFetch: Fetcher = async (input, init) => {
+  const response = await fetch(input, init);
+  const next = readRateLimit(response.headers);
+  if (next)
+    rateLimitTail = rateLimitTail
+      .then(async () => {
+        const current = (await chrome.storage.session.get(RATE_LIMIT_KEY))[
+          RATE_LIMIT_KEY
+        ];
+        await chrome.storage.session.set({
+          [RATE_LIMIT_KEY]: mergeRateLimit(
+            validRateLimit(current) ? current : undefined,
+            next,
+          ),
+        });
+      })
+      .catch(() => undefined);
+  return response;
+};
 const coordinator = new AnalysisCoordinator(
   (job, progress) =>
     analyzeArchive(
@@ -423,7 +450,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         if (Date.now() < publicRateLimitedUntil)
           throw new Error("rate_limited");
         const resolved = await resolveRepository(
-          fetch,
+          anonymousFetch,
           repository.owner,
           repository.name,
           undefined,

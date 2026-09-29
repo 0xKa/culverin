@@ -1,4 +1,4 @@
-import type { ResultView, SizesView } from "./view";
+import type { ApiLimitView, ResultView, SizesView } from "./view";
 
 export type PopupView = {
   repository?: string;
@@ -11,6 +11,7 @@ export type PopupView = {
   ignoreSummary?: string;
   result?: ResultView;
   detailsOpen: boolean;
+  apiLimit?: ApiLimitView;
 };
 
 export const initialView: PopupView = {
@@ -32,7 +33,8 @@ export type PopupEvent =
   | { type: "ignore"; value?: string }
   | { type: "left" }
   | { type: "repository"; value: string }
-  | { type: "details"; open: boolean };
+  | { type: "details"; open: boolean }
+  | { type: "apiLimit"; value?: ApiLimitView };
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
   switch (event.type) {
@@ -71,10 +73,13 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
       return {
         ...initialView,
         status: "The active tab changed. Reopen the popup to analyze it.",
+        apiLimit: view.apiLimit,
       };
     case "repository":
       return { ...view, repository: event.value, analysisVisible: true };
     case "details":
       return { ...view, detailsOpen: event.open };
+    case "apiLimit":
+      return { ...view, apiLimit: event.value };
   }
 }

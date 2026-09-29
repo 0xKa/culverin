@@ -163,6 +163,12 @@ sync();
         return route.fulfill({
           status: 200,
           contentType: "application/json",
+          headers: {
+            "x-ratelimit-limit": "60",
+            "x-ratelimit-remaining": "57",
+            "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600),
+            "x-ratelimit-resource": "core",
+          },
           body: JSON.stringify({ sha: publicSha }),
         });
       }
@@ -369,6 +375,9 @@ sync();
     .getByText(/Ready to analyze main at/)
     .waitFor({ timeout: 15_000 });
   assert.equal(await popup.locator("#repository-size").textContent(), "2 MB");
+  await popup
+    .locator("#api-limit", { hasText: "API 57/60" })
+    .waitFor({ timeout: 5000 });
   assert.equal(
     await popup.locator("#snapshot-label").textContent(),
     `Files at ${publicSha.slice(0, 12)}`,

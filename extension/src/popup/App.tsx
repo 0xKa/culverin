@@ -9,14 +9,24 @@ function Header({ view }: { view: PopupView }) {
     <>
       <header className="flex items-center justify-between gap-2">
         <h1 className="m-0 text-[1.2rem] font-bold">Culverin</h1>
-        <Button
-          id="settings"
-          type="button"
-          className="px-2.5 py-1.5"
-          onClick={() => openSettings()}
-        >
-          Settings
-        </Button>
+        <div className="flex items-center gap-2">
+          <span
+            id="api-limit"
+            hidden={!view.apiLimit}
+            title={view.apiLimit?.title}
+            className="text-muted text-sm tabular-nums"
+          >
+            {view.apiLimit?.text}
+          </span>
+          <Button
+            id="settings"
+            type="button"
+            className="px-2.5 py-1.5"
+            onClick={() => openSettings()}
+          >
+            Settings
+          </Button>
+        </div>
       </header>
       <p
         id="repository"

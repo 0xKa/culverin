@@ -603,12 +603,22 @@ export class ResolutionCache {
     return epoch === this.epoch;
   }
 
-  async invalidateRepository(repositoryId: string): Promise<void> {
-    this.epoch++;
+  async invalidateRepository(
+    repositoryId: string,
+    visibility?: Visibility,
+  ): Promise<void> {
+    if (visibility === undefined) this.epoch++;
     await this.load();
-    this.entries = this.entries.filter(
-      (entry) => entry.envelope.repositoryId !== repositoryId,
+    const kept = this.entries.filter(
+      (entry) =>
+        entry.envelope.repositoryId !== repositoryId ||
+        (visibility !== undefined && entry.envelope.visibility !== visibility),
     );
+    if (visibility !== undefined) {
+      if (kept.length === this.entries.length) return;
+      this.epoch++;
+    }
+    this.entries = kept;
     this.persist();
   }
 

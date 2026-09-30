@@ -474,6 +474,26 @@ test("resolution cache coalesces, expires at 60 seconds, and purges by ID", asyn
   expect(refs.isCurrent(renewed.epoch)).toBe(true);
 });
 
+test("dropping public resolutions keeps private ones and their epoch", async () => {
+  const refs = new ResolutionCache();
+  await refs.resolve("anonymous:owner/repo", async () => resolution("42"));
+  const kept = await refs.resolveWithStatus("token:owner/repo", async () => ({
+    ...resolution("42"),
+    visibility: "private",
+  }));
+  await refs.invalidateRepository("42", "public");
+  expect(refs.isCurrent(kept.epoch)).toBe(false);
+  expect(await refs.peek("anonymous:owner/repo")).toBeUndefined();
+  expect((await refs.peek("token:owner/repo"))?.envelope.visibility).toBe(
+    "private",
+  );
+  const current = await refs.resolveWithStatus("token:owner/repo", async () =>
+    resolution("42"),
+  );
+  await refs.invalidateRepository("42", "public");
+  expect(refs.isCurrent(current.epoch)).toBe(true);
+});
+
 test("public resolutions persist for 20 minutes across worker restarts", async () => {
   let now = Date.now();
   const storage = new MemoryStorage();

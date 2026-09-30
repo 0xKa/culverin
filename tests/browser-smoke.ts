@@ -1108,9 +1108,24 @@ sync();
     delete scope.fixtureFetchCount;
   });
   await settingsPage.reload();
+  await settingsPage
+    .locator("#github-connection")
+    .filter({ hasText: /\S/ })
+    .waitFor({ state: "attached" });
   await settingsPage.locator("#rules").fill("README\n");
   await settingsPage.getByRole("button", { name: "Save" }).click();
   await settingsPage.getByText(/^Saved\./).waitFor();
+  assert.deepEqual(
+    await settingsPage.evaluate(
+      async () =>
+        (
+          (await chrome.storage.sync.get("culverin.ignore"))[
+            "culverin.ignore"
+          ] as { exclusions?: string[] } | undefined
+        )?.exclusions,
+    ),
+    ["README"],
+  );
   await worker.evaluate(
     ({ bytes, sha }) => {
       const scope = globalThis as typeof globalThis & {

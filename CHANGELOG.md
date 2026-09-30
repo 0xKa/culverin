@@ -2,6 +2,15 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.0.4 - 2026-09-30
+
+- Adds private repository counting. Connect with GitHub in the new GitHub settings section and choose which repositories Culverin may read, or paste a personal access token with read-only access to repository contents. Public repositories still work without connecting.
+- Uses your connected account's GitHub API limit of 5,000 requests per hour instead of the shared anonymous limit of 60. The popup and Counting settings show the requests remaining for the connection in use.
+- Keeps private results separately, up to 100 results or 2 MiB, and lists them in Storage. Disconnecting GitHub deletes the saved token and private results; Clear private results keeps you connected.
+- Shows links to GitHub settings when a repository needs a connection, the connection has expired, or access has not been granted.
+- Fixes counts failing on symbolic or hard links whose targets contain `..` or an absolute path. Links are skipped and never followed.
+- Keeps using results saved by 0.0.3.
+
 ## 0.0.3 - 2026-09-29
 
 - Sends fewer requests to GitHub. Opening the popup, or a repository page you haven't counted, sends nothing. A repository you counted is checked at most once every 20 minutes, even after Chrome restarts the extension in the background. The popup shows the branch, commit, and repository size once the repository has been checked.

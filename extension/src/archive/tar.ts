@@ -398,8 +398,13 @@ export async function analyzeTar(
         metrics.specialEntries++;
         if (!["5", "1", "2", "3", "4", "6", "7"].includes(raw.type))
           throw new ArchiveError("archive_unsupported");
-        if (raw.type === "1" || raw.type === "2")
-          normalizedPath(effective.linkpath);
+        if (
+          (raw.type === "1" || raw.type === "2") &&
+          (effective.linkpath.includes("\0") ||
+            encoder.encode(effective.linkpath).length >
+              ARCHIVE_LIMITS.pathBytes)
+        )
+          return invalid();
         await input.discard(size);
       }
       await input.discard(bodyPadding, true);

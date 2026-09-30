@@ -50,6 +50,13 @@ function entry(path: string, body: Uint8Array, type = "0"): Uint8Array {
   return join(block, body, new Uint8Array((512 - (body.length % 512)) % 512));
 }
 
+function link(path: string, target: string, type = "2"): Uint8Array {
+  const block = entry(path, new Uint8Array(0), type);
+  put(block, 157, 100, target);
+  checksum(block);
+  return block;
+}
+
 function join(...parts: Uint8Array[]): Uint8Array {
   const result = new Uint8Array(
     parts.reduce((size, part) => size + part.length, 0),
@@ -291,6 +298,50 @@ describe("incremental tar parser", () => {
       ),
       "archive_invalid",
     );
+  });
+
+  test("ignores links without resolving their targets", async () => {
+    const longTarget = `${"../".repeat(40)}root.rs`;
+    const bytes = archive(
+      entry("repo/", new Uint8Array(0), "5"),
+      entry("repo/root.rs", encoder.encode("fn root() {}\n")),
+      link("repo/link.rs", "root.rs"),
+      link("repo/chain-a", "link.rs"),
+      link("repo/broken", "nonexistent"),
+      link("repo/sub/link.rs", "../root.rs"),
+      link("repo/a/b/c/link", "../../../root.rs"),
+      link("repo/outside", "../../outside.rs"),
+      link("repo/absolute", "/etc/passwd"),
+      link("repo/drive", "C:\\root.rs"),
+      entry("PaxHeader", pax("linkpath", longTarget), "x"),
+      link("repo/long", ""),
+      link("repo/hard.rs", "repo/root.rs", "1"),
+      link("repo/hard-outside", "../outside.rs", "1"),
+      entry("repo/vendored/", new Uint8Array(0), "5"),
+    );
+    const target = sink();
+    const metrics = await analyzeTar(stream(bytes, 13), target);
+    expect(target.counted).toEqual(["root.rs"]);
+    expect(target.skipped).toEqual([]);
+    expect(metrics.regularFiles).toBe(1);
+    expect(metrics.specialEntries).toBe(14);
+  });
+
+  test("rejects link targets with NUL or above the path byte limit", async () => {
+    for (const [type, value] of [
+      ["2", "a\0b"],
+      ["2", "a".repeat(ARCHIVE_LIMITS.pathBytes + 1)],
+      ["1", "a".repeat(ARCHIVE_LIMITS.pathBytes + 1)],
+    ] as const) {
+      await rejects(
+        archive(
+          entry("PaxHeader", pax("linkpath", value), "x"),
+          link("repo/link", "", type),
+        ),
+        "archive_invalid",
+      );
+    }
+    await rejects(archive(link("repo/../link", "root.rs")), "archive_invalid");
   });
 
   test("rejects checksum, padding, truncation, and missing EOF", async () => {

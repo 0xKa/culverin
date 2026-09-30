@@ -80,8 +80,9 @@ export function resultView(
 }
 
 export function apiLimitView(value: RateLimit, now: number): ApiLimitView {
-  const title =
-    "Unauthenticated GitHub API requests left for your network. Each repository lookup uses up to 2.";
+  const title = value.authenticated
+    ? "GitHub API requests left for your connected GitHub account. Each repository lookup uses up to 2."
+    : "Unauthenticated GitHub API requests left for your network. Each repository lookup uses up to 2.";
   return {
     text: `API ${currentRemaining(value, now).toLocaleString()}/${value.limit.toLocaleString()}`,
     title:

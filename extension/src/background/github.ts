@@ -190,6 +190,14 @@ async function accessFailure(
   auth: Auth,
   repository: { owner: string; name: string },
 ): Promise<PublicErrorCode> {
+  if (code === "authentication_invalid" && auth.token) {
+    if (await connection.expire(auth.generation))
+      await connectionChanged(auth.generation, {
+        clearPrivate: false,
+        clearRefs: false,
+      });
+    return code;
+  }
   if (code !== "repository_unavailable" && code !== "repository_forbidden")
     return code;
   if (!auth.token) return "authentication_required";

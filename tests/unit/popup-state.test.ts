@@ -70,3 +70,16 @@ test("keeps the API limit when leaving a repository", () => {
   expect(reduce(shown, { type: "left" }).apiLimit).toEqual(apiLimit);
   expect(reduce(shown, { type: "apiLimit" }).apiLimit).toBeUndefined();
 });
+
+test("shows and hides the GitHub settings action", () => {
+  const shown = reduce(initialView, {
+    type: "connect",
+    label: "Connect GitHub",
+  });
+  expect(shown.connect).toBe("Connect GitHub");
+  expect(reduce(shown, { type: "connect", label: "Connect GitHub" })).toBe(
+    shown,
+  );
+  expect(reduce(shown, { type: "connect" }).connect).toBeUndefined();
+  expect(reduce(shown, { type: "left" }).connect).toBeUndefined();
+});

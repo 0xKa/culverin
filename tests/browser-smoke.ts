@@ -86,18 +86,17 @@ assert.equal(
   manifest.content_security_policy.extension_pages,
   "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.github.com https://codeload.github.com https://github.com",
 );
-for (const file of ["settings.js", "content.js", "offscreen.js"]) {
-  assert.equal(
-    readFileSync(resolve(directory, file), "utf8").includes("github.active"),
-    false,
-  );
+for (const file of ["settings.js", "popup.js", "content.js", "offscreen.js"]) {
+  const source = readFileSync(resolve(directory, file), "utf8");
+  assert.equal(source.includes("github.connection"), false);
+  assert.equal(source.includes("login/oauth/access_token"), false);
 }
 for (const file of readdirSync(resolve(directory, "assets")).filter((name) =>
   name.endsWith(".js"),
 )) {
   assert.equal(
     readFileSync(resolve(directory, "assets", file), "utf8").includes(
-      "github.active",
+      "github.connection",
     ),
     false,
   );
@@ -124,6 +123,7 @@ try {
   const publicSha = "a".repeat(40);
   let fixtureArchiveRequests = 0;
   let fixtureApiRequests = 0;
+  let fixtureAuthorization: string | undefined;
   let fixtureMode: "ok" | "empty" | "rate" | "slow" | "shared" | "private" =
     "ok";
   let slowArchiveStarted: (() => void) | undefined;
@@ -151,6 +151,7 @@ sync();
     (route) => {
       const url = new URL(route.request().url());
       fixtureApiRequests++;
+      fixtureAuthorization = route.request().headers()["authorization"];
       if (fixtureMode === "rate")
         return route.fulfill({
           status: 403,
@@ -734,9 +735,24 @@ sync();
     .getByRole("button", { name: "Analyze repository" })
     .click();
   await privatePopup
-    .getByText(/Repository unavailable or access is restricted/)
+    .getByText(/This repository is private or doesn't exist/)
     .waitFor();
+  assert.equal(
+    await privatePopup
+      .getByRole("button", { name: "Connect GitHub" })
+      .isVisible(),
+    true,
+  );
   await privatePopup.close();
+  await page.getByText("Count lines of code").click();
+  await page.getByText("Private repository? Connect GitHub").waitFor();
+  const openedGitHubSettings = context.waitForEvent("page");
+  await page.getByText("Private repository? Connect GitHub").click();
+  const githubSettingsPage = await openedGitHubSettings;
+  await githubSettingsPage.waitForLoadState();
+  assert.equal(new URL(githubSettingsPage.url()).hash, "#github");
+  await githubSettingsPage.locator("#github-heading").waitFor();
+  await githubSettingsPage.close();
   assert.equal(fixtureArchiveRequests, 5);
   fixtureMode = "ok";
   await page.route("https://github.com/settings/profile", (route) =>
@@ -752,11 +768,14 @@ sync();
   await settingsPage.goto(
     `chrome-extension://${new URL(worker.url()).host}/settings.html#storage`,
   );
-  assert.equal(
+  await settingsPage.locator("#github-token").waitFor({ state: "attached" });
+  assert.deepEqual(
     await settingsPage
       .locator('input:not([type="checkbox"]):not([type="radio"])')
-      .count(),
-    0,
+      .evaluateAll((inputs) =>
+        inputs.map((input) => [input.id, input.getAttribute("type")]),
+      ),
+    [["github-token", "password"]],
   );
   assert.equal(await settingsPage.locator("textarea").count(), 1);
   const settingsNav = settingsPage.getByRole("navigation", {
@@ -1089,9 +1108,24 @@ sync();
     delete scope.fixtureFetchCount;
   });
   await settingsPage.reload();
+  await settingsPage
+    .locator("#github-connection")
+    .filter({ hasText: /\S/ })
+    .waitFor({ state: "attached" });
   await settingsPage.locator("#rules").fill("README\n");
   await settingsPage.getByRole("button", { name: "Save" }).click();
   await settingsPage.getByText(/^Saved\./).waitFor();
+  assert.deepEqual(
+    await settingsPage.evaluate(
+      async () =>
+        (
+          (await chrome.storage.sync.get("culverin.ignore"))[
+            "culverin.ignore"
+          ] as { exclusions?: string[] } | undefined
+        )?.exclusions,
+    ),
+    ["README"],
+  );
   await worker.evaluate(
     ({ bytes, sha }) => {
       const scope = globalThis as typeof globalThis & {
@@ -1182,70 +1216,64 @@ sync();
     delete scope.fixtureOriginalFetch;
   });
   const settingsState = await settingsPage.evaluate(async () => {
-    const send = (type: string) =>
-      new Promise<{ state: string; connected?: boolean }>((resolve) =>
-        chrome.runtime.sendMessage(
-          {
-            protocolVersion: 1,
-            type,
-            requestId: crypto.randomUUID(),
-            navigationId: crypto.randomUUID(),
-          },
-          resolve,
-        ),
+    const send = (type: string, extra: Record<string, unknown> = {}) =>
+      new Promise<{ state: string; connected?: boolean; code?: string }>(
+        (resolve) =>
+          chrome.runtime.sendMessage(
+            {
+              protocolVersion: 1,
+              type,
+              requestId: crypto.randomUUID(),
+              navigationId: crypto.randomUUID(),
+              ...extra,
+            },
+            resolve,
+          ),
       );
     const initial = await send("auth.status");
-    const current = await chrome.storage.session.get("github.generation");
     const submissionId = crypto.randomUUID();
     await chrome.storage.session.set({
       "github.pending": {
         token: "fixture-token",
         submissionId,
-        generation: current["github.generation"],
-        owner: "culverin",
-        name: "bootstrap-fixture",
         createdAt: Date.now(),
       },
     });
-    const submitted = await new Promise<unknown>((resolve) =>
-      chrome.runtime.sendMessage(
-        {
-          protocolVersion: 1,
-          type: "auth.submit",
-          requestId: crypto.randomUUID(),
-          navigationId: crypto.randomUUID(),
-          submissionId,
-        },
-        (reply: unknown) => {
-          void chrome.runtime.lastError;
-          resolve(reply);
-        },
-      ),
-    );
+    const mismatched = await send("auth.submit", {
+      submissionId: crypto.randomUUID(),
+    });
     const idle = await send("analysis.status");
     const cleared = await send("auth.clear-private-session");
     const disconnected = await send("auth.disconnect");
     const after = await send("auth.status");
+    const connection = (await chrome.storage.local.get("github.connection"))[
+      "github.connection"
+    ] as { credential?: unknown } | undefined;
     return {
       initial,
-      submitted,
+      mismatched,
       idle,
       cleared,
       disconnected,
       after,
-      storage: await chrome.storage.session.get([
-        "github.active",
-        "github.pending",
-      ]),
+      credential: connection?.credential,
+      pending: await chrome.storage.session.get("github.pending"),
     };
   });
   assert.equal(settingsState.initial.connected, false);
-  assert.equal(settingsState.submitted, undefined);
+  assert.deepEqual(
+    {
+      state: settingsState.mismatched.state,
+      code: settingsState.mismatched.code,
+    },
+    { state: "failed", code: "authentication_invalid" },
+  );
   assert.equal(settingsState.idle.state, "idle");
   assert.equal(settingsState.cleared.state, "cleared");
   assert.equal(settingsState.disconnected.state, "disconnected");
   assert.equal(settingsState.after.connected, false);
-  assert.deepEqual(settingsState.storage, {});
+  assert.equal(settingsState.credential, undefined);
+  assert.deepEqual(settingsState.pending, {});
   const rejectedPublicFromSettings = await settingsPage.evaluate(
     () =>
       new Promise<Record<string, unknown>>((resolve) =>
@@ -2458,6 +2486,220 @@ sync();
     .waitFor();
   assert.equal(fixtureApiRequests, limitedRequests);
   await cachedLimitPopup.close();
+  const deviceBodies: string[] = [];
+  let devicePolls = 0;
+  await context.route("https://github.com/login/device/code", (route) => {
+    deviceBodies.push(route.request().postData() ?? "");
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        device_code: "fixture-device",
+        user_code: "ABCD-1234",
+        verification_uri: "https://github.com/login/device",
+        expires_in: 900,
+        interval: 1,
+      }),
+    });
+  });
+  await context.route(
+    "https://github.com/login/oauth/access_token",
+    (route) => {
+      deviceBodies.push(route.request().postData() ?? "");
+      devicePolls++;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          devicePolls === 1
+            ? { error: "authorization_pending" }
+            : {
+                access_token: "fixture-app-token",
+                token_type: "bearer",
+                expires_in: 28800,
+                refresh_token: "fixture-refresh-token",
+                refresh_token_expires_in: 15897600,
+              },
+        ),
+      });
+    },
+  );
+  await context.route("https://api.github.com/user", (route) => {
+    const authorization = route.request().headers()["authorization"];
+    return route.fulfill(
+      authorization === "Bearer fixture-app-token" ||
+        authorization === "Bearer fixture-token"
+        ? {
+            status: 200,
+            contentType: "application/json",
+            headers: {
+              "x-ratelimit-limit": "5000",
+              "x-ratelimit-remaining": "4990",
+              "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600),
+              "x-ratelimit-resource": "core",
+            },
+            body: JSON.stringify({ login: "fixture-user" }),
+          }
+        : { status: 401, contentType: "application/json", body: "{}" },
+    );
+  });
+  await settingsPage.goto(`${extensionUrl}/settings.html#github`);
+  const githubSection = settingsPage.locator("section", {
+    has: settingsPage.locator("#github-heading"),
+  });
+  await githubSection
+    .getByText("Not connected. Culverin counts public repositories only.")
+    .waitFor();
+  await githubSection
+    .getByRole("button", { name: "Connect with GitHub" })
+    .click();
+  await settingsPage.locator("#github-device-code").waitFor();
+  assert.equal(
+    await settingsPage.locator("#github-device-code").textContent(),
+    "ABCD-1234",
+  );
+  await githubSection
+    .getByText("Connected as @fixture-user with the Culverin GitHub App.")
+    .waitFor({ timeout: 15_000 });
+  assert.equal(devicePolls, 2);
+  for (const body of deviceBodies) {
+    const fields = new URLSearchParams(body);
+    assert.equal(fields.get("client_id"), "Iv23lipbFBghKf7NMjQi");
+    assert.equal(fields.has("client_secret"), false);
+  }
+  const appConnection = await settingsPage.evaluate(async () => {
+    const stored = (await chrome.storage.local.get("github.connection"))[
+      "github.connection"
+    ] as { credential?: Record<string, unknown> };
+    return {
+      method: stored.credential?.method,
+      login: stored.credential?.login,
+      refresh: typeof stored.credential?.refreshToken,
+      device: await chrome.storage.session.get("github.device"),
+    };
+  });
+  assert.deepEqual(appConnection, {
+    method: "app",
+    login: "fixture-user",
+    refresh: "string",
+    device: {},
+  });
+  await githubSection.getByRole("button", { name: "Disconnect" }).click();
+  await githubSection
+    .getByText(
+      "Disconnected. The saved token and private results were deleted.",
+    )
+    .waitFor();
+  await githubSection.getByText("Use a personal access token instead").click();
+  await settingsPage.locator("#github-token").fill("wrong-token");
+  await githubSection.getByRole("button", { name: "Save token" }).click();
+  await githubSection.getByText(/didn't accept that token/).waitFor();
+  await settingsPage.locator("#github-token").fill("fixture-token");
+  await githubSection.getByRole("button", { name: "Save token" }).click();
+  await githubSection
+    .getByText("Connected as @fixture-user with a personal access token.")
+    .waitFor();
+  assert.equal(await settingsPage.locator("#github-token").count(), 0);
+  fixtureMode = "private";
+  await worker.evaluate(
+    ({ bytes, sha }) => {
+      const scope = globalThis as typeof globalThis & {
+        fixtureOriginalFetch?: typeof fetch;
+        fixtureArchiveAuthorization?: string | null;
+      };
+      scope.fixtureOriginalFetch = fetch;
+      globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`)) {
+          scope.fixtureArchiveAuthorization = new Headers(init?.headers).get(
+            "authorization",
+          );
+          const response = new Response(Uint8Array.from(bytes), {
+            status: 200,
+            headers: { "content-type": "application/gzip" },
+          });
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
+        return scope.fixtureOriginalFetch!(input, init);
+      }) as typeof fetch;
+    },
+    { bytes: publicFixtureBytes, sha: publicSha },
+  );
+  await page.reload();
+  await countButton.click();
+  const privateTotal = page.getByRole("button", { name: /lines? of code$/ });
+  await privateTotal.waitFor({ timeout: 15_000 });
+  assert.equal(fixtureAuthorization, "Bearer fixture-token");
+  assert.equal(
+    await worker.evaluate(
+      () =>
+        (
+          globalThis as typeof globalThis & {
+            fixtureArchiveAuthorization?: string | null;
+          }
+        ).fixtureArchiveAuthorization,
+    ),
+    "Bearer fixture-token",
+  );
+  const privateStorage = async () =>
+    settingsPage.evaluate(async () => {
+      const state = await chrome.storage.local.get([
+        "culverin.private-results.v1",
+        "culverin.public-results.v1",
+      ]);
+      const count = (key: string) =>
+        (state[key] as { entries?: unknown[] } | undefined)?.entries?.length ??
+        0;
+      return {
+        private: count("culverin.private-results.v1"),
+        public: count("culverin.public-results.v1"),
+      };
+    });
+  assert.deepEqual(await privateStorage(), { private: 1, public: 0 });
+  const beforePrivateReload = fixtureApiRequests;
+  await page.reload();
+  await privateTotal.waitFor();
+  assert.equal(fixtureApiRequests, beforePrivateReload);
+  await settingsPage.getByRole("link", { name: "Storage" }).click();
+  await settingsPage
+    .locator("#private-summary", { hasText: "1 result for 1 repository" })
+    .waitFor();
+  await settingsPage.getByRole("link", { name: "GitHub" }).click();
+  await githubSection
+    .getByRole("button", { name: "Clear private results" })
+    .click();
+  await githubSection.getByText("Private results deleted.").waitFor();
+  assert.deepEqual(await privateStorage(), { private: 0, public: 0 });
+  await githubSection
+    .getByText("Connected as @fixture-user with a personal access token.")
+    .waitFor();
+  await githubSection.getByRole("button", { name: "Disconnect" }).click();
+  await githubSection
+    .getByText("Not connected. Culverin counts public repositories only.")
+    .waitFor();
+  const disconnected = await settingsPage.evaluate(async () => {
+    const stored = (await chrome.storage.local.get("github.connection"))[
+      "github.connection"
+    ] as { credential?: unknown };
+    return stored.credential === undefined;
+  });
+  assert.equal(disconnected, true);
+  await worker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      fixtureOriginalFetch?: typeof fetch;
+    };
+    if (scope.fixtureOriginalFetch)
+      globalThis.fetch = scope.fixtureOriginalFetch;
+    delete scope.fixtureOriginalFetch;
+  });
+  fixtureMode = "ok";
+  await settingsPage.getByRole("link", { name: "Culverin ignore" }).click();
+  await settingsPage.locator("#rules").waitFor({ state: "visible" });
+  await settingsPage.waitForFunction(
+    () => localStorage.getItem("culverin.settings.section") === "ignore",
+  );
   await settingsPage.close();
   const settingsLauncher = await openPopup(page);
   const openedSettings = context.waitForEvent("page");

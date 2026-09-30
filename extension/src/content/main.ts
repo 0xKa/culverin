@@ -216,6 +216,8 @@ function activate(current: View, action: RowAction): void {
   if (action === "cancel") cancel(current);
   else if (action === "details")
     void send(current, "popup.open").response.catch(() => undefined);
+  else if (action === "connect")
+    void send(current, "settings.open").response.catch(() => undefined);
   else void analyze(current);
 }
 

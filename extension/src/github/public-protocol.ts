@@ -12,7 +12,8 @@ export type PublicRequest = {
     | "analysis.request"
     | "analysis.cancel"
     | "analysis.status"
-    | "popup.open";
+    | "popup.open"
+    | "settings.open";
   requestId: string;
   navigationId: string;
   repository?: { owner: string; name: string };
@@ -42,6 +43,7 @@ export type PublicErrorCode =
   | "rate_limited"
   | "authentication_required"
   | "authentication_invalid"
+  | "access_not_granted"
   | "metadata_limit_exceeded"
   | "network_unavailable"
   | "download_failed"
@@ -93,6 +95,7 @@ export type PublicReply = {
       state: "idle" | "queued" | "running" | "interrupted";
     }
   | { type: "popup.opened"; opened: boolean }
+  | { type: "settings.opened"; opened: boolean }
   | {
       type: "analysis.progress";
       phase:
@@ -150,7 +153,9 @@ export function validPublicRequest(value: unknown): value is PublicRequest {
       ]) && validId(value.targetRequestId)
     );
   return (
-    (value.type === "analysis.status" || value.type === "popup.open") &&
+    (value.type === "analysis.status" ||
+      value.type === "popup.open" ||
+      value.type === "settings.open") &&
     exact(value, ["protocolVersion", "type", "requestId", "navigationId"])
   );
 }
@@ -172,7 +177,11 @@ export function validPopupPublicRequest(
       return false;
     delete request.reanalyze;
   }
-  return validPublicRequest(request) && request.type !== "popup.open";
+  return (
+    validPublicRequest(request) &&
+    request.type !== "popup.open" &&
+    request.type !== "settings.open"
+  );
 }
 
 export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
@@ -245,6 +254,7 @@ const codes: PublicErrorCode[] = [
   "rate_limited",
   "authentication_required",
   "authentication_invalid",
+  "access_not_granted",
   "metadata_limit_exceeded",
   "network_unavailable",
   "download_failed",
@@ -308,8 +318,7 @@ export function validPublicReply(
       ]) &&
       (value.rulesChanged === undefined || value.rulesChanged === true) &&
       (value.autoCount === undefined || value.autoCount === true) &&
-      validEnvelope(value.resolution) &&
-      value.resolution.visibility === "public"
+      validEnvelope(value.resolution)
     );
   if (value.type === "repository.not_cached") return exact(value, base);
   if (
@@ -326,7 +335,6 @@ export function validPublicReply(
       (value.type !== "analysis.completed" ||
         typeof value.fromCache === "boolean") &&
       validEnvelope(value.resolution) &&
-      value.resolution.visibility === "public" &&
       validateResult(value.result) &&
       (value.type === "analysis.completed" && value.fromCache === false
         ? true
@@ -362,7 +370,7 @@ export function validPublicReply(
         value.state as string,
       )
     );
-  if (value.type === "popup.opened")
+  if (value.type === "popup.opened" || value.type === "settings.opened")
     return (
       exact(value, [...base, "opened"]) && typeof value.opened === "boolean"
     );

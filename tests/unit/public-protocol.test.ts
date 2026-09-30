@@ -190,6 +190,25 @@ test("lets only the page ask to open the toolbar popup", () => {
   ).toBe(false);
 });
 
+test("lets only the page ask to open the GitHub settings", () => {
+  const request = {
+    protocolVersion: 1,
+    type: "settings.open",
+    requestId,
+    navigationId,
+  };
+  expect(validPublicRequest(request)).toBe(true);
+  expect(validPublicRequest({ ...request, section: "github" })).toBe(false);
+  expect(validPopupPublicRequest({ ...request, tabId: 7 })).toBe(false);
+  expect(
+    validPublicReply(
+      { ...request, type: "settings.opened", opened: true },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(true);
+});
+
 test("validates popup requests and compact page summary updates", () => {
   const popupRequest = {
     protocolVersion: 1,
@@ -327,6 +346,13 @@ test("validates envelope, correlation, and safe errors", () => {
   expect(
     validPublicReply(
       { ...reply, resolution: { ...envelope, visibility: "private" } },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(true);
+  expect(
+    validPublicReply(
+      { ...reply, resolution: { ...envelope, visibility: "internal" } },
       requestId,
       navigationId,
     ),

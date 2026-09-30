@@ -112,8 +112,9 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
         GitHub requests
       </h3>
       <p>
-        Checking a repository uses 2 of your 60 GitHub requests per hour. The
-        toolbar popup shows how many are left.
+        Checking a repository uses 2 of your{" "}
+        {rateLimit?.authenticated ? rateLimit.limit.toLocaleString() : "60"}{" "}
+        GitHub requests per hour. The toolbar popup shows how many are left.
       </p>
       <div id="api-usage" className="my-3">
         <p className="m-0 font-semibold">GitHub API usage</p>
@@ -155,7 +156,8 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
           Culverin has no server of its own, so requests go straight from your
           browser to GitHub without your GitHub account. Everything on your
           network that uses GitHub without signing in shares the same 60, and
-          the count resets every hour.
+          the count resets every hour. Connect GitHub in the GitHub section to
+          use your account's own limit of 5,000 requests per hour instead.
         </p>
       </Question>
       <Question summary="Why does a check use 2 requests?">
@@ -163,7 +165,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
           The first asks for the repository's details: its default branch, its
           size, and whether it's still public. The second asks for the latest
           commit on that branch, which tells Culverin whether a saved count is
-          still current. Downloading the source doesn't use any of the 60.
+          still current. Downloading the source doesn't use any of them.
         </p>
       </Question>
       <Question summary="What uses requests, and what doesn't?">

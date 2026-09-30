@@ -202,6 +202,15 @@ export function App() {
           >
             Cancel analysis
           </Button>
+          <Button
+            id="connect"
+            type="button"
+            className="px-2.5 py-1.5"
+            hidden={!view.connect}
+            onClick={() => openSettings("github")}
+          >
+            {view.connect}
+          </Button>
         </div>
         <Details
           view={view}

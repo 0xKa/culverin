@@ -2,6 +2,7 @@ export const sections = [
   { id: "storage", label: "Storage" },
   { id: "ignore", label: "Culverin ignore" },
   { id: "counting", label: "Counting" },
+  { id: "github", label: "GitHub" },
   { id: "about", label: "About" },
 ] as const;
 

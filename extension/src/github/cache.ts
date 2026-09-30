@@ -11,6 +11,9 @@ import { validEnvelope, type ResolutionEnvelope } from "./public-protocol";
 export const PUBLIC_CACHE_KEY = "culverin.public-results.v1";
 export const PUBLIC_CACHE_ENTRIES = 200;
 export const PUBLIC_CACHE_BYTES = 5 * 1024 * 1024;
+export const PRIVATE_CACHE_KEY = "culverin.private-results.v1";
+export const PRIVATE_CACHE_ENTRIES = 100;
+export const PRIVATE_CACHE_BYTES = 2 * 1024 * 1024;
 export const RESOLUTION_ENTRIES = 100;
 export const RESOLUTION_BYTES = 512 * 1024;
 export const RESOLUTION_TTL = 60_000;
@@ -27,6 +30,29 @@ type Entry = {
 };
 
 type Snapshot = { version: 1; entries: Entry[] };
+
+export type Visibility = ResolutionEnvelope["visibility"];
+
+export type CacheOptions = {
+  key: string;
+  visibility: Visibility;
+  entries: number;
+  bytes: number;
+};
+
+export const publicCache: CacheOptions = {
+  key: PUBLIC_CACHE_KEY,
+  visibility: "public",
+  entries: PUBLIC_CACHE_ENTRIES,
+  bytes: PUBLIC_CACHE_BYTES,
+};
+
+export const privateCache: CacheOptions = {
+  key: PRIVATE_CACHE_KEY,
+  visibility: "private",
+  entries: PRIVATE_CACHE_ENTRIES,
+  bytes: PRIVATE_CACHE_BYTES,
+};
 
 export type PublicStorage = {
   get(key: string): Promise<Record<string, unknown>>;
@@ -78,7 +104,7 @@ export function resolutionIdentity(
   ]);
 }
 
-function validEntry(value: unknown): value is Entry {
+function validEntry(value: unknown, visibility: Visibility): value is Entry {
   if (
     !record(value) ||
     !exact(value, [
@@ -100,7 +126,7 @@ function validEntry(value: unknown): value is Entry {
   )
     return false;
   return (
-    value.resolution.visibility === "public" &&
+    value.resolution.visibility === visibility &&
     value.result.repository.id === value.resolution.repositoryId &&
     value.result.revision.commitSha === value.resolution.sha &&
     value.identity === resultIdentity(value.result) &&
@@ -122,16 +148,19 @@ export type CachedResultSummary = {
   bytes: number;
 };
 
-export function cachedResultSummaries(value: unknown): CachedResultSummary[] {
+export function cachedResultSummaries(
+  value: unknown,
+  options: CacheOptions = publicCache,
+): CachedResultSummary[] {
   if (
     !record(value) ||
     value.version !== 1 ||
     !Array.isArray(value.entries) ||
-    value.entries.length > PUBLIC_CACHE_ENTRIES
+    value.entries.length > options.entries
   )
     return [];
   return value.entries
-    .filter(validEntry)
+    .filter((entry): entry is Entry => validEntry(entry, options.visibility))
     .map((entry) => ({
       identity: entry.identity,
       owner: entry.resolution.owner,
@@ -151,10 +180,6 @@ export function cachedResultSummaries(value: unknown): CachedResultSummary[] {
     .sort((a, b) => b.lastAccess - a.lastAccess);
 }
 
-function size(snapshot: Snapshot): number {
-  return bytes({ [PUBLIC_CACHE_KEY]: snapshot });
-}
-
 function lru(a: Entry, b: Entry): number {
   return (
     a.lastAccess - b.lastAccess ||
@@ -162,15 +187,24 @@ function lru(a: Entry, b: Entry): number {
   );
 }
 
-export class PublicResultCache {
+export class ResultCache {
   private snapshot: Snapshot | undefined;
   private tail: Promise<void> = Promise.resolve();
   private revoked = new Set<string>();
 
   constructor(
     private readonly storage: PublicStorage,
+    private readonly options: CacheOptions,
     private readonly now: () => number = Date.now,
   ) {}
+
+  private size(snapshot: Snapshot): number {
+    return bytes({ [this.options.key]: snapshot });
+  }
+
+  private valid(value: unknown): value is Entry {
+    return validEntry(value, this.options.visibility);
+  }
 
   private serial<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.tail.then(operation, operation);
@@ -183,7 +217,7 @@ export class PublicResultCache {
 
   private async load(): Promise<Snapshot> {
     if (this.snapshot) return this.snapshot;
-    const value = (await this.storage.get(PUBLIC_CACHE_KEY))[PUBLIC_CACHE_KEY];
+    const value = (await this.storage.get(this.options.key))[this.options.key];
     const snapshot: Snapshot = { version: 1, entries: [] };
     let dirty = value !== undefined;
     if (
@@ -191,12 +225,12 @@ export class PublicResultCache {
       exact(value, ["version", "entries"]) &&
       value.version === 1 &&
       Array.isArray(value.entries) &&
-      value.entries.length <= PUBLIC_CACHE_ENTRIES &&
-      size(value as Snapshot) <= PUBLIC_CACHE_BYTES
+      value.entries.length <= this.options.entries &&
+      this.size(value as Snapshot) <= this.options.bytes
     ) {
       const seen = new Set<string>();
       for (const entry of value.entries) {
-        if (!validEntry(entry) || seen.has(entry.identity)) continue;
+        if (!this.valid(entry) || seen.has(entry.identity)) continue;
         seen.add(entry.identity);
         snapshot.entries.push(entry);
       }
@@ -210,14 +244,14 @@ export class PublicResultCache {
   private async persist(snapshot: Snapshot): Promise<boolean> {
     snapshot.entries.sort(lru);
     while (
-      snapshot.entries.length > PUBLIC_CACHE_ENTRIES ||
-      size(snapshot) > PUBLIC_CACHE_BYTES
+      snapshot.entries.length > this.options.entries ||
+      this.size(snapshot) > this.options.bytes
     )
       snapshot.entries.shift();
     let retriedQuota = false;
     for (;;) {
       try {
-        await this.storage.set({ [PUBLIC_CACHE_KEY]: snapshot });
+        await this.storage.set({ [this.options.key]: snapshot });
       } catch {
         if (!snapshot.entries.length || retriedQuota) {
           this.snapshot = undefined;
@@ -229,12 +263,12 @@ export class PublicResultCache {
       }
       let actual: number;
       try {
-        actual = await this.storage.getBytesInUse(PUBLIC_CACHE_KEY);
+        actual = await this.storage.getBytesInUse(this.options.key);
       } catch {
         this.snapshot = undefined;
         return false;
       }
-      if (actual <= PUBLIC_CACHE_BYTES) return true;
+      if (actual <= this.options.bytes) return true;
       if (!snapshot.entries.length) {
         this.snapshot = undefined;
         return false;
@@ -248,14 +282,17 @@ export class PublicResultCache {
     rulesHash: string,
   ): Promise<AnalysisResultV2 | undefined> {
     return this.serial(async () => {
-      if (resolution.visibility !== "public" || !validEnvelope(resolution))
+      if (
+        resolution.visibility !== this.options.visibility ||
+        !validEnvelope(resolution)
+      )
         return undefined;
       if (this.revoked.has(resolution.repositoryId)) return undefined;
       const identity = resolutionIdentity(resolution, rulesHash);
       const snapshot = await this.load();
       const entry = snapshot.entries.find((item) => item.identity === identity);
       if (!entry) return undefined;
-      if (!validEntry(entry)) {
+      if (!this.valid(entry)) {
         snapshot.entries = snapshot.entries.filter((item) => item !== entry);
         await this.persist(snapshot);
         return undefined;
@@ -275,7 +312,7 @@ export class PublicResultCache {
     return this.serial(async () => {
       if (
         !validEnvelope(resolution) ||
-        resolution.visibility !== "public" ||
+        resolution.visibility !== this.options.visibility ||
         !validateResult(result) ||
         !result.coverage.complete ||
         resultIdentity(result) !==
@@ -308,7 +345,7 @@ export class PublicResultCache {
   ): Promise<boolean> {
     return this.serial(async () => {
       if (
-        resolution.visibility !== "public" ||
+        resolution.visibility !== this.options.visibility ||
         this.revoked.has(resolution.repositoryId)
       )
         return false;
@@ -345,7 +382,7 @@ export class PublicResultCache {
       try {
         snapshot = await this.load();
       } catch {
-        await this.storage.remove(PUBLIC_CACHE_KEY);
+        await this.storage.remove(this.options.key);
         this.snapshot = { version: 1, entries: [] };
         return;
       }
@@ -353,7 +390,7 @@ export class PublicResultCache {
         (entry) => entry.result.repository.id !== repositoryId,
       );
       if (!(await this.persist(snapshot))) {
-        await this.storage.remove(PUBLIC_CACHE_KEY);
+        await this.storage.remove(this.options.key);
         this.snapshot = { version: 1, entries: [] };
       }
     });
@@ -364,17 +401,51 @@ export class PublicResultCache {
       this.revoked.clear();
       this.snapshot = { version: 1, entries: [] };
       if (!(await this.persist(this.snapshot)))
-        await this.storage.remove(PUBLIC_CACHE_KEY);
+        await this.storage.remove(this.options.key);
+    });
+  }
+
+  async purgeName(repository: { owner: string; name: string }): Promise<void> {
+    const owner = repository.owner.toLowerCase();
+    const name = repository.name.toLowerCase();
+    return this.serial(async () => {
+      const snapshot = await this.load();
+      const kept = snapshot.entries.filter(
+        (entry) =>
+          entry.resolution.owner.toLowerCase() !== owner ||
+          entry.resolution.name.toLowerCase() !== name,
+      );
+      if (kept.length === snapshot.entries.length) return;
+      for (const entry of snapshot.entries)
+        if (!kept.includes(entry))
+          this.revoked.add(entry.resolution.repositoryId);
+      snapshot.entries = kept;
+      if (!(await this.persist(snapshot))) {
+        await this.storage.remove(this.options.key);
+        this.snapshot = { version: 1, entries: [] };
+      }
     });
   }
 
   allowRepository(resolution: ResolutionEnvelope): void {
-    if (resolution.visibility === "public")
+    if (resolution.visibility === this.options.visibility)
       this.revoked.delete(resolution.repositoryId);
   }
 
   isRevoked(repositoryId: string): boolean {
     return this.revoked.has(repositoryId);
+  }
+}
+
+export class PublicResultCache extends ResultCache {
+  constructor(storage: PublicStorage, now: () => number = Date.now) {
+    super(storage, publicCache, now);
+  }
+}
+
+export class PrivateResultCache extends ResultCache {
+  constructor(storage: PublicStorage, now: () => number = Date.now) {
+    super(storage, privateCache, now);
   }
 }
 
@@ -532,12 +603,22 @@ export class ResolutionCache {
     return epoch === this.epoch;
   }
 
-  async invalidateRepository(repositoryId: string): Promise<void> {
-    this.epoch++;
+  async invalidateRepository(
+    repositoryId: string,
+    visibility?: Visibility,
+  ): Promise<void> {
+    if (visibility === undefined) this.epoch++;
     await this.load();
-    this.entries = this.entries.filter(
-      (entry) => entry.envelope.repositoryId !== repositoryId,
+    const kept = this.entries.filter(
+      (entry) =>
+        entry.envelope.repositoryId !== repositoryId ||
+        (visibility !== undefined && entry.envelope.visibility !== visibility),
     );
+    if (visibility !== undefined) {
+      if (kept.length === this.entries.length) return;
+      this.epoch++;
+    }
+    this.entries = kept;
     this.persist();
   }
 

@@ -29,6 +29,12 @@ const errors: Record<PublicErrorCode, string> = {
   analysis_busy: "Analysis is busy. Select Analyze repository to retry.",
 };
 
+const connectLabels: Partial<Record<PublicErrorCode, string>> = {
+  authentication_required: "Connect GitHub",
+  authentication_invalid: "Connect GitHub",
+  access_not_granted: "Check GitHub access",
+};
+
 const progressText = {
   queued: "Queued for local analysis…",
   resolving: "Resolving repository revision…",
@@ -95,6 +101,7 @@ function handleFailure(
   reply: Extract<PublicReply, { type: "analysis.failed" }>,
 ): void {
   let message = errors[reply.code];
+  dispatch({ type: "connect", label: connectLabels[reply.code] });
   if (reply.code === "rate_limited") {
     retryUntil =
       reply.retryAt && reply.retryAt > Date.now()
@@ -290,6 +297,7 @@ export async function analyze(reanalyze = false): Promise<void> {
   watchAnalysis(pending.requestId);
   setBusy(true);
   clearResult();
+  dispatch({ type: "connect" });
   setStatus("Resolving default branch…");
   try {
     await finishAnalysis(pending.requestId, await pending.response);

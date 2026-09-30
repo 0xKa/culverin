@@ -3,6 +3,9 @@ import {
   cachedResultSummaries,
   PUBLIC_CACHE_KEY,
   PUBLIC_CACHE_BYTES,
+  PRIVATE_CACHE_KEY,
+  PrivateResultCache,
+  privateCache,
   PublicResultCache,
   PUBLIC_RESOLUTION_TTL,
   ResolutionCache,
@@ -94,6 +97,69 @@ class MemoryStorage implements PublicStorage {
     );
   }
 }
+
+describe("private result cache", () => {
+  const privateResolution = (id = "42", name = "repo"): ResolutionEnvelope => ({
+    ...resolution(id, name),
+    visibility: "private",
+  });
+
+  test("keeps private results apart from public ones", async () => {
+    const storage = new MemoryStorage();
+    const publicResults = new PublicResultCache(storage);
+    const privateResults = new PrivateResultCache(storage);
+    await publicResults.put(privateResolution(), await result());
+    expect(storage.values[PUBLIC_CACHE_KEY]).toBeUndefined();
+    await privateResults.put(resolution(), await result());
+    expect(storage.values[PRIVATE_CACHE_KEY]).toBeUndefined();
+    await privateResults.put(privateResolution(), await result());
+    expect(
+      await privateResults.get(
+        privateResolution(),
+        (await result()).engine.rulesHash,
+      ),
+    ).toBeDefined();
+    expect(
+      await publicResults.get(resolution(), (await result()).engine.rulesHash),
+    ).toBeUndefined();
+    expect(storage.values[PUBLIC_CACHE_KEY]).toBeUndefined();
+    const listed = cachedResultSummaries(
+      storage.values[PRIVATE_CACHE_KEY],
+      privateCache,
+    );
+    expect(listed.map((entry) => entry.name)).toEqual(["repo"]);
+    expect(cachedResultSummaries(storage.values[PRIVATE_CACHE_KEY])).toEqual(
+      [],
+    );
+  });
+
+  test("forgets a repository by name when access is lost", async () => {
+    const storage = new MemoryStorage();
+    const cache = new PrivateResultCache(storage);
+    const hash = (await result()).engine.rulesHash;
+    await cache.put(privateResolution("42", "repo"), await result("42"));
+    await cache.put(privateResolution("43", "other"), await result("43"));
+    await cache.purgeName({ owner: "OWNER", name: "Repo" });
+    expect(
+      await cache.hasRepository({ owner: "owner", name: "repo" }, hash),
+    ).toBe(false);
+    expect(
+      await cache.get(privateResolution("42", "repo"), hash),
+    ).toBeUndefined();
+    expect(
+      await cache.hasRepository({ owner: "owner", name: "other" }, hash),
+    ).toBe(true);
+    await cache.put(privateResolution("42", "repo"), await result("42"));
+    expect(
+      await cache.get(privateResolution("42", "repo"), hash),
+    ).toBeUndefined();
+    cache.allowRepository(privateResolution("42", "repo"));
+    await cache.put(privateResolution("42", "repo"), await result("42"));
+    expect(
+      await cache.get(privateResolution("42", "repo"), hash),
+    ).toBeDefined();
+  });
+});
 
 describe("public result cache", () => {
   test("lists valid stored results for display, most recently viewed first", async () => {
@@ -406,6 +472,26 @@ test("resolution cache coalesces, expires at 60 seconds, and purges by ID", asyn
   const renewed = await refs.resolveWithStatus("public:owner/repo", fetcher);
   expect(renewed.fresh).toBe(true);
   expect(refs.isCurrent(renewed.epoch)).toBe(true);
+});
+
+test("dropping public resolutions keeps private ones and their epoch", async () => {
+  const refs = new ResolutionCache();
+  await refs.resolve("anonymous:owner/repo", async () => resolution("42"));
+  const kept = await refs.resolveWithStatus("token:owner/repo", async () => ({
+    ...resolution("42"),
+    visibility: "private",
+  }));
+  await refs.invalidateRepository("42", "public");
+  expect(refs.isCurrent(kept.epoch)).toBe(false);
+  expect(await refs.peek("anonymous:owner/repo")).toBeUndefined();
+  expect((await refs.peek("token:owner/repo"))?.envelope.visibility).toBe(
+    "private",
+  );
+  const current = await refs.resolveWithStatus("token:owner/repo", async () =>
+    resolution("42"),
+  );
+  await refs.invalidateRepository("42", "public");
+  expect(refs.isCurrent(current.epoch)).toBe(true);
 });
 
 test("public resolutions persist for 20 minutes across worker restarts", async () => {

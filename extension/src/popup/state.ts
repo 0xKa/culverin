@@ -12,6 +12,7 @@ export type PopupView = {
   result?: ResultView;
   detailsOpen: boolean;
   reanalyze: boolean;
+  connect?: string;
   apiLimit?: ApiLimitView;
 };
 
@@ -36,7 +37,8 @@ export type PopupEvent =
   | { type: "left" }
   | { type: "repository"; value: string }
   | { type: "details"; open: boolean }
-  | { type: "apiLimit"; value?: ApiLimitView };
+  | { type: "apiLimit"; value?: ApiLimitView }
+  | { type: "connect"; label?: string };
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
   switch (event.type) {
@@ -85,5 +87,9 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
       return { ...view, detailsOpen: event.open };
     case "apiLimit":
       return { ...view, apiLimit: event.value };
+    case "connect":
+      return view.connect === event.label
+        ? view
+        : { ...view, connect: event.label };
   }
 }

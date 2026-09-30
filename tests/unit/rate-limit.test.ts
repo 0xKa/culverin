@@ -73,7 +73,51 @@ test("keeps the newest window and the lowest count within a window", () => {
   expect(mergeRateLimit(first, next)).toEqual(next);
 });
 
+test("tags signed-in limits and replaces a value from the other kind", () => {
+  expect(
+    readRateLimit(
+      headers({
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1790684233",
+        "x-ratelimit-resource": "core",
+      }),
+      true,
+    ),
+  ).toEqual({
+    limit: 5000,
+    remaining: 4990,
+    reset: 1790684233000,
+    authenticated: true,
+  });
+  const anonymous = { limit: 60, remaining: 10, reset: 3000 };
+  const account = {
+    limit: 5000,
+    remaining: 4990,
+    reset: 2000,
+    authenticated: true as const,
+  };
+  expect(mergeRateLimit(anonymous, account)).toEqual(account);
+  expect(mergeRateLimit(account, anonymous)).toEqual(anonymous);
+  expect(
+    mergeRateLimit(account, { ...account, remaining: 4980 }).remaining,
+  ).toBe(4980);
+  expect(apiLimitView(account, 0).title).toContain("GitHub account");
+  expect(apiLimitView(anonymous, 0).title).toContain("Unauthenticated");
+});
+
 test("validates stored values", () => {
+  expect(
+    validRateLimit({
+      limit: 5000,
+      remaining: 0,
+      reset: 1,
+      authenticated: true,
+    }),
+  ).toBe(true);
+  expect(
+    validRateLimit({ limit: 60, remaining: 0, reset: 1, authenticated: false }),
+  ).toBe(false);
   expect(validRateLimit({ limit: 60, remaining: 0, reset: 1 })).toBe(true);
   expect(validRateLimit({ limit: 60, remaining: 0 })).toBe(false);
   expect(validRateLimit({ limit: 60, remaining: 0, reset: 1, x: 1 })).toBe(

@@ -1,6 +1,11 @@
 export const RATE_LIMIT_KEY = "github.rateLimit";
 
-export type RateLimit = { limit: number; remaining: number; reset: number };
+export type RateLimit = {
+  limit: number;
+  remaining: number;
+  reset: number;
+  authenticated?: true;
+};
 
 function count(headers: Headers, name: string): number {
   const value = headers.get(name);
@@ -10,9 +15,13 @@ function count(headers: Headers, name: string): number {
 export function validRateLimit(value: unknown): value is RateLimit {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
-  const { limit, remaining, reset } = value as Record<string, unknown>;
+  const { limit, remaining, reset, authenticated } = value as Record<
+    string,
+    unknown
+  >;
   return (
-    Object.keys(value).length === 3 &&
+    Object.keys(value).length === (authenticated === undefined ? 3 : 4) &&
+    (authenticated === undefined || authenticated === true) &&
     Number.isSafeInteger(limit) &&
     (limit as number) > 0 &&
     Number.isSafeInteger(remaining) &&
@@ -23,13 +32,17 @@ export function validRateLimit(value: unknown): value is RateLimit {
   );
 }
 
-export function readRateLimit(headers: Headers): RateLimit | undefined {
+export function readRateLimit(
+  headers: Headers,
+  authenticated = false,
+): RateLimit | undefined {
   const resource = headers.get("x-ratelimit-resource");
   if (resource !== null && resource !== "core") return undefined;
   const value = {
     limit: count(headers, "x-ratelimit-limit"),
     remaining: count(headers, "x-ratelimit-remaining"),
     reset: count(headers, "x-ratelimit-reset") * 1000,
+    ...(authenticated ? { authenticated: true as const } : {}),
   };
   return validRateLimit(value) ? value : undefined;
 }
@@ -38,7 +51,12 @@ export function mergeRateLimit(
   current: RateLimit | undefined,
   next: RateLimit,
 ): RateLimit {
-  if (!current || next.reset > current.reset) return next;
+  if (
+    !current ||
+    current.authenticated !== next.authenticated ||
+    next.reset > current.reset
+  )
+    return next;
   if (next.reset < current.reset) return current;
   return { ...next, remaining: Math.min(current.remaining, next.remaining) };
 }

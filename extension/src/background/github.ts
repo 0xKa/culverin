@@ -1,11 +1,11 @@
 import { ConnectionStore, type Auth } from "../auth/connection";
 import {
-  DEVICE_URL,
   pollDeviceCode,
   refreshGrant,
   requestDeviceCode,
   type DeviceCode,
 } from "../auth/device";
+import { DEVICE_URL } from "../auth/github-app";
 import { pendingKey, validPending } from "../auth/pending";
 import {
   AcquisitionError,

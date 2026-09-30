@@ -1,5 +1,6 @@
 import { validLogin } from "../github/client";
-import { GrantRejected, validToken, type Grant } from "./device";
+import { GrantRejected, type Grant } from "./device";
+import { validToken } from "./pending";
 
 export const CONNECTION_KEY = "github.connection";
 export const REFRESH_MARGIN = 5 * 60_000;

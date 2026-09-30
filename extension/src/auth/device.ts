@@ -4,14 +4,11 @@ import {
   trustedOrigin,
   type Fetcher,
 } from "../github/client";
+import { CLIENT_ID, DEVICE_URL } from "./github-app";
+import { validToken } from "./pending";
 
-export const CLIENT_ID = "Iv23lipbFBghKf7NMjQi";
-export const APP_SLUG = "culverin-counter";
-export const INSTALL_URL = `https://github.com/apps/${APP_SLUG}/installations/new`;
-export const DEVICE_URL = "https://github.com/login/device";
 const CODE_URL = "https://github.com/login/device/code";
 const TOKEN_URL = "https://github.com/login/oauth/access_token";
-const MAX_TOKEN_LENGTH = 512;
 
 export type DeviceCode = {
   deviceCode: string;
@@ -37,15 +34,6 @@ export class GrantRejected extends Error {
   constructor() {
     super("grant_rejected");
   }
-}
-
-export function validToken(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= MAX_TOKEN_LENGTH &&
-    /^[\x21-\x7e]+$/.test(value)
-  );
 }
 
 const seconds = (value: unknown, max: number): number | undefined =>

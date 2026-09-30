@@ -1,12 +1,20 @@
-import { validToken } from "./device";
-
 export const pendingKey = "github.pending";
+const MAX_TOKEN_LENGTH = 512;
 
 export type Pending = {
   token: string;
   submissionId: string;
   createdAt: number;
 };
+
+export function validToken(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_TOKEN_LENGTH &&
+    /^[\x21-\x7e]+$/.test(value)
+  );
+}
 
 export function validPending(value: unknown): value is Pending {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

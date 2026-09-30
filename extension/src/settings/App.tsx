@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import icon from "../../../assets/dark/culverin-dark-stats.svg";
 import { AboutSection } from "./AboutSection";
 import { CountingSection } from "./CountingSection";
+import { GitHubSection } from "./GitHubSection";
 import { IgnoreSection } from "./IgnoreSection";
 import {
   initialSection,
@@ -51,8 +52,8 @@ export function App() {
         <p>
           Repository source is downloaded directly from GitHub and analyzed in
           your browser when you select Analyze, or when you open a repository
-          page if you turn that on under Counting. This version analyzes public
-          repositories only.
+          page if you turn that on under Counting. Public repositories work
+          without an account; connect GitHub to count private ones.
         </p>
       </header>
       <div className="grid gap-6 md:grid-cols-[12rem_1fr]">
@@ -75,6 +76,7 @@ export function App() {
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
           <CountingSection hidden={active !== "counting"} />
+          <GitHubSection hidden={active !== "github"} />
           <AboutSection hidden={active !== "about"} />
         </main>
       </div>

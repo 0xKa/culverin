@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { CLIENT_ID } from "../../extension/src/auth/github-app";
 import {
-  CLIENT_ID,
   GrantRejected,
   pollDeviceCode,
   refreshGrant,

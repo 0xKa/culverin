@@ -2,9 +2,9 @@ import { useEffect, useState } from "preact/hooks";
 import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
   cachedResultSummaries,
-  PUBLIC_CACHE_BYTES,
-  PUBLIC_CACHE_ENTRIES,
-  PUBLIC_CACHE_KEY,
+  privateCache,
+  publicCache,
+  type CacheOptions,
   type CachedResultSummary,
 } from "../github/cache";
 import { formatBytes } from "../popup/size";
@@ -18,7 +18,15 @@ const exact = (time: number) =>
     timeStyle: "short",
   });
 
-function CacheList() {
+function CacheList({
+  id,
+  title,
+  options,
+}: {
+  id: string;
+  title: string;
+  options: CacheOptions;
+}) {
   const [entries, setEntries] = useState<CachedResultSummary[]>();
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
@@ -27,11 +35,11 @@ function CacheList() {
   useEffect(() => {
     const load = () =>
       void Promise.all([
-        chrome.storage.local.get(PUBLIC_CACHE_KEY),
-        chrome.storage.local.getBytesInUse(PUBLIC_CACHE_KEY),
+        chrome.storage.local.get(options.key),
+        chrome.storage.local.getBytesInUse(options.key),
       ])
         .then(([state, bytes]) => {
-          setEntries(cachedResultSummaries(state[PUBLIC_CACHE_KEY]));
+          setEntries(cachedResultSummaries(state[options.key], options));
           setUsed(bytes);
         })
         .catch(() => setEntries([]));
@@ -39,25 +47,25 @@ function CacheList() {
       changes: Record<string, chrome.storage.StorageChange>,
       area: string,
     ) => {
-      if (area === "local" && PUBLIC_CACHE_KEY in changes) load();
+      if (area === "local" && options.key in changes) load();
     };
     load();
     void effectiveRulesHash(defaultIgnore).then(setDefaultHash);
     chrome.storage.onChanged.addListener(changed);
     return () => chrome.storage.onChanged.removeListener(changed);
-  }, []);
+  }, [options]);
 
   if (!entries) return null;
   return (
-    <div id="cache-list" className="mt-3">
-      <h3 className="mb-2 text-[1.17em] font-bold">Saved results</h3>
-      <p id="cache-summary" className="m-0">
+    <div id={`${id}-list`} className="mt-3">
+      <h3 className="mb-2 text-[1.17em] font-bold">{title}</h3>
+      <p id={`${id}-summary`} className="m-0">
         {cacheSummary(entries)}
       </p>
       <p className="text-muted mt-0 mb-3">
-        {formatBytes(used)} of {formatBytes(PUBLIC_CACHE_BYTES)} used, up to{" "}
-        {PUBLIC_CACHE_ENTRIES} results. When full, the results viewed least
-        recently are removed first.
+        {formatBytes(used)} of {formatBytes(options.bytes)} used, up to{" "}
+        {options.entries} results. When full, the results viewed least recently
+        are removed first.
       </p>
       {entries.length > 0 && (
         <div className="overflow-x-auto">
@@ -165,7 +173,21 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
       <Status id="status" className="min-h-[1.5em] whitespace-pre-wrap">
         {cacheStatus}
       </Status>
-      <CacheList />
+      <CacheList id="cache" title="Saved results" options={publicCache} />
+      <h3 id="private-heading" className="mt-6 mb-2 text-[1.17em] font-bold">
+        Private result cache
+      </h3>
+      <p>
+        Complete results for private repositories are stored separately and
+        shown only after GitHub confirms your connection can still read the
+        repository. They are deleted when you disconnect GitHub or select Clear
+        private results in the GitHub section.
+      </p>
+      <CacheList
+        id="private"
+        title="Saved private results"
+        options={privateCache}
+      />
     </section>
   );
 }

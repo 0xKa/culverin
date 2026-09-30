@@ -4,14 +4,15 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",
   unsupported_page: "This page is not supported.",
   repository_unavailable:
-    "Repository unavailable or access is restricted. Culverin analyzes public repositories only.",
+    "Repository unavailable, or your GitHub connection can't access it. Check which repositories Culverin can read in its settings.",
   repository_empty: "This repository has no default-branch commit to analyze.",
   repository_forbidden:
-    "Repository unavailable or access is restricted. Culverin analyzes public repositories only.",
+    "Repository unavailable, or your GitHub connection can't access it. Check which repositories Culverin can read in its settings.",
   rate_limited: "GitHub rate limit reached.",
   authentication_required:
-    "This repository requires sign-in. Culverin analyzes public repositories only.",
-  authentication_invalid: "GitHub authentication is invalid.",
+    "This repository is private or doesn't exist. Connect GitHub in Culverin's settings to count private repositories.",
+  authentication_invalid:
+    "Your GitHub connection has expired. Connect again in Culverin's settings.",
   metadata_limit_exceeded: "Repository metadata exceeds the safe limit.",
   network_unavailable: "GitHub could not be reached.",
   download_failed: "The source snapshot could not be downloaded.",

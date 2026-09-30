@@ -88,12 +88,29 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   expect(limited.title).toStartWith("GitHub rate limit reached. Retry after ");
   expect(limited.action).toBeUndefined();
   for (const code of [
-    "repository_unavailable",
-    "repository_forbidden",
+    "invalid_repository",
+    "unsupported_page",
     "repository_empty",
-    "authentication_required",
   ] as const)
     expect(lookupFailureState(code)).toEqual({ kind: "hidden" });
+  expect(lookupFailureState("authentication_required")).toMatchObject({
+    kind: "connect",
+  });
+  const signIn = rowView(failureState("authentication_required"));
+  expect(signIn).toMatchObject({
+    label: "Private repository? Connect GitHub",
+    action: "connect",
+  });
+  expect(signIn.title).toContain("Connect GitHub");
+  for (const code of [
+    "repository_unavailable",
+    "repository_forbidden",
+    "authentication_invalid",
+  ] as const)
+    expect(rowView(failureState(code))).toMatchObject({
+      label: "Can't access · Check GitHub",
+      action: "connect",
+    });
   expect(lookupFailureState("network_unavailable")).toEqual({ kind: "idle" });
   expect(lookupFailureState("rate_limited")).toMatchObject({
     kind: "notice",

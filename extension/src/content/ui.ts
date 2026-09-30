@@ -7,7 +7,7 @@ export type AnalysisPhase = Extract<
   { type: "analysis.progress" }
 >["phase"];
 
-export type RowAction = "analyze" | "cancel" | "details";
+export type RowAction = "analyze" | "cancel" | "details" | "connect";
 
 export type RowState =
   | { kind: "hidden" }
@@ -15,7 +15,8 @@ export type RowState =
   | { kind: "running"; phase: AnalysisPhase }
   | { kind: "complete"; total: number; customIgnore?: boolean }
   | { kind: "retry"; detail: string }
-  | { kind: "notice"; label: string; detail: string };
+  | { kind: "notice"; label: string; detail: string }
+  | { kind: "connect"; label: string; detail: string };
 
 export type VisibleRowState = Exclude<RowState, { kind: "hidden" }>;
 
@@ -44,11 +45,14 @@ const progressText: Record<AnalysisPhase, string> = {
 const hiddenLookupFailures: PublicErrorCode[] = [
   "invalid_repository",
   "unsupported_page",
-  "repository_unavailable",
-  "repository_forbidden",
   "repository_empty",
+];
+
+const accessFailures: PublicErrorCode[] = [
   "authentication_required",
   "authentication_invalid",
+  "repository_unavailable",
+  "repository_forbidden",
 ];
 
 const sizeFailures: PublicErrorCode[] = [
@@ -86,6 +90,14 @@ export function failureState(
       label: "GitHub rate limit, try later",
       detail: `${detail}${retryAt ? ` Retry after ${new Date(retryAt).toLocaleString()}.` : " Try again later."}`,
     };
+  if (code === "authentication_required")
+    return {
+      kind: "connect",
+      label: "Private repository? Connect GitHub",
+      detail,
+    };
+  if (accessFailures.includes(code))
+    return { kind: "connect", label: "Can't access · Check GitHub", detail };
   if (sizeFailures.includes(code))
     return { kind: "notice", label: "Too large to count", detail };
   if (unsupportedFailures.includes(code))
@@ -98,7 +110,8 @@ export function lookupFailureState(
   retryAt?: number,
 ): RowState {
   if (hiddenLookupFailures.includes(code)) return { kind: "hidden" };
-  if (code === "rate_limited") return failureState(code, retryAt);
+  if (code === "rate_limited" || accessFailures.includes(code))
+    return failureState(code, retryAt);
   return { kind: "idle" };
 }
 
@@ -138,6 +151,12 @@ export function rowView(state: VisibleRowState): RowView {
       label: "Couldn't count lines · Retry",
       title: state.detail,
       action: "analyze",
+    };
+  if (state.kind === "connect")
+    return {
+      label: state.label,
+      title: `${state.detail} Click to open Culverin's GitHub settings`,
+      action: "connect",
     };
   return { label: state.label, title: state.detail };
 }

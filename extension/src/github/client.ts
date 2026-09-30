@@ -39,6 +39,10 @@ export class AcquisitionError extends Error {
 const ownerPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const repositoryPattern = /^[A-Za-z0-9._-]{1,100}$/;
 
+export function validLogin(login: string): boolean {
+  return ownerPattern.test(login);
+}
+
 export function validRepository(owner: string, name: string): boolean {
   return (
     ownerPattern.test(owner) &&
@@ -90,7 +94,7 @@ function apiFailure(response: Response): AcquisitionError {
   return new AcquisitionError("network_unavailable");
 }
 
-function trustedOrigin(response: Response, origin: string): boolean {
+export function trustedOrigin(response: Response, origin: string): boolean {
   try {
     const url = new URL(response.url);
     return url.origin === origin && url.username === "" && url.password === "";
@@ -99,7 +103,7 @@ function trustedOrigin(response: Response, origin: string): boolean {
   }
 }
 
-async function boundedJson(response: Response): Promise<unknown> {
+export async function boundedJson(response: Response): Promise<unknown> {
   const length = Number(response.headers.get("content-length"));
   if (Number.isFinite(length) && length > METADATA_LIMIT) {
     await response.body?.cancel().catch(() => undefined);
@@ -163,6 +167,19 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+export async function fetchLogin(
+  fetcher: Fetcher,
+  token: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const login = record(
+    await apiGet(fetcher, "https://api.github.com/user", token, signal),
+  )?.login;
+  if (typeof login !== "string" || !validLogin(login))
+    throw new AcquisitionError("network_unavailable");
+  return login;
 }
 
 export async function resolveRepository(

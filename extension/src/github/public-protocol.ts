@@ -43,6 +43,7 @@ export type PublicErrorCode =
   | "rate_limited"
   | "authentication_required"
   | "authentication_invalid"
+  | "access_not_granted"
   | "metadata_limit_exceeded"
   | "network_unavailable"
   | "download_failed"
@@ -253,6 +254,7 @@ const codes: PublicErrorCode[] = [
   "rate_limited",
   "authentication_required",
   "authentication_invalid",
+  "access_not_granted",
   "metadata_limit_exceeded",
   "network_unavailable",
   "download_failed",

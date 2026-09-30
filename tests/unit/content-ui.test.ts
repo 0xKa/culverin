@@ -90,6 +90,8 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   for (const code of [
     "invalid_repository",
     "unsupported_page",
+    "repository_unavailable",
+    "repository_forbidden",
     "repository_empty",
   ] as const)
     expect(lookupFailureState(code)).toEqual({ kind: "hidden" });
@@ -102,15 +104,18 @@ test("maps failures to retryable, blocked, and hidden states", () => {
     action: "connect",
   });
   expect(signIn.title).toContain("Connect GitHub");
-  for (const code of [
-    "repository_unavailable",
-    "repository_forbidden",
-    "authentication_invalid",
-  ] as const)
-    expect(rowView(failureState(code))).toMatchObject({
-      label: "Can't access · Check GitHub",
-      action: "connect",
-    });
+  expect(rowView(failureState("access_not_granted"))).toMatchObject({
+    label: "No access · Choose repositories",
+    action: "connect",
+  });
+  expect(rowView(failureState("authentication_invalid"))).toMatchObject({
+    label: "GitHub connection expired · Reconnect",
+    action: "connect",
+  });
+  expect(rowView(failureState("repository_unavailable"))).toMatchObject({
+    label: "Couldn't count lines · Retry",
+    action: "analyze",
+  });
   expect(lookupFailureState("network_unavailable")).toEqual({ kind: "idle" });
   expect(lookupFailureState("rate_limited")).toMatchObject({
     kind: "notice",

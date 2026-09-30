@@ -45,15 +45,16 @@ const progressText: Record<AnalysisPhase, string> = {
 const hiddenLookupFailures: PublicErrorCode[] = [
   "invalid_repository",
   "unsupported_page",
+  "repository_unavailable",
+  "repository_forbidden",
   "repository_empty",
 ];
 
-const accessFailures: PublicErrorCode[] = [
-  "authentication_required",
-  "authentication_invalid",
-  "repository_unavailable",
-  "repository_forbidden",
-];
+const connectLabels: Partial<Record<PublicErrorCode, string>> = {
+  authentication_required: "Private repository? Connect GitHub",
+  authentication_invalid: "GitHub connection expired · Reconnect",
+  access_not_granted: "No access · Choose repositories",
+};
 
 const sizeFailures: PublicErrorCode[] = [
   "metadata_limit_exceeded",
@@ -90,14 +91,8 @@ export function failureState(
       label: "GitHub rate limit, try later",
       detail: `${detail}${retryAt ? ` Retry after ${new Date(retryAt).toLocaleString()}.` : " Try again later."}`,
     };
-  if (code === "authentication_required")
-    return {
-      kind: "connect",
-      label: "Private repository? Connect GitHub",
-      detail,
-    };
-  if (accessFailures.includes(code))
-    return { kind: "connect", label: "Can't access · Check GitHub", detail };
+  const connect = connectLabels[code];
+  if (connect) return { kind: "connect", label: connect, detail };
   if (sizeFailures.includes(code))
     return { kind: "notice", label: "Too large to count", detail };
   if (unsupportedFailures.includes(code))
@@ -110,7 +105,7 @@ export function lookupFailureState(
   retryAt?: number,
 ): RowState {
   if (hiddenLookupFailures.includes(code)) return { kind: "hidden" };
-  if (code === "rate_limited" || accessFailures.includes(code))
+  if (code === "rate_limited" || connectLabels[code])
     return failureState(code, retryAt);
   return { kind: "idle" };
 }

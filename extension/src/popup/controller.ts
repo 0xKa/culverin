@@ -32,8 +32,7 @@ const errors: Record<PublicErrorCode, string> = {
 const connectLabels: Partial<Record<PublicErrorCode, string>> = {
   authentication_required: "Connect GitHub",
   authentication_invalid: "Connect GitHub",
-  repository_unavailable: "Check GitHub access",
-  repository_forbidden: "Check GitHub access",
+  access_not_granted: "Check GitHub access",
 };
 
 const progressText = {

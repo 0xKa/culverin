@@ -189,6 +189,7 @@ async function accessFailure(
   code: PublicErrorCode,
   auth: Auth,
   repository: { owner: string; name: string },
+  resolving: boolean,
 ): Promise<PublicErrorCode> {
   if (code === "authentication_invalid" && auth.token) {
     if (await connection.expire(auth.generation))
@@ -200,9 +201,9 @@ async function accessFailure(
   }
   if (code !== "repository_unavailable" && code !== "repository_forbidden")
     return code;
-  if (!auth.token) return "authentication_required";
+  if (!auth.token) return resolving ? "authentication_required" : code;
   await privateResults.purgeName(repository).catch(() => undefined);
-  return code;
+  return "access_not_granted";
 }
 const coordinator = new AnalysisCoordinator(
   (job, progress) =>
@@ -666,7 +667,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         await invalidateResolutions(envelope.repositoryId, "public");
         coordinator.abortPublicRepository(envelope.repositoryId);
         if (!auth.token) {
-          reply({ type: "analysis.failed", code: "repository_unavailable" });
+          reply({ type: "analysis.failed", code: "authentication_required" });
           return;
         }
       }
@@ -787,15 +788,16 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
                 limit,
                 "retryAt" in failure ? failure.retryAt : undefined,
               );
-            void accessFailure(failure.code, auth, repository).then((code) =>
-              reply({
-                type: "analysis.failed",
-                ...publicFailure(
-                  code,
-                  "retryAt" in failure ? failure.retryAt : undefined,
-                  "limit" in failure ? failure.limit : undefined,
-                ),
-              }),
+            void accessFailure(failure.code, auth, repository, false).then(
+              (code) =>
+                reply({
+                  type: "analysis.failed",
+                  ...publicFailure(
+                    code,
+                    "retryAt" in failure ? failure.retryAt : undefined,
+                    "limit" in failure ? failure.limit : undefined,
+                  ),
+                }),
             );
           },
         },
@@ -822,7 +824,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
             : safeFailure(error, controller.signal);
         if (failure.code === "rate_limited")
           markLimited(limit, failure.retryAt);
-        const code = await accessFailure(failure.code, auth, repository);
+        const code = await accessFailure(failure.code, auth, repository, true);
         if (client.isAlive())
           reply({
             type: "analysis.failed",

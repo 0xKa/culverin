@@ -2,6 +2,18 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.0.5 - 2026-10-01
+
+- Adds an Other files section to the popup details. It lists files Culverin does not recognize as a language, such as test data, certificates, and `go.mod`, grouped by extension with their line counts. The first 10 show and Show more reveals the rest. Their lines are not added to code or text lines.
+- Shows the total lines and files at the top of each popup section (Code, Text, and Other files), and lists Code and Text by lines instead of by name.
+- Shows a total even when some source files are over 8 MiB. The page row ends the number with `+` and its tooltip says how many files were left out, and the popup shows the same note. These results are saved, so reopening the repository no longer offers to count again.
+- Counts files with invalid text characters exactly instead of reporting a partial analysis whose counts "may be inaccurate". A file that starts like UTF-16 but does not decode is skipped as binary.
+- Counts Jupyter notebooks that showed zero lines, such as ones with raw cells, code stored as one string, or no kernel information. Code in fenced blocks inside markdown cells is counted once. A notebook that cannot be read is skipped and listed as unsupported.
+- Fixes counts on large repositories such as golang/go failing at random with "Repository metadata exceeds the safe limit".
+- Fixes the progress label flickering between downloading and counting on large repositories.
+- Names the limit that was reached when a repository is too large to count, for example "The limit is 40,000 files."
+- Results saved by 0.0.4 are not reused because the counting rules changed. Count each repository again once.
+
 ## 0.0.4 - 2026-09-30
 
 - Adds private repository counting. Connect with GitHub in the new GitHub settings section and choose which repositories Culverin may read, or paste a personal access token with read-only access to repository contents. Public repositories still work without connecting.

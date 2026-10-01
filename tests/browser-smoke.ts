@@ -930,28 +930,35 @@ sync();
     "1 text lines",
   );
   assert.deepEqual(
-    await resumedPopup
-      .locator("#detail-content > ul")
-      .evaluateAll((lists) =>
-        lists.map((list) => [
-          list.previousElementSibling?.textContent,
+    await resumedPopup.locator("#detail-content > ul").evaluateAll((lists) =>
+      lists.map((list) => {
+        let heading = list.previousElementSibling;
+        while (heading && heading.tagName !== "H2")
+          heading = heading.previousElementSibling;
+        return [
+          heading?.textContent,
+          heading?.nextElementSibling?.textContent,
           list.getAttribute("aria-label"),
           Array.from(list.children, (item) => item.textContent),
-        ]),
-      ),
+        ];
+      }),
+    ),
     [
       [
         "Code",
+        "1 code lines · 1 files",
         "Languages by code lines",
         ["Rust: 1 code lines (100.0% of code lines), 1 files"],
       ],
       [
         "Text",
+        "1 text lines · 1 files",
         "Text formats by text lines",
         ["Plain Text: 1 text lines (100.0% of text lines), 1 files"],
       ],
       [
-        "Not recognized as a programming or text language. Their lines are not included in code or text lines.",
+        "Other files",
+        "13 lines · 12 files",
         "Other files by lines",
         [
           ".golden: 2 lines, 1 files",

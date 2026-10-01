@@ -22,8 +22,11 @@ export type ResultView = {
   metrics: string;
   snapshotSize: string;
   intro: string[];
+  codeSummary: string;
   codeRows: string[];
+  textSummary: string;
   textRows: string[];
+  otherSummary: string;
   otherRows: string[];
   moreOtherRows: string[];
   noLanguages?: string;
@@ -58,20 +61,22 @@ export function resultView(
 ): ResultView {
   const { totals, coverage, engine } = result;
   const text = textLines(result.languages);
-  const codeRows = result.languages
+  const files = (rows: { files: number }[]) =>
+    rows.reduce((sum, row) => sum + row.files, 0).toLocaleString();
+  const codeLanguages = result.languages
     .filter((row) => !isTextLanguage(row.language))
-    .sort(bySize((row) => row.code))
-    .map((row) => {
-      const percent = totals.code === 0 ? 0 : (row.code / totals.code) * 100;
-      return `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
-    });
-  const textRows = result.languages
+    .sort(bySize((row) => row.code));
+  const textLanguages = result.languages
     .filter((row) => isTextLanguage(row.language))
-    .sort(bySize((row) => row.comments))
-    .map((row) => {
-      const percent = text === 0 ? 0 : (row.comments / text) * 100;
-      return `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
-    });
+    .sort(bySize((row) => row.comments));
+  const codeRows = codeLanguages.map((row) => {
+    const percent = totals.code === 0 ? 0 : (row.code / totals.code) * 100;
+    return `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
+  });
+  const textRows = textLanguages.map((row) => {
+    const percent = text === 0 ? 0 : (row.comments / text) * 100;
+    return `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
+  });
   const other = result.otherFiles;
   const otherRows = other.extensions.map(
     (row) =>
@@ -96,8 +101,11 @@ export function resultView(
       `${engine.name} ${engine.version} · ${engine.rulesProfile} profile, rules ${engine.rulesVersion} · wrapper ${engine.wrapperVersion}`,
       "Repository source was downloaded directly from GitHub and analyzed in your browser.",
     ],
+    codeSummary: `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines · ${files(codeLanguages)} files`,
     codeRows,
+    textSummary: `${text.toLocaleString()} text lines · ${files(textLanguages)} files`,
     textRows,
+    otherSummary: `${other.lines.toLocaleString()} lines · ${other.files.toLocaleString()} files`,
     otherRows: otherRows.slice(0, VISIBLE_OTHER_ROWS),
     moreOtherRows: otherRows.slice(VISIBLE_OTHER_ROWS),
     noLanguages:

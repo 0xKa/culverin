@@ -134,6 +134,9 @@ function Details({
         {result && result.codeRows.length > 0 && (
           <>
             <h2 className="mt-3 text-[0.95rem] font-bold">Code</h2>
+            <p id="code-summary" className="my-1 font-semibold">
+              {result.codeSummary}
+            </p>
             <ul
               aria-label="Languages by code lines"
               className="mt-1 list-disc pl-[22px]"
@@ -147,6 +150,9 @@ function Details({
         {result && result.textRows.length > 0 && (
           <>
             <h2 className="mt-3 text-[0.95rem] font-bold">Text</h2>
+            <p id="text-summary" className="my-1 font-semibold">
+              {result.textSummary}
+            </p>
             <ul
               aria-label="Text formats by text lines"
               className="mt-1 list-disc pl-[22px]"
@@ -160,6 +166,9 @@ function Details({
         {result && result.otherRows.length > 0 && (
           <>
             <h2 className="mt-3 text-[0.95rem] font-bold">Other files</h2>
+            <p id="other-summary" className="my-1 font-semibold">
+              {result.otherSummary}
+            </p>
             <p className="my-1.5">
               Not recognized as a programming or text language. Their lines are
               not included in code or text lines.

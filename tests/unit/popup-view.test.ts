@@ -87,6 +87,9 @@ test("formats repository and result details", () => {
   expect(view.metrics).toBe(
     "2 files · 8 physical lines · 4 comments · 1 blanks",
   );
+  expect(view.codeSummary).toBe("3 code lines · 1 files");
+  expect(view.textSummary).toBe("4 text lines · 1 files");
+  expect(view.otherSummary).toBe("38 lines · 2 files");
   expect(view.codeRows).toEqual([
     "TypeScript: 3 code lines (100.0% of code lines), 1 files",
   ]);
@@ -134,6 +137,9 @@ test("orders languages by lines and folds other files after the first rows", () 
     },
     resolution,
   );
+  expect(view.codeSummary).toBe("170 code lines · 3 files");
+  expect(view.textSummary).toBe("10 text lines · 2 files");
+  expect(view.otherSummary).toBe("80 lines · 13 files");
   expect(view.codeRows.map((line) => line.split(":")[0])).toEqual([
     "Rust",
     "Go",
@@ -178,6 +184,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
   expect(view.noLanguages).toBe("No language totals.");
   expect(view.codeRows).toEqual([]);
   expect(view.textRows).toEqual([]);
+  expect(view.codeSummary).toBe("0 code lines · 0 files");
   expect(view.warning).toBeUndefined();
   expect(JSON.stringify(view)).not.toMatch(/NaN|Infinity/);
   expect(sizesView({ ...resolution, sizeKb: null }).repositorySize).toBe(

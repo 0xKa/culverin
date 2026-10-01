@@ -1860,8 +1860,8 @@ sync();
     embedded,
   )) as { ok: boolean; result: { totals: { files: number; lines: number } } };
   assert.equal(browserEmbedded.ok, true);
-  assert.equal(browserEmbedded.result.totals.files, 5);
-  assert.equal(browserEmbedded.result.totals.lines, 13);
+  assert.equal(browserEmbedded.result.totals.files, 6);
+  assert.equal(browserEmbedded.result.totals.lines, 19);
   const invalid = await harness.evaluate(
     () =>
       new Promise<unknown>((resolve) =>

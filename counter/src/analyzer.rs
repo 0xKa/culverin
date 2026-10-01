@@ -1,10 +1,11 @@
+use crate::file::{FileAnalysis, merge_rows};
 use crate::model::{
     AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, Totals,
 };
 use crate::rules::{RULES_VERSION, Rules};
 
-const COVERAGE_VERSION: &str = "1";
-const WRAPPER_VERSION: &str = "2";
+const COVERAGE_VERSION: &str = "2";
+const WRAPPER_VERSION: &str = "3";
 use std::collections::BTreeMap;
 
 pub struct CounterAnalyzer {
@@ -12,7 +13,6 @@ pub struct CounterAnalyzer {
     hash: String,
     languages: BTreeMap<String, LanguageCounts>,
     coverage: Coverage,
-    inaccurate: bool,
 }
 
 impl CounterAnalyzer {
@@ -23,6 +23,7 @@ impl CounterAnalyzer {
             "unsupported_language",
             "binary_content",
             "oversized_source",
+            "unsupported_notebook",
         ]
         .into_iter()
         .map(|s| (s.to_owned(), 0))
@@ -41,7 +42,6 @@ impl CounterAnalyzer {
                 complete: true,
                 incomplete_reasons: vec![],
             },
-            inaccurate: false,
         })
     }
     pub fn rules(&self) -> &Rules {
@@ -60,9 +60,17 @@ impl CounterAnalyzer {
             self.record_skip(classification.kind)?;
             return Ok(classification);
         }
-        let analysis = crate::file::analyze_counted(path, bytes)?;
-        self.merge_rows(analysis.rows)?;
-        self.inaccurate |= analysis.inaccurate;
+        let rows = match crate::file::analyze_counted(path, bytes)? {
+            FileAnalysis::Counted(rows) => rows,
+            FileAnalysis::Skipped(kind) => {
+                self.record_skip(kind)?;
+                return Ok(Classification {
+                    kind,
+                    language: None,
+                });
+            }
+        };
+        merge_rows(&mut self.languages, rows)?;
         self.coverage.counted_files = self
             .coverage
             .counted_files
@@ -134,53 +142,7 @@ impl CounterAnalyzer {
         Ok(())
     }
 
-    fn merge_rows(&mut self, rows: BTreeMap<String, LanguageCounts>) -> Result<(), String> {
-        for (name, row) in rows {
-            let aggregate = self
-                .languages
-                .entry(name.clone())
-                .or_insert_with(|| LanguageCounts {
-                    language: name,
-                    files: 0,
-                    counts: Counts::empty(),
-                });
-            aggregate.files = aggregate
-                .files
-                .checked_add(row.files)
-                .ok_or("counter overflow")?;
-            aggregate.counts.code = aggregate
-                .counts
-                .code
-                .checked_add(row.counts.code)
-                .ok_or("counter overflow")?;
-            aggregate.counts.comments = aggregate
-                .counts
-                .comments
-                .checked_add(row.counts.comments)
-                .ok_or("counter overflow")?;
-            aggregate.counts.blanks = aggregate
-                .counts
-                .blanks
-                .checked_add(row.counts.blanks)
-                .ok_or("counter overflow")?;
-            aggregate.counts.lines = aggregate
-                .counts
-                .code
-                .checked_add(aggregate.counts.comments)
-                .and_then(|n| n.checked_add(aggregate.counts.blanks))
-                .ok_or("counter overflow")?;
-        }
-        Ok(())
-    }
-
-    pub fn finish(mut self) -> Result<AnalysisResult, String> {
-        if self.inaccurate {
-            self.coverage
-                .incomplete_reasons
-                .push("counter_inaccurate".into());
-            self.coverage.complete = false;
-        }
-        self.coverage.incomplete_reasons.sort();
+    pub fn finish(self) -> Result<AnalysisResult, String> {
         let mut counts = Counts::empty();
         let mut files = 0u64;
         for row in self.languages.values() {

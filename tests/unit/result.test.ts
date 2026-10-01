@@ -95,6 +95,7 @@ describe("analysis result contract", () => {
             unsupported_language: 0,
             binary_content: 0,
             oversized_source: 0,
+            unsupported_notebook: 0,
           },
         },
       }),

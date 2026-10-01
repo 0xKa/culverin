@@ -1,4 +1,9 @@
-import { engineVersion, rulesVersion, wrapperVersion } from "./rules";
+import {
+  coveragePolicyVersion,
+  engineVersion,
+  rulesVersion,
+  wrapperVersion,
+} from "./rules";
 export type LineCounts = {
   lines: number;
   code: number;
@@ -10,7 +15,8 @@ export type SkippedReason =
   | "excluded_by_rule"
   | "unsupported_language"
   | "binary_content"
-  | "oversized_source";
+  | "oversized_source"
+  | "unsupported_notebook";
 export type AnalysisResultV2 = {
   schemaVersion: 2;
   repository: { id: string };
@@ -34,7 +40,7 @@ export type AnalysisResultV2 = {
     skippedFiles: number;
     skippedByReason: Record<SkippedReason, number>;
     complete: boolean;
-    incompleteReasons: ("oversized_source" | "counter_inaccurate")[];
+    incompleteReasons: "oversized_source"[];
   };
 };
 
@@ -43,8 +49,9 @@ const reasons: SkippedReason[] = [
   "unsupported_language",
   "binary_content",
   "oversized_source",
+  "unsupported_notebook",
 ];
-const incomplete = ["counter_inaccurate", "oversized_source"];
+const incomplete = ["oversized_source"];
 const integer = (x: unknown): x is number =>
   Number.isSafeInteger(x) && (x as number) >= 0;
 const record = (x: unknown): x is Record<string, unknown> =>
@@ -103,7 +110,7 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
     engine.version !== engineVersion ||
     engine.wrapperVersion !== wrapperVersion ||
     engine.rulesVersion !== rulesVersion ||
-    engine.coveragePolicyVersion !== "1" ||
+    engine.coveragePolicyVersion !== coveragePolicyVersion ||
     typeof engine.rulesHash !== "string" ||
     !/^[0-9a-f]{64}$/.test(engine.rulesHash)
   )
@@ -197,7 +204,10 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
       coverage.incompleteReasons.join("|") ||
     new Set(coverage.incompleteReasons).size !==
       coverage.incompleteReasons.length ||
-    coverage.complete !== (coverage.incompleteReasons.length === 0)
+    coverage.complete !== (coverage.incompleteReasons.length === 0) ||
+    coverage.complete !==
+      ((coverage.skippedByReason as Record<string, number>).oversized_source ===
+        0)
   )
     return false;
   return true;

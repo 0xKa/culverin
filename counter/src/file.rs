@@ -1,6 +1,9 @@
 use crate::model::{Classification, Counts, LanguageCounts};
 use crate::rules::{Rules, validate_path};
+use serde::Deserialize;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 pub(crate) const MAX_FILE: usize = 8 * 1024 * 1024;
 use tokei::{CodeStats, Config, LanguageType};
@@ -69,86 +72,151 @@ fn env_shebang(prefix: &[u8]) -> Option<LanguageType> {
     }
 }
 
-pub(crate) fn decode(bytes: &[u8]) -> (Vec<u8>, bool) {
-    if bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]) {
-        let encoding = if bytes[0] == 0xff {
-            encoding_rs::UTF_16LE
-        } else {
-            encoding_rs::UTF_16BE
-        };
-        let (decoded, _, errors) = encoding.decode(&bytes[2..]);
-        return (decoded.as_bytes().to_vec(), errors);
-    }
-    let text = if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
-        &bytes[3..]
+pub(crate) fn decode(bytes: &[u8]) -> Option<Cow<'_, [u8]>> {
+    let encoding = if bytes.starts_with(&[0xff, 0xfe]) {
+        encoding_rs::UTF_16LE
+    } else if bytes.starts_with(&[0xfe, 0xff]) {
+        encoding_rs::UTF_16BE
     } else {
-        bytes
+        return Some(Cow::Borrowed(
+            bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes),
+        ));
     };
-    let decoded = String::from_utf8_lossy(text);
-    let errors = matches!(decoded, std::borrow::Cow::Owned(_));
-    (decoded.as_bytes().to_vec(), errors)
+    encoding
+        .decode_without_bom_handling_and_without_replacement(&bytes[2..])
+        .map(|text| Cow::Owned(text.into_owned().into_bytes()))
 }
 
-pub(crate) fn valid_notebook(bytes: &[u8]) -> bool {
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
-        return false;
-    };
-    let Some(cells) = value.get("cells").and_then(|x| x.as_array()) else {
-        return false;
-    };
-    let Some(metadata) = value.get("metadata") else {
-        return false;
-    };
-    if metadata.get("kernelspec").is_none() || metadata.get("language_info").is_none() {
-        return false;
-    }
-    cells.iter().all(|cell| {
-        matches!(
-            cell.get("cell_type").and_then(|x| x.as_str()),
-            Some("code" | "markdown")
-        ) && cell
-            .get("source")
-            .and_then(|x| x.as_array())
-            .is_some_and(|source| source.iter().all(|line| line.is_string()))
-    })
+#[derive(Deserialize)]
+struct Notebook {
+    cells: Vec<Cell>,
+    #[serde(default)]
+    metadata: serde_json::Value,
 }
 
-pub(crate) fn add_stats(
-    rows: &mut BTreeMap<String, LanguageCounts>,
-    kind: LanguageType,
-    stats: &CodeStats,
-    physical: bool,
-    inaccurate: &mut bool,
-) -> Result<(), String> {
+#[derive(Deserialize)]
+struct Cell {
+    cell_type: String,
+    source: Source,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Source {
+    Text(String),
+    Lines(Vec<String>),
+}
+
+fn notebook_language(metadata: &serde_json::Value) -> LanguageType {
+    metadata
+        .get("kernelspec")
+        .and_then(|x| x.get("language"))
+        .and_then(|x| x.as_str())
+        .and_then(|x| LanguageType::from_str(x).ok())
+        .or_else(|| {
+            metadata
+                .get("language_info")
+                .and_then(|x| x.get("file_extension"))
+                .and_then(|x| x.as_str())
+                .and_then(|x| LanguageType::from_file_extension(x.trim_start_matches('.')))
+        })
+        .unwrap_or(LanguageType::Python)
+}
+
+fn row(rows: &mut BTreeMap<String, LanguageCounts>, kind: LanguageType) -> &mut LanguageCounts {
     let name = kind.to_string();
-    let row = rows.entry(name.clone()).or_insert_with(|| LanguageCounts {
+    rows.entry(name.clone()).or_insert_with(|| LanguageCounts {
         language: name,
         files: 0,
         counts: Counts::empty(),
-    });
-    if physical {
-        row.files = row.files.checked_add(1).ok_or("counter overflow")?;
-    }
-    if kind == LanguageType::Jupyter {
-        let mut own = stats.clone();
-        for child in stats.blobs.values() {
-            for (count, removed) in [
-                (&mut own.code, child.code),
-                (&mut own.comments, child.comments),
-                (&mut own.blanks, child.blanks),
-            ] {
-                *inaccurate |= *count < removed;
-                *count = count.saturating_sub(removed);
-            }
-        }
-        row.counts.add(&own)?;
-    } else {
-        row.counts.add(stats)?;
-    }
+    })
+}
+
+fn add_stats(
+    rows: &mut BTreeMap<String, LanguageCounts>,
+    kind: LanguageType,
+    stats: &CodeStats,
+) -> Result<(), String> {
+    row(rows, kind).counts.add(stats)?;
     for (child, value) in &stats.blobs {
-        add_stats(rows, *child, value, false, inaccurate)?;
+        add_stats(rows, *child, value)?;
     }
     Ok(())
+}
+
+pub(crate) fn merge_rows(
+    rows: &mut BTreeMap<String, LanguageCounts>,
+    other: BTreeMap<String, LanguageCounts>,
+) -> Result<(), String> {
+    for (name, other) in other {
+        let aggregate = rows.entry(name.clone()).or_insert_with(|| LanguageCounts {
+            language: name,
+            files: 0,
+            counts: Counts::empty(),
+        });
+        aggregate.files = aggregate
+            .files
+            .checked_add(other.files)
+            .ok_or("counter overflow")?;
+        aggregate.counts.code = aggregate
+            .counts
+            .code
+            .checked_add(other.counts.code)
+            .ok_or("counter overflow")?;
+        aggregate.counts.comments = aggregate
+            .counts
+            .comments
+            .checked_add(other.counts.comments)
+            .ok_or("counter overflow")?;
+        aggregate.counts.blanks = aggregate
+            .counts
+            .blanks
+            .checked_add(other.counts.blanks)
+            .ok_or("counter overflow")?;
+        aggregate.counts.lines = aggregate
+            .counts
+            .code
+            .checked_add(aggregate.counts.comments)
+            .and_then(|n| n.checked_add(aggregate.counts.blanks))
+            .ok_or("counter overflow")?;
+    }
+    Ok(())
+}
+
+fn add_text(
+    rows: &mut BTreeMap<String, LanguageCounts>,
+    kind: LanguageType,
+    text: &[u8],
+) -> Result<(), String> {
+    let stats = kind.parse_from_slice(text, &Config::default());
+    let mut text_rows = BTreeMap::new();
+    add_stats(&mut text_rows, kind, &stats)?;
+    let physical = text.iter().filter(|b| **b == b'\n').count() as u64
+        + u64::from(!text.is_empty() && !text.ends_with(b"\n"));
+    let attributed = text_rows
+        .values()
+        .try_fold(0u64, |sum, row: &LanguageCounts| {
+            sum.checked_add(row.counts.lines).ok_or("counter overflow")
+        })?;
+    if attributed > physical {
+        let primary = row(&mut text_rows, kind);
+        let mut excess = attributed - physical;
+        for count in [
+            &mut primary.counts.code,
+            &mut primary.counts.comments,
+            &mut primary.counts.blanks,
+        ] {
+            let removed = (*count).min(excess);
+            *count -= removed;
+            excess -= removed;
+        }
+        if excess != 0 {
+            return Err("embedded line attribution failed".into());
+        }
+        primary.counts.lines =
+            primary.counts.code + primary.counts.comments + primary.counts.blanks;
+    }
+    merge_rows(rows, text_rows)
 }
 
 pub(crate) fn classify_path(
@@ -222,49 +290,38 @@ pub(crate) fn classify_file(
     Ok(classification)
 }
 
-pub(crate) struct FileAnalysis {
-    pub(crate) rows: BTreeMap<String, LanguageCounts>,
-    pub(crate) inaccurate: bool,
+pub(crate) enum FileAnalysis {
+    Counted(BTreeMap<String, LanguageCounts>),
+    Skipped(&'static str),
 }
 
 pub(crate) fn analyze_counted(path: &str, bytes: &[u8]) -> Result<FileAnalysis, String> {
     let kind = language(path, &bytes[..bytes.len().min(128)]).ok_or("language detection failed")?;
-    let (decoded, mut inaccurate) = decode(bytes);
-    let stats = kind.parse_from_slice(&decoded, &Config::default());
-    let invalid_notebook = kind == LanguageType::Jupyter && !valid_notebook(&decoded);
-    let mut file_rows = BTreeMap::new();
-    add_stats(&mut file_rows, kind, &stats, true, &mut inaccurate)?;
-    if kind != LanguageType::Jupyter {
-        let physical = decoded.iter().filter(|b| **b == b'\n').count() as u64
-            + u64::from(!decoded.is_empty() && !decoded.ends_with(b"\n"));
-        let attributed = file_rows
-            .values()
-            .try_fold(0u64, |sum, row: &LanguageCounts| {
-                sum.checked_add(row.counts.lines).ok_or("counter overflow")
-            })?;
-        if attributed > physical {
-            let primary = file_rows
-                .get_mut(&kind.to_string())
-                .ok_or("primary language missing")?;
-            let mut excess = attributed - physical;
-            for count in [
-                &mut primary.counts.code,
-                &mut primary.counts.comments,
-                &mut primary.counts.blanks,
-            ] {
-                let removed = (*count).min(excess);
-                *count -= removed;
-                excess -= removed;
-            }
-            if excess != 0 {
-                return Err("embedded line attribution failed".into());
-            }
-            primary.counts.lines =
-                primary.counts.code + primary.counts.comments + primary.counts.blanks;
+    let Some(text) = decode(bytes) else {
+        return Ok(FileAnalysis::Skipped("binary_content"));
+    };
+    let mut rows = BTreeMap::new();
+    if kind == LanguageType::Jupyter {
+        let Ok(notebook) = serde_json::from_slice::<Notebook>(&text) else {
+            return Ok(FileAnalysis::Skipped("unsupported_notebook"));
+        };
+        row(&mut rows, kind).files = 1;
+        let language = notebook_language(&notebook.metadata);
+        for cell in notebook.cells {
+            let kind = match cell.cell_type.as_str() {
+                "code" => language,
+                "markdown" => LanguageType::Markdown,
+                _ => continue,
+            };
+            let source = match cell.source {
+                Source::Text(x) => x,
+                Source::Lines(x) => x.concat(),
+            };
+            add_text(&mut rows, kind, source.as_bytes())?;
         }
+    } else {
+        add_text(&mut rows, kind, &text)?;
+        row(&mut rows, kind).files = 1;
     }
-    Ok(FileAnalysis {
-        rows: file_rows,
-        inaccurate: inaccurate || invalid_notebook,
-    })
+    Ok(FileAnalysis::Counted(rows))
 }

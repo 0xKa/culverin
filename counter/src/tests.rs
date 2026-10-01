@@ -154,15 +154,42 @@ fn counts_multiline_embedded_blocks_once() {
 }
 
 #[test]
-fn malformed_utf8_marks_coverage_inaccurate() {
+fn malformed_utf8_counts_exactly_and_bad_utf16_is_binary() {
     let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
-    analyzer.add_file("bad.py", b"print('\xff')\n").unwrap();
+    analyzer
+        .add_file("bad.py", b"print('\xff')\n# \xfe\n\n")
+        .unwrap();
+    assert_eq!(
+        analyzer
+            .add_file("surrogate.py", &[0xff, 0xfe, 0x00, 0xd8, b'\n', 0])
+            .unwrap()
+            .kind,
+        "binary_content"
+    );
+    assert_eq!(
+        analyzer
+            .add_file("odd.py", &[0xfe, 0xff, 0, b'x', 0])
+            .unwrap()
+            .kind,
+        "binary_content"
+    );
     let result = analyzer.finish().unwrap();
-    assert_eq!(result.coverage.incomplete_reasons, ["counter_inaccurate"]);
+    assert!(result.coverage.complete);
+    assert!(result.coverage.incomplete_reasons.is_empty());
     assert_eq!(result.coverage.counted_files, 1);
+    assert_eq!(result.coverage.skipped_by_reason["binary_content"], 2);
+    assert_eq!(
+        result.totals.counts,
+        Counts {
+            lines: 3,
+            code: 1,
+            comments: 1,
+            blanks: 1,
+        }
+    );
     assert_eq!(
         serde_json::to_value(&result).unwrap()["engine"]["wrapperVersion"],
-        json!("2")
+        json!("3")
     );
 }
 
@@ -207,18 +234,66 @@ fn counts_and_skips() {
 }
 
 #[test]
-fn malformed_notebook_marks_result_inaccurate() {
-    let rules = Rules {
-        repository_id: "1".into(),
-        commit_sha: "a".repeat(40),
-        exclusions: vec![],
-        disabled_groups: vec![],
-    };
-    let mut analyzer = CounterAnalyzer::new(rules).unwrap();
-    analyzer.add_file("bad.ipynb", b"{bad json").unwrap();
+fn notebooks_count_each_cell_line_once() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    let fenced = json!({
+        "cells": [
+            {"cell_type": "markdown", "source": ["# T\n", "```rust\n", "fn main() {}\n", "```\n"]},
+            {"cell_type": "raw", "source": ["raw\n"]},
+            {"cell_type": "code", "source": "x = 1\ny = 2\n", "outputs": []}
+        ],
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
+        "nbformat_minor": 5
+    });
+    analyzer
+        .add_file("fenced.ipynb", fenced.to_string().as_bytes())
+        .unwrap();
+    let plain = json!({
+        "cells": [{"cell_type": "code", "source": ["fn main() {}\n"]}],
+        "metadata": {"language_info": {"file_extension": ".rs"}},
+        "nbformat": 4,
+        "nbformat_minor": 5
+    });
+    analyzer
+        .add_file("plain.ipynb", plain.to_string().as_bytes())
+        .unwrap();
     let result = analyzer.finish().unwrap();
-    assert_eq!(result.coverage.incomplete_reasons, ["counter_inaccurate"]);
-    assert_eq!(result.coverage.counted_files, 1);
+    let lines = |name: &str| {
+        result
+            .languages
+            .iter()
+            .find(|r| r.language == name)
+            .unwrap()
+            .counts
+            .lines
+    };
+    assert!(result.coverage.complete);
+    assert_eq!(lines("Jupyter Notebooks"), 0);
+    assert_eq!(lines("Markdown"), 3);
+    assert_eq!(lines("Python"), 2);
+    assert_eq!(lines("Rust"), 2);
+    assert_eq!(result.totals.counts.lines, 7);
+    assert_eq!(result.totals.files, 2);
+}
+
+#[test]
+fn unreadable_notebook_is_skipped() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    for (path, bytes) in [
+        ("bad.ipynb", &b"{bad json"[..]),
+        ("v3.ipynb", br#"{"worksheets":[{"cells":[]}],"nbformat":3}"#),
+    ] {
+        assert_eq!(
+            analyzer.add_file(path, bytes).unwrap().kind,
+            "unsupported_notebook"
+        );
+    }
+    let result = analyzer.finish().unwrap();
+    assert!(result.coverage.complete);
+    assert_eq!(result.coverage.counted_files, 0);
+    assert_eq!(result.coverage.skipped_by_reason["unsupported_notebook"], 2);
+    assert_eq!(result.coverage.analyzed_bytes, 0);
 }
 
 #[test]

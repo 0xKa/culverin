@@ -26,7 +26,7 @@ const initMs = performance.now() - started;
 assert.deepEqual(JSON.parse(counter_metadata()), {
   name: "tokei",
   version: "15.0.0",
-  wrapperVersion: "2",
+  wrapperVersion: "3",
 });
 const cases = ["core", "embedded", "encodings"];
 for (const name of cases) {
@@ -62,8 +62,9 @@ for (const name of cases) {
       );
     }
     if (name === "embedded") {
-      assert.equal(result.totals.files, 5);
-      assert.equal(result.totals.lines, 13);
+      assert.equal(result.totals.files, 6);
+      assert.equal(result.totals.lines, 19);
+      assert.equal(result.coverage.skippedByReason.unsupported_notebook, 1);
       assert.equal(
         result.languages.find(
           (x: { language: string }) => x.language === "JavaScript",
@@ -72,11 +73,9 @@ for (const name of cases) {
       );
     }
     if (name === "encodings") {
-      assert.equal(result.coverage.complete, false);
-      assert.deepEqual(result.coverage.incompleteReasons, [
-        "counter_inaccurate",
-      ]);
-      assert.equal(result.coverage.skippedByReason.binary_content, 1);
+      assert.equal(result.coverage.complete, true);
+      assert.deepEqual(result.coverage.incompleteReasons, []);
+      assert.equal(result.coverage.skippedByReason.binary_content, 2);
     }
   } finally {
     counter.free();

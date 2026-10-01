@@ -20,11 +20,11 @@ const result: AnalysisResultV2 = {
   engine: {
     name: "tokei",
     version: "15.0.0",
-    wrapperVersion: "2",
+    wrapperVersion: "3",
     rulesProfile: "source-v1",
     rulesVersion: "2",
     rulesHash: "b".repeat(64),
-    coveragePolicyVersion: "1",
+    coveragePolicyVersion: "2",
   },
   totals: { lines: 8, code: 3, comments: 4, blanks: 1, files: 2 },
   languages: [
@@ -56,9 +56,10 @@ const result: AnalysisResultV2 = {
       unsupported_language: 0,
       binary_content: 0,
       oversized_source: 1,
+      unsupported_notebook: 0,
     },
     complete: false,
-    incompleteReasons: ["oversized_source", "counter_inaccurate"],
+    incompleteReasons: ["oversized_source"],
   },
 };
 
@@ -81,7 +82,7 @@ test("formats repository and result details", () => {
   ]);
   expect(view.coverage).toContain("1 skipped (0 excluded by Culverin ignore");
   expect(view.warning).toBe(
-    "Partial analysis: some source files exceeded the safe size limit; some source counts may be inaccurate.",
+    "Partial analysis: some source files exceeded the safe size limit.",
   );
 });
 
@@ -100,6 +101,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
         unsupported_language: 0,
         binary_content: 0,
         oversized_source: 0,
+        unsupported_notebook: 0,
       },
       complete: true,
       incompleteReasons: [],

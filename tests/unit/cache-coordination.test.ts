@@ -49,11 +49,11 @@ async function result(id = "42"): Promise<AnalysisResultV2> {
     engine: {
       name: "tokei",
       version: "15.0.0",
-      wrapperVersion: "2",
+      wrapperVersion: "3",
       rulesProfile: "source-v1",
       rulesVersion: "2",
       rulesHash: await effectiveRulesHash(defaultIgnore),
-      coveragePolicyVersion: "1",
+      coveragePolicyVersion: "2",
     },
     totals: { files: 0, lines: 0, code: 0, comments: 0, blanks: 0 },
     languages: [],
@@ -68,6 +68,7 @@ async function result(id = "42"): Promise<AnalysisResultV2> {
         unsupported_language: 0,
         binary_content: 0,
         oversized_source: 0,
+        unsupported_notebook: 0,
       },
       complete: true,
       incompleteReasons: [],
@@ -285,7 +286,7 @@ describe("public result cache", () => {
       coverage: {
         ...value.coverage,
         complete: false,
-        incompleteReasons: ["counter_inaccurate"],
+        incompleteReasons: ["oversized_source"],
       },
     });
     expect(

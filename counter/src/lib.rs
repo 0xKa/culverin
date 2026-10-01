@@ -5,7 +5,10 @@ mod rules;
 mod wasm;
 
 pub use analyzer::CounterAnalyzer;
-pub use model::{AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, Totals};
+pub use model::{
+    AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, OtherExtension,
+    OtherFiles, Totals,
+};
 pub use rules::Rules;
 pub use wasm::{Analyzer, counter_metadata, force_trap};
 

@@ -17,6 +17,11 @@ export type SkippedReason =
   | "binary_content"
   | "oversized_source"
   | "unsupported_notebook";
+export type OtherExtension = {
+  extension: string;
+  files: number;
+  lines: number;
+};
 export type AnalysisResultV2 = {
   schemaVersion: 2;
   repository: { id: string };
@@ -32,6 +37,7 @@ export type AnalysisResultV2 = {
   };
   totals: LineCounts & { files: number };
   languages: LanguageCounts[];
+  otherFiles: { files: number; lines: number; extensions: OtherExtension[] };
   coverage: {
     regularFiles: number;
     countedFiles: number;
@@ -52,6 +58,7 @@ const reasons: SkippedReason[] = [
   "unsupported_notebook",
 ];
 const incomplete = ["oversized_source"];
+export const MAX_OTHER_EXTENSIONS = 15;
 const integer = (x: unknown): x is number =>
   Number.isSafeInteger(x) && (x as number) >= 0;
 const record = (x: unknown): x is Record<string, unknown> =>
@@ -74,12 +81,21 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
       "engine",
       "totals",
       "languages",
+      "otherFiles",
       "coverage",
     ]) ||
     value.schemaVersion !== 2
   )
     return false;
-  const { repository, revision, engine, totals, languages, coverage } = value;
+  const {
+    repository,
+    revision,
+    engine,
+    totals,
+    languages,
+    otherFiles,
+    coverage,
+  } = value;
   if (
     !record(repository) ||
     !keys(repository, ["id"]) ||
@@ -210,5 +226,49 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
         0)
   )
     return false;
-  return true;
+  return validOtherFiles(
+    otherFiles,
+    (coverage.skippedByReason as Record<string, number>).unsupported_language!,
+  );
+}
+
+function validOtherFiles(value: unknown, files: number): boolean {
+  if (
+    !record(value) ||
+    !keys(value, ["files", "lines", "extensions"]) ||
+    value.files !== files ||
+    !integer(value.lines) ||
+    !Array.isArray(value.extensions) ||
+    value.extensions.length > MAX_OTHER_EXTENSIONS
+  )
+    return false;
+  let previous: OtherExtension | undefined;
+  let sumFiles = 0;
+  let sumLines = 0;
+  for (const candidate of value.extensions as unknown[]) {
+    if (
+      !record(candidate) ||
+      !keys(candidate, ["extension", "files", "lines"]) ||
+      typeof candidate.extension !== "string" ||
+      !/^(?:|\.[a-z0-9_+-]{1,16})$/.test(candidate.extension) ||
+      !integer(candidate.files) ||
+      candidate.files === 0 ||
+      !integer(candidate.lines)
+    )
+      return false;
+    const row = candidate as OtherExtension;
+    if (
+      previous &&
+      (previous.lines < row.lines ||
+        (previous.lines === row.lines &&
+          (previous.files < row.files ||
+            (previous.files === row.files &&
+              previous.extension >= row.extension))))
+    )
+      return false;
+    previous = row;
+    sumFiles += row.files;
+    sumLines += row.lines;
+  }
+  return sumFiles <= value.files && sumLines <= value.lines;
 }

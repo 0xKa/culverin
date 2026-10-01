@@ -90,7 +90,24 @@ pub struct AnalysisResult {
     pub engine: Engine,
     pub totals: Totals,
     pub languages: Vec<LanguageCounts>,
+    pub other_files: OtherFiles,
     pub coverage: Coverage,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OtherExtension {
+    pub extension: String,
+    pub files: u64,
+    pub lines: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OtherFiles {
+    pub files: u64,
+    pub lines: u64,
+    pub extensions: Vec<OtherExtension>,
 }
 
 #[derive(Clone, Debug, Serialize)]

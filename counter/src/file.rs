@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 pub(crate) const MAX_FILE: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_OTHER_EXTENSIONS: usize = 15;
 use tokei::{CodeStats, Config, LanguageType};
 
 pub(crate) fn language(path: &str, prefix: &[u8]) -> Option<LanguageType> {
@@ -183,6 +184,24 @@ pub(crate) fn merge_rows(
     Ok(())
 }
 
+pub(crate) fn physical_lines(text: &[u8]) -> u64 {
+    text.iter().filter(|b| **b == b'\n').count() as u64
+        + u64::from(!text.is_empty() && !text.ends_with(b"\n"))
+}
+
+pub(crate) fn other_extension(path: &str) -> Option<String> {
+    let name = path.rsplit('/').next()?;
+    let Some((_, extension)) = name.rsplit_once('.') else {
+        return Some(String::new());
+    };
+    (!extension.is_empty()
+        && extension.len() <= 16
+        && extension
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'+')))
+    .then(|| format!(".{}", extension.to_ascii_lowercase()))
+}
+
 fn add_text(
     rows: &mut BTreeMap<String, LanguageCounts>,
     kind: LanguageType,
@@ -191,8 +210,7 @@ fn add_text(
     let stats = kind.parse_from_slice(text, &Config::default());
     let mut text_rows = BTreeMap::new();
     add_stats(&mut text_rows, kind, &stats)?;
-    let physical = text.iter().filter(|b| **b == b'\n').count() as u64
-        + u64::from(!text.is_empty() && !text.ends_with(b"\n"));
+    let physical = physical_lines(text);
     let attributed = text_rows
         .values()
         .try_fold(0u64, |sum, row: &LanguageCounts| {

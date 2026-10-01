@@ -44,6 +44,55 @@ describe("analysis result contract", () => {
     expect(schema.properties.languages.items.required.sort()).toEqual(
       Object.keys(result.languages[0]).sort(),
     );
+    expect(schema.properties.otherFiles.required.sort()).toEqual(
+      Object.keys(result.otherFiles).sort(),
+    );
+    expect(
+      schema.properties.otherFiles.properties.extensions.items.required.sort(),
+    ).toEqual(Object.keys(result.otherFiles.extensions[0]).sort());
+  });
+  test("checks other files against the skipped count and their order", () => {
+    expect(result.otherFiles.files).toBe(
+      result.coverage.skippedByReason.unsupported_language,
+    );
+    const row = { extension: ".golden", files: 1, lines: 2 };
+    const other = (
+      extensions: unknown[],
+      files = 2,
+      lines = 4,
+      skipped = files,
+    ) =>
+      validateResult({
+        ...result,
+        otherFiles: { files, lines, extensions },
+        coverage: {
+          ...result.coverage,
+          regularFiles:
+            result.coverage.regularFiles + skipped - result.otherFiles.files,
+          skippedFiles:
+            result.coverage.skippedFiles + skipped - result.otherFiles.files,
+          skippedByReason: {
+            ...result.coverage.skippedByReason,
+            unsupported_language: skipped,
+          },
+        },
+      });
+    const empty = { ...row, extension: "" };
+    expect(other([empty, row])).toBe(true);
+    expect(other([row, empty])).toBe(false);
+    expect(other([row, { ...row, extension: ".GOLDEN" }])).toBe(false);
+    expect(other([row, row])).toBe(false);
+    expect(other([row], 3, 4, 2)).toBe(false);
+    expect(other([{ ...row, lines: 5 }])).toBe(false);
+    expect(other([{ ...row, files: 0 }])).toBe(false);
+    const rows = (length: number) =>
+      Array.from({ length }, (_, index) => ({
+        extension: `.e${String(index).padStart(2, "0")}`,
+        files: 1,
+        lines: 0,
+      }));
+    expect(other(rows(15), 16, 0)).toBe(true);
+    expect(other(rows(16), 16, 0)).toBe(false);
   });
   test("rejects broken sums, file attribution, and identity", () => {
     expect(

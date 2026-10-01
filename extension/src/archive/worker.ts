@@ -92,6 +92,19 @@ self.onmessage = (event: MessageEvent<Command>) => {
                 throw new ArchiveError("counter_failed");
               }
             },
+            skipOther(path, prefix, size, lines, binary) {
+              try {
+                active.skip_other(
+                  path,
+                  prefix,
+                  BigInt(size),
+                  BigInt(lines),
+                  binary,
+                );
+              } catch {
+                throw new ArchiveError("counter_failed");
+              }
+            },
           },
         );
         const result: unknown = JSON.parse(active.finish());

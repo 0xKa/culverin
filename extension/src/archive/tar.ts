@@ -55,6 +55,13 @@ export type ArchiveSink = {
     reason: string,
     size: number,
   ): Promise<void> | void;
+  skipOther(
+    path: string,
+    prefix: Uint8Array,
+    size: number,
+    lines: number,
+    binary: boolean,
+  ): Promise<void> | void;
 };
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -248,6 +255,31 @@ class ByteReader {
     }
   }
 
+  async scanLines(
+    length: number,
+    prefix: Uint8Array,
+  ): Promise<{ lines: number; binary: boolean }> {
+    let lines = 0;
+    let binary = false;
+    let last = -1;
+    const scan = (bytes: Uint8Array) => {
+      if (bytes.length === 0) return;
+      binary ||= bytes.includes(0);
+      for (let i = bytes.indexOf(10); i !== -1; i = bytes.indexOf(10, i + 1))
+        lines++;
+      last = bytes[bytes.length - 1]!;
+    };
+    scan(prefix);
+    while (length > 0) {
+      if (!(await this.fill())) return invalid();
+      const count = Math.min(length, this.chunk.length - this.offset);
+      scan(this.chunk.subarray(this.offset, this.offset + count));
+      this.offset += count;
+      length -= count;
+    }
+    return { lines: lines + (last === -1 || last === 10 ? 0 : 1), binary };
+  }
+
   async endZeros(): Promise<void> {
     while (await this.fill()) {
       const length = this.chunk.length - this.offset;
@@ -377,7 +409,13 @@ export async function analyzeTar(
           ].includes(classification)
         )
           throw new ArchiveError("counter_failed");
-        if (classification !== "counted" || size > ARCHIVE_LIMITS.file) {
+        if (classification === "unsupported_language") {
+          const { lines, binary } = await input.scanLines(
+            size - prefix.length,
+            prefix,
+          );
+          await sink.skipOther(logical, prefix, size, lines, binary);
+        } else if (classification !== "counted" || size > ARCHIVE_LIMITS.file) {
           await input.discard(size - prefix.length);
           await sink.skipFile(
             logical,

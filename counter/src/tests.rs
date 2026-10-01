@@ -321,22 +321,37 @@ fn streamed_skip_records_only_valid_classification() {
         .skip_file("large.rs", b"fn ", "oversized_source", 9_000_000)
         .unwrap();
     analyzer
-        .skip_file("unknown.xyz", b"text", "unsupported_language", 4)
+        .skip_other("unknown.xyz", b"text", 4, 1, false)
         .unwrap();
+    for (path, reason) in [
+        ("another.rs", "excluded_by_rule"),
+        ("unknown.xyz", "unsupported_language"),
+    ] {
+        assert_eq!(
+            analyzer.skip_file(path, b"text", reason, 4).err().unwrap(),
+            "invalid skip reason"
+        );
+    }
     assert_eq!(
         analyzer
-            .skip_file("another.rs", b"fn ", "excluded_by_rule", 3)
+            .skip_other("another.rs", b"fn ", 3, 1, false)
             .err()
             .unwrap(),
         "invalid skip reason"
     );
-    assert_eq!(
-        analyzer
-            .skip_file("short.xyz", b"text", "unsupported_language", 3)
-            .err()
-            .unwrap(),
-        "invalid skip size"
-    );
+    for (prefix, size, lines, binary) in [
+        (&b"text"[..], 3, 1, false),
+        (b"text", 4, 5, false),
+        (&[0xff, 0xfe, b'x', 0], 4, 1, false),
+    ] {
+        assert_eq!(
+            analyzer
+                .skip_other("short.xyz", prefix, size, lines, binary)
+                .err()
+                .unwrap(),
+            "invalid skip size"
+        );
+    }
     let result = analyzer.finish().unwrap();
     assert_eq!(result.coverage.regular_files, 2);
     assert_eq!(result.coverage.analyzed_bytes, 0);
@@ -476,4 +491,65 @@ fn rejects_unsupported_rule_syntax() {
     let many: Vec<String> = (0..65).map(|n| format!("r{n}")).collect();
     let many: Vec<&str> = many.iter().map(String::as_str).collect();
     assert!(CounterAnalyzer::new(rules(&many)).is_err());
+}
+
+#[test]
+fn other_files_are_grouped_by_extension() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    for (path, bytes) in [
+        ("a/one.golden", &b"x\ny\n"[..]),
+        ("b/two.GOLDEN", b"z"),
+        ("data.out", b"1\n2\n3\n"),
+        ("hello", b"hi\n"),
+        (".gitignore", b"target\n"),
+        ("bad.ext!", b"x\n"),
+        ("empty.out", b""),
+        ("late.zst", b"text\0"),
+    ] {
+        analyzer.add_file(path, bytes).unwrap();
+    }
+    assert_eq!(
+        analyzer
+            .skip_other("big.out", b"0123", 100, 4, false)
+            .unwrap()
+            .kind,
+        "unsupported_language"
+    );
+    assert_eq!(
+        analyzer
+            .skip_other("blob.dat", b"0123", 100, 0, true)
+            .unwrap()
+            .kind,
+        "binary_content"
+    );
+    for n in 0..20 {
+        analyzer.add_file(&format!("f.zz{n}"), b"").unwrap();
+    }
+    let result = analyzer.finish().unwrap();
+    assert!(result.coverage.complete);
+    assert_eq!(result.totals.files, 0);
+    assert_eq!(
+        result.coverage.skipped_by_reason["unsupported_language"],
+        28
+    );
+    assert_eq!(result.coverage.skipped_by_reason["binary_content"], 2);
+    assert_eq!(result.other_files.files, 28);
+    assert_eq!(result.other_files.lines, 13);
+    let rows: Vec<_> = result
+        .other_files
+        .extensions
+        .iter()
+        .map(|x| (x.extension.as_str(), x.files, x.lines))
+        .collect();
+    assert_eq!(
+        rows[..4],
+        [
+            (".out", 3, 7),
+            (".golden", 2, 3),
+            ("", 1, 1),
+            (".gitignore", 1, 1),
+        ]
+    );
+    assert_eq!(rows.len(), 15);
+    assert_eq!(rows[4], (".zz0", 1, 0));
 }

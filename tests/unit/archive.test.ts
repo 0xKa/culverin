@@ -109,10 +109,12 @@ function sink() {
   const counted: string[] = [];
   const skipped: string[] = [];
   const skippedSizes: number[] = [];
+  const others: { path: string; lines: number; binary: boolean }[] = [];
   return {
     counted,
     skipped,
     skippedSizes,
+    others,
     classify(path: string) {
       return path.endsWith(".rs") ? "counted" : "unsupported_language";
     },
@@ -122,6 +124,17 @@ function sink() {
     skipFile(path: string, _prefix: Uint8Array, reason: string, size: number) {
       skipped.push(`${path}:${reason}`);
       skippedSizes.push(size);
+    },
+    skipOther(
+      path: string,
+      _prefix: Uint8Array,
+      size: number,
+      lines: number,
+      binary: boolean,
+    ) {
+      skipped.push(`${path}:unsupported_language`);
+      skippedSizes.push(size);
+      others.push({ path, lines, binary });
     },
   };
 }
@@ -162,6 +175,28 @@ describe("incremental tar parser", () => {
     expect(metrics.decompressedBytes).toBe(bytes.length);
     expect(metrics.regularFiles).toBe(2);
     expect(metrics.specialEntries).toBe(1);
+  });
+
+  test("counts lines of other files while streaming them", async () => {
+    const long = `${"x".repeat(200)}\n${"y".repeat(100)}\nlast`;
+    const bytes = archive(
+      entry("repo/long.golden", encoder.encode(long)),
+      entry("repo/ends.out", encoder.encode("a\nb\n")),
+      entry("repo/empty.out", new Uint8Array(0)),
+      entry(
+        "repo/late.dat",
+        Uint8Array.from([...encoder.encode("z".repeat(300)), 0, 10]),
+      ),
+    );
+    const target = sink();
+    await analyzeTar(stream(bytes, 7), target);
+    expect(target.others).toEqual([
+      { path: "long.golden", lines: 3, binary: false },
+      { path: "ends.out", lines: 2, binary: false },
+      { path: "empty.out", lines: 0, binary: false },
+      { path: "late.dat", lines: 1, binary: true },
+    ]);
+    expect(target.skippedSizes).toEqual([long.length, 4, 0, 302]);
   });
 
   test("accepts a real GitHub tarball", async () => {
@@ -485,6 +520,7 @@ describe("incremental tar parser", () => {
         classify: () => "counted",
         addFile: () => undefined,
         skipFile: () => undefined,
+        skipOther: () => undefined,
       });
       throw new Error("expected file limit");
     } catch (error) {
@@ -548,6 +584,7 @@ describe("incremental tar parser", () => {
         classify: () => "counted",
         addFile: () => undefined,
         skipFile: () => undefined,
+        skipOther: () => undefined,
       });
       throw new Error("expected WASM byte limit");
     } catch (error) {

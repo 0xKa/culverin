@@ -1,6 +1,9 @@
-use crate::file::{FileAnalysis, merge_rows};
+use crate::file::{
+    FileAnalysis, MAX_OTHER_EXTENSIONS, merge_rows, other_extension, physical_lines,
+};
 use crate::model::{
-    AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, Totals,
+    AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, OtherExtension,
+    OtherFiles, Totals,
 };
 use crate::rules::{RULES_VERSION, Rules};
 
@@ -12,6 +15,7 @@ pub struct CounterAnalyzer {
     rules: Rules,
     hash: String,
     languages: BTreeMap<String, LanguageCounts>,
+    others: BTreeMap<Option<String>, (u64, u64)>,
     coverage: Coverage,
 }
 
@@ -32,6 +36,7 @@ impl CounterAnalyzer {
             rules,
             hash,
             languages: BTreeMap::new(),
+            others: BTreeMap::new(),
             coverage: Coverage {
                 regular_files: 0,
                 counted_files: 0,
@@ -56,6 +61,9 @@ impl CounterAnalyzer {
     pub fn add_file(&mut self, path: &str, bytes: &[u8]) -> Result<Classification, String> {
         let classification = crate::file::classify_file(path, bytes, &self.rules)?;
         self.record_file(bytes.len() as u64)?;
+        if classification.kind == "unsupported_language" {
+            return self.record_other(path, physical_lines(bytes), bytes.contains(&0));
+        }
         if classification.kind != "counted" {
             self.record_skip(classification.kind)?;
             return Ok(classification);
@@ -91,8 +99,9 @@ impl CounterAnalyzer {
         size: u64,
     ) -> Result<(), String> {
         let classification = self.classify_path(path, prefix)?;
-        if classification.kind != reason
-            && !(classification.kind == "counted" && reason == "oversized_source")
+        if reason == "unsupported_language"
+            || classification.kind != reason
+                && !(classification.kind == "counted" && reason == "oversized_source")
         {
             return Err("invalid skip reason".into());
         }
@@ -101,6 +110,45 @@ impl CounterAnalyzer {
         }
         self.record_file(size)?;
         self.record_skip(reason)
+    }
+    pub fn skip_other(
+        &mut self,
+        path: &str,
+        prefix: &[u8],
+        size: u64,
+        lines: u64,
+        binary: bool,
+    ) -> Result<Classification, String> {
+        if self.classify_path(path, prefix)?.kind != "unsupported_language" {
+            return Err("invalid skip reason".into());
+        }
+        if (prefix.len() as u64) > size || lines > size || prefix.contains(&0) && !binary {
+            return Err("invalid skip size".into());
+        }
+        self.record_file(size)?;
+        self.record_other(path, lines, binary)
+    }
+    fn record_other(
+        &mut self,
+        path: &str,
+        lines: u64,
+        binary: bool,
+    ) -> Result<Classification, String> {
+        let kind = if binary {
+            "binary_content"
+        } else {
+            "unsupported_language"
+        };
+        self.record_skip(kind)?;
+        if !binary {
+            let entry = self.others.entry(other_extension(path)).or_insert((0, 0));
+            entry.0 = entry.0.checked_add(1).ok_or("counter overflow")?;
+            entry.1 = entry.1.checked_add(lines).ok_or("counter overflow")?;
+        }
+        Ok(Classification {
+            kind,
+            language: None,
+        })
     }
     fn record_file(&mut self, size: u64) -> Result<(), String> {
         self.coverage.regular_files = self
@@ -168,6 +216,38 @@ impl CounterAnalyzer {
         if counts.lines > 9_007_199_254_740_991 {
             return Err("counter overflow".into());
         }
+        let mut other_files = OtherFiles {
+            files: 0,
+            lines: 0,
+            extensions: vec![],
+        };
+        for (extension, (files, lines)) in self.others {
+            other_files.files = other_files
+                .files
+                .checked_add(files)
+                .ok_or("counter overflow")?;
+            other_files.lines = other_files
+                .lines
+                .checked_add(lines)
+                .ok_or("counter overflow")?;
+            if let Some(extension) = extension {
+                other_files.extensions.push(OtherExtension {
+                    extension,
+                    files,
+                    lines,
+                });
+            }
+        }
+        if other_files.lines > 9_007_199_254_740_991 {
+            return Err("counter overflow".into());
+        }
+        other_files.extensions.sort_by(|a, b| {
+            b.lines
+                .cmp(&a.lines)
+                .then(b.files.cmp(&a.files))
+                .then(a.extension.cmp(&b.extension))
+        });
+        other_files.extensions.truncate(MAX_OTHER_EXTENSIONS);
         Ok(AnalysisResult {
             schema_version: 2,
             repository: BTreeMap::from([("id".into(), self.rules.repository_id)]),
@@ -183,6 +263,7 @@ impl CounterAnalyzer {
             },
             totals: Totals { files, counts },
             languages: self.languages.into_values().collect(),
+            other_files,
             coverage: self.coverage,
         })
     }

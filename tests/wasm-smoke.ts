@@ -96,9 +96,26 @@ for (const name of cases) {
       "oversized_source",
       9_000_000n,
     );
+    assert.equal(
+      JSON.parse(
+        counter.skip_other(
+          "data.golden",
+          new TextEncoder().encode("a\nb"),
+          10n,
+          4n,
+          false,
+        ),
+      ).kind,
+      "unsupported_language",
+    );
     const result = JSON.parse(counter.finish());
-    assert.equal(result.coverage.totalBytes, 9_000_000);
+    assert.equal(result.coverage.totalBytes, 9_000_010);
     assert.equal(result.coverage.analyzedBytes, 0);
+    assert.deepEqual(result.otherFiles, {
+      files: 1,
+      lines: 4,
+      extensions: [{ extension: ".golden", files: 1, lines: 4 }],
+    });
   } finally {
     counter.free();
   }

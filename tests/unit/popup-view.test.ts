@@ -45,15 +45,23 @@ const result: AnalysisResultV2 = {
       files: 1,
     },
   ],
+  otherFiles: {
+    files: 3,
+    lines: 40,
+    extensions: [
+      { extension: ".golden", files: 1, lines: 30 },
+      { extension: "", files: 1, lines: 8 },
+    ],
+  },
   coverage: {
-    regularFiles: 3,
+    regularFiles: 6,
     countedFiles: 2,
     analyzedBytes: 20,
     totalBytes: 30,
-    skippedFiles: 1,
+    skippedFiles: 4,
     skippedByReason: {
       excluded_by_rule: 0,
-      unsupported_language: 0,
+      unsupported_language: 3,
       binary_content: 0,
       oversized_source: 1,
       unsupported_notebook: 0,
@@ -80,7 +88,9 @@ test("formats repository and result details", () => {
   expect(view.textRows).toEqual([
     "Markdown: 4 text lines (100.0% of text lines), 1 files",
   ]);
-  expect(view.coverage).toContain("1 skipped (0 excluded by Culverin ignore");
+  expect(view.coverage).toContain(
+    "4 skipped (0 excluded by Culverin ignore, 3 unsupported language, 0 binary",
+  );
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
   );
@@ -91,6 +101,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
     ...result,
     totals: { lines: 0, code: 0, comments: 0, blanks: 0, files: 0 },
     languages: [],
+    otherFiles: { files: 0, lines: 0, extensions: [] },
     coverage: {
       ...result.coverage,
       countedFiles: 0,

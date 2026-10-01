@@ -912,7 +912,7 @@ sync();
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
   await resumedPopup
     .getByText(
-      /Source profile coverage: 2 of 3 regular files counted; 1 skipped \(0 excluded by Culverin ignore, 1 other files,/,
+      /Source profile coverage: 2 of 14 regular files counted; 12 skipped \(0 excluded by Culverin ignore, 12 other files,/,
     )
     .waitFor();
   assert.equal(
@@ -921,7 +921,7 @@ sync();
   );
   assert.equal(
     await resumedPopup.locator("#snapshot-size").textContent(),
-    "25 B",
+    "47 B",
   );
   assert.equal(
     await resumedPopup.locator("#text-lines").textContent(),
@@ -929,7 +929,7 @@ sync();
   );
   assert.deepEqual(
     await resumedPopup
-      .locator("#detail-content ul")
+      .locator("#detail-content > ul")
       .evaluateAll((lists) =>
         lists.map((list) => [
           list.previousElementSibling?.textContent,
@@ -951,13 +951,34 @@ sync();
       [
         "Not recognized as a programming or text language. Their lines are not included in code or text lines.",
         "Other files by lines",
-        [".golden: 2 lines, 1 files"],
+        [
+          ".golden: 2 lines, 1 files",
+          ...Array.from(
+            { length: 9 },
+            (_, index) => `.zz0${index + 1}: 1 lines, 1 files`,
+          ),
+        ],
       ],
     ],
   );
+  const moreOther = resumedPopup.locator("#more-other-files");
+  const moreList = moreOther.getByRole("list", {
+    name: "More other files by lines",
+  });
+  assert.equal(await moreList.isVisible(), false);
+  await moreOther.getByText("Show 2 more").click();
+  assert.deepEqual(await moreList.locator("li").allTextContents(), [
+    ".zz10: 1 lines, 1 files",
+    ".zz11: 1 lines, 1 files",
+  ]);
+  assert.equal(await moreList.isVisible(), true);
+  assert.equal(await moreOther.getByText("Show fewer").isVisible(), true);
+  assert.equal(await moreOther.getByText("Show 2 more").isVisible(), false);
+  await moreOther.getByText("Show fewer").click();
+  assert.equal(await moreList.isVisible(), false);
   await page.getByText("1 line of code", { exact: true }).waitFor();
   const disclosure = resumedPopup.locator("#details");
-  await disclosure.locator("summary").focus();
+  await disclosure.locator(":scope > summary").focus();
   await resumedPopup.keyboard.press("Enter");
   assert.equal(
     await disclosure.evaluate(
@@ -1167,7 +1188,7 @@ sync();
     .waitFor({ timeout: 15_000 });
   await ignorePopup
     .getByText(
-      /Source profile coverage: 1 of 3 regular files counted; 2 skipped \(1 excluded by Culverin ignore, 1 other files,/,
+      /Source profile coverage: 1 of 14 regular files counted; 13 skipped \(1 excluded by Culverin ignore, 12 other files,/,
     )
     .waitFor();
   assert.equal(
@@ -1176,7 +1197,7 @@ sync();
   );
   assert.equal(
     await ignorePopup.locator("#snapshot-size").textContent(),
-    "25 B",
+    "47 B",
   );
   await settingsNav.getByRole("link", { name: "Storage" }).click();
   await settingsPage.locator("#rules").waitFor({ state: "hidden" });
@@ -1733,12 +1754,28 @@ sync();
   assert.equal(archivedResult.totals.files, 2);
   assert.equal(archivedResult.totals.lines, 2);
   assert.equal(archivedResult.totals.code, 1);
-  assert.equal(archivedResult.coverage.regularFiles, 3);
-  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 1);
+  assert.equal(archivedResult.coverage.regularFiles, 14);
+  assert.equal(
+    archivedResult.coverage.skippedByReason.unsupported_language,
+    12,
+  );
   assert.deepEqual(archivedResult.otherFiles, {
-    files: 1,
-    lines: 2,
-    extensions: [{ extension: ".golden", files: 1, lines: 2 }],
+    files: 12,
+    lines: 13,
+    extensions: [
+      { extension: ".golden", files: 1, lines: 2 },
+      { extension: ".zz01", files: 1, lines: 1 },
+      { extension: ".zz02", files: 1, lines: 1 },
+      { extension: ".zz03", files: 1, lines: 1 },
+      { extension: ".zz04", files: 1, lines: 1 },
+      { extension: ".zz05", files: 1, lines: 1 },
+      { extension: ".zz06", files: 1, lines: 1 },
+      { extension: ".zz07", files: 1, lines: 1 },
+      { extension: ".zz08", files: 1, lines: 1 },
+      { extension: ".zz09", files: 1, lines: 1 },
+      { extension: ".zz10", files: 1, lines: 1 },
+      { extension: ".zz11", files: 1, lines: 1 },
+    ],
   });
   assert.equal(archivedResult.coverage.complete, true);
   const archiveTransport = archived.transport as {

@@ -25,9 +25,21 @@ export type ResultView = {
   codeRows: string[];
   textRows: string[];
   otherRows: string[];
+  moreOtherRows: string[];
   noLanguages?: string;
   coverage: string;
   warning?: string;
+};
+
+export const VISIBLE_OTHER_ROWS = 10;
+
+const bySize = <T extends { files: number; language: string }>(
+  size: (row: T) => number,
+) => {
+  return (a: T, b: T) =>
+    size(b) - size(a) ||
+    b.files - a.files ||
+    (a.language < b.language ? -1 : a.language > b.language ? 1 : 0);
 };
 
 export function sizesView(resolution: ResolutionEnvelope): SizesView {
@@ -48,12 +60,14 @@ export function resultView(
   const text = textLines(result.languages);
   const codeRows = result.languages
     .filter((row) => !isTextLanguage(row.language))
+    .sort(bySize((row) => row.code))
     .map((row) => {
       const percent = totals.code === 0 ? 0 : (row.code / totals.code) * 100;
       return `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
     });
   const textRows = result.languages
     .filter((row) => isTextLanguage(row.language))
+    .sort(bySize((row) => row.comments))
     .map((row) => {
       const percent = text === 0 ? 0 : (row.comments / text) * 100;
       return `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
@@ -69,7 +83,7 @@ export function resultView(
     other.lines - other.extensions.reduce((sum, row) => sum + row.lines, 0);
   if (restFiles > 0)
     otherRows.push(
-      `Other types: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
+      `Remaining files: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
     );
   const skipped = coverage.skippedByReason;
   return {
@@ -84,7 +98,8 @@ export function resultView(
     ],
     codeRows,
     textRows,
-    otherRows,
+    otherRows: otherRows.slice(0, VISIBLE_OTHER_ROWS),
+    moreOtherRows: otherRows.slice(VISIBLE_OTHER_ROWS),
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
     coverage: `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by Culverin ignore, ${skipped.unsupported_language.toLocaleString()} other files, ${skipped.binary_content.toLocaleString()} binary, ${skipped.unsupported_notebook.toLocaleString()} unsupported notebook, ${skipped.oversized_source.toLocaleString()} oversized).`,

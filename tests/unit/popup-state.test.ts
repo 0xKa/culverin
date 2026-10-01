@@ -21,6 +21,7 @@ test("tracks repository, busy state, sizes, result and details", () => {
     codeRows: [],
     textRows: [],
     otherRows: [],
+    moreOtherRows: [],
     noLanguages: "No language totals.",
     coverage: "",
   };

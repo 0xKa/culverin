@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
-import { resultView, sizesView } from "../../extension/src/popup/view";
+import {
+  resultView,
+  sizesView,
+  VISIBLE_OTHER_ROWS,
+} from "../../extension/src/popup/view";
 
 const resolution: ResolutionEnvelope = {
   repositoryId: "1",
@@ -94,11 +98,58 @@ test("formats repository and result details", () => {
   expect(view.otherRows).toEqual([
     ".golden: 30 lines, 1 files",
     "No extension: 8 lines, 1 files",
-    "Other types: 2 lines, 1 files",
+    "Remaining files: 2 lines, 1 files",
   ]);
+  expect(view.moreOtherRows).toEqual([]);
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
   );
+});
+
+test("orders languages by lines and folds other files after the first rows", () => {
+  const row = (language: string, code: number, comments: number) => ({
+    language,
+    files: 1,
+    lines: code + comments,
+    code,
+    comments,
+    blanks: 0,
+  });
+  const extensions = Array.from({ length: 12 }, (_, index) => ({
+    extension: `.e${String(index).padStart(2, "0")}`,
+    files: 1,
+    lines: 12 - index,
+  }));
+  const view = resultView(
+    {
+      ...result,
+      languages: [
+        row("Go", 50, 0),
+        row("Markdown", 0, 1),
+        row("Plain Text", 0, 9),
+        row("Rust", 70, 0),
+        row("Shell", 50, 0),
+      ],
+      otherFiles: { files: 13, lines: 80, extensions },
+    },
+    resolution,
+  );
+  expect(view.codeRows.map((line) => line.split(":")[0])).toEqual([
+    "Rust",
+    "Go",
+    "Shell",
+  ]);
+  expect(view.textRows.map((line) => line.split(":")[0])).toEqual([
+    "Plain Text",
+    "Markdown",
+  ]);
+  expect(view.otherRows).toHaveLength(VISIBLE_OTHER_ROWS);
+  expect(view.otherRows[0]).toBe(".e00: 12 lines, 1 files");
+  expect(view.moreOtherRows).toEqual([
+    ".e10: 2 lines, 1 files",
+    ".e11: 1 lines, 1 files",
+    "Remaining files: 2 lines, 1 files",
+  ]);
 });
 
 test("handles zero lines and absent languages without invalid percentages", () => {

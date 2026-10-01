@@ -172,6 +172,40 @@ function Details({
                 <li key={row}>{row}</li>
               ))}
             </ul>
+            {result.moreOtherRows.length > 0 && (
+              <details id="more-other-files" className="group">
+                <summary className="inline-flex list-none items-center gap-1 pl-[22px] [&::-webkit-details-marker]:hidden">
+                  <span className="group-open:hidden">
+                    Show {result.moreOtherRows.length} more
+                  </span>
+                  <span className="hidden group-open:inline">Show fewer</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    className="transition-transform group-open:rotate-180"
+                  >
+                    <path
+                      d="M4 6l4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </summary>
+                <ul
+                  aria-label="More other files by lines"
+                  className="mt-1 list-disc pl-[22px]"
+                >
+                  {result.moreOtherRows.map((row) => (
+                    <li key={row}>{row}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         )}
         {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}

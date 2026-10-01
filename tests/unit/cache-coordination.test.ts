@@ -599,6 +599,49 @@ test("resolution cache evicts the oldest entry at its entry limit", async () => 
   expect(calls).toBe(102);
 });
 
+test("coordinator reports progress phases only forward", () => {
+  let now = 0;
+  let jobId = "";
+  let progress: (
+    phase: "downloading" | "decompressing" | "counting",
+    processedBytes?: number,
+  ) => void = () => undefined;
+  const coordinator = new AnalysisCoordinator(
+    (job, report) => {
+      jobId = job.id;
+      progress = report;
+      return new Promise<AnalysisOutput>(() => undefined);
+    },
+    () => undefined,
+    () => now,
+  );
+  const seen: string[] = [];
+  coordinator.subscribe("same", resolution(), undefined, "", {
+    requestId: crypto.randomUUID(),
+    owner: "owner",
+    public: true,
+    onProgress: (phase, bytes) => {
+      seen.push(bytes === undefined ? phase : `${phase}:${bytes}`);
+    },
+    onComplete: () => undefined,
+    onFailure: () => undefined,
+  });
+  progress("downloading", 1);
+  now = 100;
+  progress("downloading", 2);
+  now = 150;
+  expect(coordinator.reportCounting(jobId)).toBe(true);
+  now = 1000;
+  progress("downloading", 3);
+  progress("decompressing");
+  now = 1100;
+  coordinator.reportCounting(jobId);
+  now = 1200;
+  coordinator.reportCounting(jobId);
+  expect(seen).toEqual(["downloading:1", "counting", "counting"]);
+  expect(coordinator.reportCounting("other")).toBe(false);
+});
+
 test("coordinator shares jobs, bounds queued work, and scopes cancellation", async () => {
   const runs: {
     signal: AbortSignal;

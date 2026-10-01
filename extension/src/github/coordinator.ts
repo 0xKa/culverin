@@ -7,6 +7,13 @@ export const QUEUE_WAIT_MS = 30_000;
 export const SUBSCRIPTIONS = 32;
 export const PROGRESS_INTERVAL_MS = 250;
 
+type ProgressPhase = "downloading" | "decompressing" | "counting";
+const phaseOrder: ProgressPhase[] = [
+  "downloading",
+  "decompressing",
+  "counting",
+];
+
 export type AnalysisOutput = {
   result: AnalysisResultV2;
   transport: {
@@ -45,6 +52,7 @@ type Job = {
   state: "queued" | "running";
   queueTimer?: ReturnType<typeof setTimeout>;
   lastProgress: number;
+  phase: number;
 };
 
 export type Marker = {
@@ -113,16 +121,8 @@ export class AnalysisCoordinator {
       () => job.controller.abort("deadline"),
       job.deadlineMs,
     );
-    const progress = (
-      phase: "downloading" | "decompressing" | "counting",
-      processedBytes?: number,
-    ) => {
-      const now = this.now();
-      if (now - job.lastProgress < PROGRESS_INTERVAL_MS) return;
-      job.lastProgress = now;
-      for (const subscriber of job.subscribers.values())
-        subscriber.onProgress(phase, processedBytes);
-    };
+    const progress = (phase: ProgressPhase, processedBytes?: number) =>
+      this.report(job, phase, processedBytes);
     void this.execute(
       {
         id: job.id,
@@ -195,6 +195,7 @@ export class AnalysisCoordinator {
         deadlineMs,
         state: "queued",
         lastProgress: Number.NEGATIVE_INFINITY,
+        phase: -1,
       };
       this.jobs.push(job);
       job.queueTimer = setTimeout(() => {
@@ -264,13 +265,26 @@ export class AnalysisCoordinator {
   reportCounting(jobId: string): boolean {
     const job = this.active;
     if (!job || job.id !== jobId) return false;
-    const now = this.now();
-    if (now - job.lastProgress >= PROGRESS_INTERVAL_MS) {
-      job.lastProgress = now;
-      for (const subscriber of job.subscribers.values())
-        subscriber.onProgress("counting");
-    }
+    this.report(job, "counting");
     return true;
+  }
+
+  private report(
+    job: Job,
+    phase: ProgressPhase,
+    processedBytes?: number,
+  ): void {
+    const rank = phaseOrder.indexOf(phase);
+    const now = this.now();
+    if (
+      rank < job.phase ||
+      (rank === job.phase && now - job.lastProgress < PROGRESS_INTERVAL_MS)
+    )
+      return;
+    job.phase = rank;
+    job.lastProgress = now;
+    for (const subscriber of job.subscribers.values())
+      subscriber.onProgress(phase, processedBytes);
   }
 
   subscriptionCount(): number {

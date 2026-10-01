@@ -42,7 +42,7 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   decompressed_limit_exceeded:
     "The source snapshot exceeds the expanded-size limit.",
   entry_limit_exceeded: "The source snapshot has too many entries.",
-  file_limit_exceeded: "The source snapshot has too many files.",
+  file_limit_exceeded: "The source snapshot exceeds the counting limit.",
   archive_invalid: "The source snapshot is malformed.",
   archive_unsupported: "This source snapshot format is unsupported.",
   analysis_timeout: "Analysis timed out. Try again.",

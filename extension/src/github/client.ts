@@ -1,6 +1,8 @@
+import { ARCHIVE_LIMITS } from "../archive/limits";
+
 export const API_VERSION = "2026-03-10";
 export const METADATA_LIMIT = 1024 * 1024;
-export const ARCHIVE_LIMIT = 50 * 1024 * 1024;
+export const ARCHIVE_LIMIT = ARCHIVE_LIMITS.compressed;
 export type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
 
 export type Resolution = {

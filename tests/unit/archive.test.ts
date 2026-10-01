@@ -166,7 +166,10 @@ describe("incremental tar parser", () => {
       >,
     );
     try {
-      await analyzeTar(decompressed, sink());
+      await analyzeTar(decompressed, sink(), undefined, undefined, {
+        ...ARCHIVE_LIMITS,
+        decompressed: 4 * 1024 * 1024,
+      });
       throw new Error("expected decompressed limit");
     } catch (error) {
       expect((error as ArchiveError).code).toBe("decompressed_limit_exceeded");
@@ -468,7 +471,7 @@ describe("incremental tar parser", () => {
       expect((error as ArchiveError).code).toBe("file_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("regularFiles");
     }
-  });
+  }, 30_000);
 
   test("accepts the entry boundary and rejects one additional entry", async () => {
     const make = (index: number) =>
@@ -489,7 +492,7 @@ describe("incremental tar parser", () => {
       expect((error as ArchiveError).code).toBe("entry_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("entries");
     }
-  });
+  }, 30_000);
 
   test("bounds total bytes passed to WASM", async () => {
     const chunk = new Uint8Array(64 * 1024);
@@ -498,7 +501,7 @@ describe("incremental tar parser", () => {
     let ended = false;
     const input = new ReadableStream<Uint8Array>({
       pull(controller) {
-        if (file === 26) {
+        if (file === 3) {
           if (ended) controller.close();
           else {
             controller.enqueue(new Uint8Array(1024));
@@ -521,12 +524,18 @@ describe("incremental tar parser", () => {
       },
     });
     try {
-      await analyzeTar(input, {
-        classify: () => "counted",
-        addFile: () => undefined,
-        skipFile: () => undefined,
-        skipOther: () => undefined,
-      });
+      await analyzeTar(
+        input,
+        {
+          classify: () => "counted",
+          addFile: () => undefined,
+          skipFile: () => undefined,
+          skipOther: () => undefined,
+        },
+        undefined,
+        undefined,
+        { ...ARCHIVE_LIMITS, wasmBytes: 2 * ARCHIVE_LIMITS.file },
+      );
       throw new Error("expected WASM byte limit");
     } catch (error) {
       expect((error as ArchiveError).code).toBe("file_limit_exceeded");
@@ -535,7 +544,7 @@ describe("incremental tar parser", () => {
   });
 
   test("bounds retained names before inserting many long paths", async () => {
-    const input = generatedEntries(40_000, (index) => {
+    const input = generatedEntries(ARCHIVE_LIMITS.entries, (index) => {
       const block = entry(
         `${index.toString().padStart(5, "0")}${"x".repeat(90)}`,
         new Uint8Array(0),
@@ -552,5 +561,5 @@ describe("incremental tar parser", () => {
       expect((error as ArchiveError).code).toBe("metadata_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("retainedPaths");
     }
-  });
+  }, 30_000);
 });

@@ -128,19 +128,25 @@ test("names the limit an analysis reached", () => {
     kind: "notice",
     label: "Too large to count",
     detail:
-      "The source snapshot has too many files. The limit is 40,000 files.",
+      "The source snapshot exceeds the counting limit. The limit is 200,000 files.",
   });
   expect(
     rowView(
       failureState("decompressed_limit_exceeded", undefined, "decompressed"),
     ).title,
   ).toBe(
-    "The source snapshot exceeds the expanded-size limit. The limit is 250 MiB unpacked.",
+    "The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked.",
   );
   expect(
     failureState("metadata_limit_exceeded", undefined, "unknown"),
   ).toMatchObject({
     detail: "Repository metadata exceeds the safe limit.",
+  });
+  expect(
+    failureState("file_limit_exceeded", undefined, "wasmBytes"),
+  ).toMatchObject({
+    detail:
+      "The source snapshot exceeds the counting limit. The limit is 1,024 MiB of source files to count.",
   });
 });
 

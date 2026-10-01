@@ -1,18 +1,23 @@
 import { afterEach, beforeEach, expect, jest, test } from "bun:test";
 import { ARCHIVE_TIMEOUTS } from "../../extension/src/archive/limits";
 import { abortError, waitFor } from "../../extension/src/archive/timeout";
-import { analyzeArchiveStream } from "../../extension/src/archive/bridge";
+import {
+  analyzeArchive,
+  analyzeArchiveStream,
+} from "../../extension/src/archive/bridge";
 import {
   AnalysisCoordinator,
   type AnalysisOutput,
 } from "../../extension/src/github/coordinator";
 
 const originalChrome = globalThis.chrome;
+const originalFetch = globalThis.fetch;
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => {
   jest.useRealTimers();
   globalThis.chrome = originalChrome;
+  globalThis.fetch = originalFetch;
 });
 
 test("a stalled operation times out without waiting for its promise", async () => {
@@ -137,6 +142,40 @@ test("an overall deadline keeps its timeout reason during a pending read", async
   await settle();
   controller.abort("deadline");
   expect(await rejection).toMatchObject({ code: "analysis_timeout" });
+});
+
+test("a stalled archive response aborts its fetch before starting a worker", async () => {
+  const commands = bridge();
+  let downloadSignal: AbortSignal | undefined;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    downloadSignal = init?.signal ?? undefined;
+    return new Promise<Response>((_resolve, reject) => {
+      downloadSignal?.addEventListener(
+        "abort",
+        () => reject(new Error("aborted")),
+        { once: true },
+      );
+    });
+  }) as typeof fetch;
+  const pending = analyzeArchive(
+    {
+      repositoryId: "1",
+      owner: "culverin",
+      name: "fixture",
+      defaultBranch: "main",
+      visibility: "public",
+      sha: "a".repeat(40),
+      sizeKb: null,
+    },
+    undefined,
+    new AbortController().signal,
+    crypto.randomUUID(),
+  );
+  const rejection = pending.catch((error: unknown) => error);
+  jest.advanceTimersByTime(ARCHIVE_TIMEOUTS.networkIdle);
+  expect(await rejection).toMatchObject({ code: "analysis_timeout" });
+  expect(downloadSignal?.aborted).toBe(true);
+  expect(commands).not.toContain("archive.start");
 });
 
 test("the coordinator gives active and queued jobs their longer allowances", async () => {

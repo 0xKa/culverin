@@ -209,6 +209,29 @@ test("streams and discards archive bytes with a hard count", async () => {
   );
 });
 
+test("accepts archive response lengths above the former 50 MiB limit", async () => {
+  const fetcher: Fetcher = async () =>
+    response("body", "https://codeload.github.com/archive", 200, {
+      "content-length": String(50 * 1024 * 1024 + 1),
+    });
+  await expect(
+    downloadArchive(
+      fetcher,
+      {
+        repositoryId: "42",
+        owner: "owner",
+        name: "repo",
+        defaultBranch: "main",
+        visibility: "public",
+        sha,
+        sizeKb: null,
+      },
+      undefined,
+      controller.signal,
+    ),
+  ).resolves.toEqual({ bytes: 4, finalOrigin: "https://codeload.github.com" });
+});
+
 test("rejects a streaming archive overrun and cancels the reader", async () => {
   const resolution = {
     repositoryId: "42",

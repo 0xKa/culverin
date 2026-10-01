@@ -1,4 +1,4 @@
-import { ARCHIVE_LIMITS } from "./limits";
+import { ARCHIVE_LIMITS, type ArchiveLimits } from "./limits";
 
 export { ARCHIVE_LIMITS };
 
@@ -168,23 +168,23 @@ function parsePax(body: Uint8Array): Map<string, string> {
   return values;
 }
 
-function normalizedPath(value: string): string {
+function normalizedPath(value: string, limits: ArchiveLimits): string {
   if (
     !value ||
     value.includes("\0") ||
     value.includes("\\") ||
     value.startsWith("/") ||
     /^[A-Za-z]:/.test(value) ||
-    encoder.encode(value).length > ARCHIVE_LIMITS.pathBytes
+    encoder.encode(value).length > limits.pathBytes
   )
     return invalid();
   const raw = value.split("/");
   if (raw.includes("..")) return invalid();
   const parts = raw.filter((part) => part && part !== ".");
-  if (parts.length === 0 || parts.length > ARCHIVE_LIMITS.pathComponents)
+  if (parts.length === 0 || parts.length > limits.pathComponents)
     return invalid();
   const path = parts.join("/");
-  if (encoder.encode(path).length > ARCHIVE_LIMITS.pathBytes) return invalid();
+  if (encoder.encode(path).length > limits.pathBytes) return invalid();
   return path;
 }
 
@@ -197,6 +197,7 @@ class ByteReader {
   constructor(
     stream: ReadableStream<Uint8Array>,
     private readonly onProgress?: (bytes: number) => void,
+    private readonly limits: ArchiveLimits = ARCHIVE_LIMITS,
   ) {
     this.reader = stream.getReader();
   }
@@ -207,7 +208,7 @@ class ByteReader {
       if (done) return false;
       if (!(value instanceof Uint8Array)) return invalid();
       this.bytes += value.byteLength;
-      if (this.bytes > ARCHIVE_LIMITS.decompressed)
+      if (this.bytes > this.limits.decompressed)
         throw new ArchiveError("decompressed_limit_exceeded", "decompressed");
       this.onProgress?.(this.bytes);
       this.chunk = value;
@@ -288,8 +289,9 @@ export async function analyzeTar(
   sink: ArchiveSink,
   signal?: AbortSignal,
   onProgress?: (bytes: number) => void,
+  limits: ArchiveLimits = ARCHIVE_LIMITS,
 ): Promise<ArchiveMetrics> {
-  const input = new ByteReader(stream, onProgress);
+  const input = new ByteReader(stream, onProgress, limits);
   const metrics: ArchiveMetrics = {
     decompressedBytes: 0,
     entries: 0,
@@ -320,15 +322,15 @@ export async function analyzeTar(
       }
       if (zeroBlocks) return invalid();
       metrics.entries++;
-      if (metrics.entries > ARCHIVE_LIMITS.entries)
+      if (metrics.entries > limits.entries)
         throw new ArchiveError("entry_limit_exceeded", "entries");
       const raw = header(block);
       const padding = (512 - (raw.size % 512)) % 512;
       if (raw.type === "x" || raw.type === "g") {
-        if (raw.size > ARCHIVE_LIMITS.paxBody)
+        if (raw.size > limits.paxBody)
           throw new ArchiveError("metadata_limit_exceeded", "paxBody");
         paxBytes += raw.size;
-        if (paxBytes > ARCHIVE_LIMITS.paxTotal)
+        if (paxBytes > limits.paxTotal)
           throw new ArchiveError("metadata_limit_exceeded", "paxTotal");
         const body = new Uint8Array(raw.size);
         await input.take(body);
@@ -367,7 +369,7 @@ export async function analyzeTar(
       local = undefined;
       if (effective.size !== raw.size && raw.type !== "0" && raw.type !== "\0")
         throw new ArchiveError("archive_unsupported");
-      const path = normalizedPath(effective.path);
+      const path = normalizedPath(effective.path, limits);
       const first = path.split("/", 1)[0]!;
       wrapper ??= first;
       if (first !== wrapper) return invalid();
@@ -376,7 +378,7 @@ export async function analyzeTar(
       if (!logical && !isDirectory) return invalid();
       if (logical) {
         const bytes = encoder.encode(logical).length;
-        if (metrics.retainedPathBytes + bytes > ARCHIVE_LIMITS.retainedPaths)
+        if (metrics.retainedPathBytes + bytes > limits.retainedPaths)
           throw new ArchiveError("metadata_limit_exceeded", "retainedPaths");
         if (seen.has(logical)) return invalid();
         seen.add(logical);
@@ -386,7 +388,7 @@ export async function analyzeTar(
       const bodyPadding = (512 - (size % 512)) % 512;
       if (raw.type === "0" || raw.type === "\0") {
         metrics.regularFiles++;
-        if (metrics.regularFiles > ARCHIVE_LIMITS.regularFiles)
+        if (metrics.regularFiles > limits.regularFiles)
           throw new ArchiveError("file_limit_exceeded", "regularFiles");
         const prefix = new Uint8Array(Math.min(size, 128));
         await input.take(prefix);
@@ -406,7 +408,7 @@ export async function analyzeTar(
             prefix,
           );
           await sink.skipOther(logical, prefix, size, lines, binary);
-        } else if (classification !== "counted" || size > ARCHIVE_LIMITS.file) {
+        } else if (classification !== "counted" || size > limits.file) {
           await input.discard(size - prefix.length);
           await sink.skipFile(
             logical,
@@ -415,7 +417,7 @@ export async function analyzeTar(
             size,
           );
         } else {
-          if (metrics.wasmBytes + size > ARCHIVE_LIMITS.wasmBytes)
+          if (metrics.wasmBytes + size > limits.wasmBytes)
             throw new ArchiveError("file_limit_exceeded", "wasmBytes");
           const body = new Uint8Array(size);
           body.set(prefix);
@@ -430,8 +432,7 @@ export async function analyzeTar(
         if (
           (raw.type === "1" || raw.type === "2") &&
           (effective.linkpath.includes("\0") ||
-            encoder.encode(effective.linkpath).length >
-              ARCHIVE_LIMITS.pathBytes)
+            encoder.encode(effective.linkpath).length > limits.pathBytes)
         )
           return invalid();
         await input.discard(size);

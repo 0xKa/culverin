@@ -6,72 +6,16 @@ import {
   ArchiveError,
   type ArchiveErrorCode,
 } from "../../extension/src/archive/tar";
-
-const encoder = new TextEncoder();
-
-function put(
-  block: Uint8Array,
-  offset: number,
-  width: number,
-  value: string,
-): void {
-  const bytes = encoder.encode(value);
-  if (bytes.length > width) throw new Error("field overflow");
-  block.set(bytes, offset);
-}
-
-function octal(
-  block: Uint8Array,
-  offset: number,
-  width: number,
-  value: number,
-): void {
-  put(block, offset, width, value.toString(8).padStart(width - 1, "0") + "\0");
-}
-
-function checksum(block: Uint8Array): void {
-  block.fill(32, 148, 156);
-  const sum = block.subarray(0, 512).reduce((value, byte) => value + byte, 0);
-  octal(block, 148, 8, sum);
-}
-
-function entry(path: string, body: Uint8Array, type = "0"): Uint8Array {
-  const block = new Uint8Array(512);
-  put(block, 0, 100, path);
-  octal(block, 100, 8, 0o644);
-  octal(block, 108, 8, 0);
-  octal(block, 116, 8, 0);
-  octal(block, 124, 12, body.length);
-  octal(block, 136, 12, 0);
-  put(block, 156, 1, type);
-  put(block, 257, 6, "ustar\0");
-  put(block, 263, 2, "00");
-  checksum(block);
-  return join(block, body, new Uint8Array((512 - (body.length % 512)) % 512));
-}
-
-function link(path: string, target: string, type = "2"): Uint8Array {
-  const block = entry(path, new Uint8Array(0), type);
-  put(block, 157, 100, target);
-  checksum(block);
-  return block;
-}
-
-function join(...parts: Uint8Array[]): Uint8Array {
-  const result = new Uint8Array(
-    parts.reduce((size, part) => size + part.length, 0),
-  );
-  let offset = 0;
-  for (const part of parts) {
-    result.set(part, offset);
-    offset += part.length;
-  }
-  return result;
-}
-
-function archive(...entries: Uint8Array[]): Uint8Array {
-  return join(...entries, new Uint8Array(1024));
-}
+import {
+  archive,
+  checksum,
+  encoder,
+  entry,
+  join,
+  link,
+  octal,
+  put,
+} from "../tar-fixture";
 
 function stream(
   bytes: Uint8Array,
@@ -230,18 +174,15 @@ describe("incremental tar parser", () => {
     }
   });
 
-  test("rejects an oversized browser stream chunk before retaining it", async () => {
-    const input = stream(
-      new Uint8Array(ARCHIVE_LIMITS.browserChunk + 1),
-      ARCHIVE_LIMITS.browserChunk + 1,
+  test("reads an archive that arrives as one large chunk", async () => {
+    const bytes = archive(
+      entry("repo/big.rs", new Uint8Array(2 * 1024 * 1024).fill(120)),
+      entry("repo/README", encoder.encode("text")),
     );
-    try {
-      await analyzeTar(input, sink());
-      throw new Error("expected chunk limit");
-    } catch (error) {
-      expect((error as ArchiveError).code).toBe("metadata_limit_exceeded");
-      expect((error as ArchiveError).limit).toBe("browserChunk");
-    }
+    const target = sink();
+    await analyzeTar(stream(bytes, bytes.length), target);
+    expect(target.counted).toEqual(["big.rs"]);
+    expect(target.skipped).toEqual(["README:unsupported_language"]);
   });
 
   test("applies local PAX path once", async () => {

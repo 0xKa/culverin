@@ -9,7 +9,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
+import { archive, encoder, entry } from "./tar-fixture";
 
 const directory = resolve(
   process.env.CULVERIN_EXTENSION_DIR ?? "extension/dist",
@@ -40,9 +42,9 @@ assert.deepEqual(
     .sort(),
   [
     "culverin_counter_bg-HASH.wasm",
+    "limits-HASH.js",
     "preact-HASH.js",
     "repository-HASH.js",
-    "result-HASH.js",
     "settings-HASH.js",
     "styles-HASH.css",
     "styles-HASH.js",
@@ -1432,6 +1434,74 @@ sync();
     if (scope.partialOriginalFetch)
       globalThis.fetch = scope.partialOriginalFetch;
     delete scope.partialOriginalFetch;
+  });
+  await clearPublicCache();
+  let noiseState = 0x9e3779b9;
+  const noise = Uint8Array.from({ length: 3 * 512 * 1024 }, () => {
+    noiseState ^= noiseState << 13;
+    noiseState ^= noiseState >>> 17;
+    noiseState ^= noiseState << 5;
+    return noiseState & 0xff;
+  });
+  const singleChunk = [
+    ...gzipSync(
+      archive(
+        entry("fixture-abc123/src/main.rs", encoder.encode("fn main() {}\n")),
+        entry("fixture-abc123/assets/noise.bin", noise),
+      ),
+    ),
+  ];
+  assert.ok(singleChunk.length > 1024 * 1024);
+  await worker.evaluate(
+    ({ bytes, sha }) => {
+      const scope = globalThis as typeof globalThis & {
+        singleChunkOriginalFetch?: typeof fetch;
+      };
+      scope.singleChunkOriginalFetch = fetch;
+      globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`)) {
+          const body = Uint8Array.from(bytes);
+          const response = new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(body);
+                controller.close();
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/gzip" } },
+          );
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
+        return scope.singleChunkOriginalFetch!(input, init);
+      }) as typeof fetch;
+    },
+    { bytes: singleChunk, sha: publicSha },
+  );
+  await page.reload();
+  await page.getByText("Count lines of code").waitFor();
+  const singleChunkPopup = await openPopup(page);
+  await singleChunkPopup.getByText(uncheckedStatus).waitFor();
+  await singleChunkPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+  await singleChunkPopup
+    .getByText("Analyzed locally.")
+    .waitFor({ timeout: 15_000 });
+  assert.equal(
+    await singleChunkPopup.locator("#code-lines").textContent(),
+    "1 code lines",
+  );
+  await singleChunkPopup.close();
+  await worker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      singleChunkOriginalFetch?: typeof fetch;
+    };
+    if (scope.singleChunkOriginalFetch)
+      globalThis.fetch = scope.singleChunkOriginalFetch;
+    delete scope.singleChunkOriginalFetch;
   });
   await clearPublicCache();
   await page.reload();

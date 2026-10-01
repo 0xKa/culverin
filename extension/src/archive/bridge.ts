@@ -170,8 +170,6 @@ export async function analyzeArchiveStream(
       if (signal.aborted) throw new ArchiveError("analysis_canceled");
       const { done, value } = await reader.read();
       if (done) break;
-      if (value.byteLength > ARCHIVE_LIMITS.browserChunk)
-        throw new ArchiveError("metadata_limit_exceeded", "browserChunk");
       compressedBytes += value.byteLength;
       if (compressedBytes > ARCHIVE_LIMITS.compressed)
         throw new ArchiveError("compressed_limit_exceeded", "compressed");

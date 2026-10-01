@@ -121,6 +121,29 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   });
 });
 
+test("names the limit an analysis reached", () => {
+  expect(
+    failureState("file_limit_exceeded", undefined, "regularFiles"),
+  ).toEqual({
+    kind: "notice",
+    label: "Too large to count",
+    detail:
+      "The source snapshot has too many files. The limit is 40,000 files.",
+  });
+  expect(
+    rowView(
+      failureState("decompressed_limit_exceeded", undefined, "decompressed"),
+    ).title,
+  ).toBe(
+    "The source snapshot exceeds the expanded-size limit. The limit is 250 MiB unpacked.",
+  );
+  expect(
+    failureState("metadata_limit_exceeded", undefined, "unknown"),
+  ).toMatchObject({
+    detail: "Repository metadata exceeds the safe limit.",
+  });
+});
+
 test("marks a total that leaves out files too large to count", () => {
   const view = rowView({ kind: "complete", total: 1234, uncounted: 2 });
   expect(view.count).toBe("1.2k+");

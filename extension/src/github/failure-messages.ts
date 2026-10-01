@@ -1,4 +1,25 @@
+import { ARCHIVE_LIMITS } from "../archive/limits";
 import type { PublicErrorCode } from "./public-protocol";
+
+const mib = (bytes: number) =>
+  `${(bytes / 1024 / 1024).toLocaleString("en")} MiB`;
+const count = (value: number) => value.toLocaleString("en");
+
+const limitNotes: Record<string, string> = {
+  compressed: `${mib(ARCHIVE_LIMITS.compressed)} downloaded`,
+  decompressed: `${mib(ARCHIVE_LIMITS.decompressed)} unpacked`,
+  entries: `${count(ARCHIVE_LIMITS.entries)} archive entries`,
+  regularFiles: `${count(ARCHIVE_LIMITS.regularFiles)} files`,
+  wasmBytes: `${mib(ARCHIVE_LIMITS.wasmBytes)} of source files to count`,
+  paxBody: `${count(ARCHIVE_LIMITS.paxBody / 1024)} KiB of metadata for one entry`,
+  paxTotal: `${mib(ARCHIVE_LIMITS.paxTotal)} of archive metadata`,
+  retainedPaths: `${mib(ARCHIVE_LIMITS.retainedPaths)} of file paths`,
+};
+
+export function limitNote(limit?: string): string {
+  const note = limit === undefined ? undefined : limitNotes[limit];
+  return note ? ` The limit is ${note}.` : "";
+}
 
 export const failureMessages: Record<PublicErrorCode, string> = {
   invalid_repository: "Invalid repository address.",

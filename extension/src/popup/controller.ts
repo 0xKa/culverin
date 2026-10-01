@@ -1,7 +1,7 @@
 import { effectiveRulesHash, isDefaultIgnore } from "../counter/rules";
 import { describeIgnore, readIgnore } from "../ignore/settings";
 import { pageRepository, type PageRepository } from "../content/repository";
-import { failureMessages } from "../github/failure-messages";
+import { failureMessages, limitNote } from "../github/failure-messages";
 import {
   POPUP_PORT,
   validPublicReply,
@@ -100,7 +100,7 @@ function showResult(
 function handleFailure(
   reply: Extract<PublicReply, { type: "analysis.failed" }>,
 ): void {
-  let message = errors[reply.code];
+  let message = errors[reply.code] + limitNote(reply.limit);
   dispatch({ type: "connect", label: connectLabels[reply.code] });
   if (reply.code === "rate_limited") {
     retryUntil =

@@ -1,5 +1,5 @@
 import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
-import { failureMessages } from "../github/failure-messages";
+import { failureMessages, limitNote } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
 export type AnalysisPhase = Extract<
@@ -87,9 +87,10 @@ export function compactCount(value: number): string {
 export function failureState(
   code: PublicErrorCode,
   retryAt?: number,
+  limit?: string,
 ): VisibleRowState {
   if (code === "analysis_canceled") return { kind: "idle" };
-  const detail = failureMessages[code];
+  const detail = failureMessages[code] + limitNote(limit);
   if (code === "rate_limited")
     return {
       kind: "notice",

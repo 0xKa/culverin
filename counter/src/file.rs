@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 pub(crate) const MAX_FILE: usize = 8 * 1024 * 1024;
-pub(crate) const MAX_OTHER_EXTENSIONS: usize = 15;
+pub(crate) const MAX_OTHER_EXTENSIONS: usize = 100;
 use tokei::{CodeStats, Config, LanguageType};
 
 pub(crate) fn language(path: &str, prefix: &[u8]) -> Option<LanguageType> {

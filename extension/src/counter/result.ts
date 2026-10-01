@@ -58,7 +58,7 @@ const reasons: SkippedReason[] = [
   "unsupported_notebook",
 ];
 const incomplete = ["oversized_source"];
-export const MAX_OTHER_EXTENSIONS = 15;
+export const MAX_OTHER_EXTENSIONS = 100;
 const integer = (x: unknown): x is number =>
   Number.isSafeInteger(x) && (x as number) >= 0;
 const record = (x: unknown): x is Record<string, unknown> =>

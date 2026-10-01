@@ -155,7 +155,7 @@
         },
         "extensions": {
           "type": "array",
-          "maxItems": 15,
+          "maxItems": 100,
           "items": {
             "type": "object",
             "additionalProperties": false,

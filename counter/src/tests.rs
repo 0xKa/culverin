@@ -522,7 +522,7 @@ fn other_files_are_grouped_by_extension() {
             .kind,
         "binary_content"
     );
-    for n in 0..20 {
+    for n in 0..110 {
         analyzer.add_file(&format!("f.zz{n}"), b"").unwrap();
     }
     let result = analyzer.finish().unwrap();
@@ -530,10 +530,10 @@ fn other_files_are_grouped_by_extension() {
     assert_eq!(result.totals.files, 0);
     assert_eq!(
         result.coverage.skipped_by_reason["unsupported_language"],
-        28
+        118
     );
     assert_eq!(result.coverage.skipped_by_reason["binary_content"], 2);
-    assert_eq!(result.other_files.files, 28);
+    assert_eq!(result.other_files.files, 118);
     assert_eq!(result.other_files.lines, 13);
     let rows: Vec<_> = result
         .other_files
@@ -550,6 +550,6 @@ fn other_files_are_grouped_by_extension() {
             (".gitignore", 1, 1),
         ]
     );
-    assert_eq!(rows.len(), 15);
+    assert_eq!(rows.len(), 100);
     assert_eq!(rows[4], (".zz0", 1, 0));
 }

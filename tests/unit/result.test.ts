@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { validateResult } from "../../extension/src/counter/result";
+import {
+  MAX_OTHER_EXTENSIONS,
+  validateResult,
+} from "../../extension/src/counter/result";
 import {
   coverageIdentity,
   effectiveRulesHash,
@@ -87,12 +90,13 @@ describe("analysis result contract", () => {
     expect(other([{ ...row, files: 0 }])).toBe(false);
     const rows = (length: number) =>
       Array.from({ length }, (_, index) => ({
-        extension: `.e${String(index).padStart(2, "0")}`,
+        extension: `.e${String(index).padStart(3, "0")}`,
         files: 1,
         lines: 0,
       }));
-    expect(other(rows(15), 16, 0)).toBe(true);
-    expect(other(rows(16), 16, 0)).toBe(false);
+    const max = MAX_OTHER_EXTENSIONS;
+    expect(other(rows(max), max + 1, 0)).toBe(true);
+    expect(other(rows(max + 1), max + 1, 0)).toBe(false);
   });
   test("rejects broken sums, file attribution, and identity", () => {
     expect(

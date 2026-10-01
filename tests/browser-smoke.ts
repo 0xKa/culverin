@@ -912,7 +912,7 @@ sync();
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
   await resumedPopup
     .getByText(
-      /Source profile coverage: 2 of 2 regular files counted; 0 skipped/,
+      /Source profile coverage: 2 of 3 regular files counted; 1 skipped \(0 excluded by Culverin ignore, 1 other files,/,
     )
     .waitFor();
   assert.equal(
@@ -921,7 +921,7 @@ sync();
   );
   assert.equal(
     await resumedPopup.locator("#snapshot-size").textContent(),
-    "21 B",
+    "25 B",
   );
   assert.equal(
     await resumedPopup.locator("#text-lines").textContent(),
@@ -947,6 +947,11 @@ sync();
         "Text",
         "Text formats by text lines",
         ["Plain Text: 1 text lines (100.0% of text lines), 1 files"],
+      ],
+      [
+        "Not recognized as a programming or text language. Their lines are not included in code or text lines.",
+        "Other files by lines",
+        [".golden: 2 lines, 1 files"],
       ],
     ],
   );
@@ -1162,7 +1167,7 @@ sync();
     .waitFor({ timeout: 15_000 });
   await ignorePopup
     .getByText(
-      /Source profile coverage: 1 of 2 regular files counted; 1 skipped \(1 excluded by Culverin ignore,/,
+      /Source profile coverage: 1 of 3 regular files counted; 2 skipped \(1 excluded by Culverin ignore, 1 other files,/,
     )
     .waitFor();
   assert.equal(
@@ -1171,7 +1176,7 @@ sync();
   );
   assert.equal(
     await ignorePopup.locator("#snapshot-size").textContent(),
-    "21 B",
+    "25 B",
   );
   await settingsNav.getByRole("link", { name: "Storage" }).click();
   await settingsPage.locator("#rules").waitFor({ state: "hidden" });
@@ -1718,6 +1723,7 @@ sync();
   assert.equal(archived.state, "analyzed");
   const archivedResult = archived.result as {
     totals: { files: number; lines: number; code: number };
+    otherFiles: unknown;
     coverage: {
       regularFiles: number;
       skippedByReason: { unsupported_language: number };
@@ -1727,8 +1733,13 @@ sync();
   assert.equal(archivedResult.totals.files, 2);
   assert.equal(archivedResult.totals.lines, 2);
   assert.equal(archivedResult.totals.code, 1);
-  assert.equal(archivedResult.coverage.regularFiles, 2);
-  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 0);
+  assert.equal(archivedResult.coverage.regularFiles, 3);
+  assert.equal(archivedResult.coverage.skippedByReason.unsupported_language, 1);
+  assert.deepEqual(archivedResult.otherFiles, {
+    files: 1,
+    lines: 2,
+    extensions: [{ extension: ".golden", files: 1, lines: 2 }],
+  });
   assert.equal(archivedResult.coverage.complete, true);
   const archiveTransport = archived.transport as {
     compressedBytes: number;

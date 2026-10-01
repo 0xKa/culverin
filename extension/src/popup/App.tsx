@@ -157,6 +157,23 @@ function Details({
             </ul>
           </>
         )}
+        {result && result.otherRows.length > 0 && (
+          <>
+            <h2 className="mt-3 text-[0.95rem] font-bold">Other files</h2>
+            <p className="my-1.5">
+              Not recognized as a programming or text language. Their lines are
+              not included in code or text lines.
+            </p>
+            <ul
+              aria-label="Other files by lines"
+              className="mt-1 list-disc pl-[22px]"
+            >
+              {result.otherRows.map((row) => (
+                <li key={row}>{row}</li>
+              ))}
+            </ul>
+          </>
+        )}
         {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}
         {result && <p className="my-1.5">{result.coverage}</p>}
         {result?.warning && (

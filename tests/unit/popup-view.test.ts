@@ -89,8 +89,13 @@ test("formats repository and result details", () => {
     "Markdown: 4 text lines (100.0% of text lines), 1 files",
   ]);
   expect(view.coverage).toContain(
-    "4 skipped (0 excluded by Culverin ignore, 3 unsupported language, 0 binary",
+    "4 skipped (0 excluded by Culverin ignore, 3 other files, 0 binary",
   );
+  expect(view.otherRows).toEqual([
+    ".golden: 30 lines, 1 files",
+    "No extension: 8 lines, 1 files",
+    "Other types: 2 lines, 1 files",
+  ]);
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
   );

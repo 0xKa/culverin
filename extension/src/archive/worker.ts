@@ -50,6 +50,14 @@ self.onmessage = (event: MessageEvent<Command>) => {
         let wasmLinearMemoryBytes = wasm.memory.buffer.byteLength;
         analyzer = new Analyzer(command.rules);
         const active = analyzer;
+        let lastActivity = Number.NEGATIVE_INFINITY;
+        let counting = false;
+        const activity = () => {
+          const now = performance.now();
+          if (now - lastActivity < 250) return;
+          lastActivity = now;
+          self.postMessage({ type: "activity" });
+        };
         const metrics = await analyzeTar(
           input.pipeThrough(
             new DecompressionStream("gzip") as unknown as ReadableWritablePair<
@@ -71,12 +79,16 @@ self.onmessage = (event: MessageEvent<Command>) => {
             },
             addFile(path, bytes) {
               try {
-                self.postMessage({ type: "counting" });
+                if (!counting) {
+                  counting = true;
+                  self.postMessage({ type: "counting" });
+                }
                 if (command.blockMs) {
                   const until = performance.now() + command.blockMs;
                   while (performance.now() < until) Math.sqrt(2);
                 }
                 active.add_file(path, bytes);
+                activity();
                 wasmLinearMemoryBytes = Math.max(
                   wasmLinearMemoryBytes,
                   wasm.memory.buffer.byteLength,
@@ -106,6 +118,8 @@ self.onmessage = (event: MessageEvent<Command>) => {
               }
             },
           },
+          undefined,
+          activity,
         );
         const result: unknown = JSON.parse(active.finish());
         wasmLinearMemoryBytes = Math.max(

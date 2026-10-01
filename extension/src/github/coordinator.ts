@@ -1,9 +1,10 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import { defaultIgnore, type IgnoreSettings } from "../counter/rules";
 import type { ResolutionEnvelope } from "./public-protocol";
+import { ARCHIVE_TIMEOUTS } from "../archive/limits";
 
 export const QUEUED_JOBS = 8;
-export const QUEUE_WAIT_MS = 30_000;
+export const QUEUE_WAIT_MS = ARCHIVE_TIMEOUTS.queue;
 export const SUBSCRIPTIONS = 32;
 export const PROGRESS_INTERVAL_MS = 250;
 
@@ -168,7 +169,7 @@ export class AnalysisCoordinator {
     token: string | undefined,
     generation: string,
     subscriber: Subscriber,
-    deadlineMs = 25_000,
+    deadlineMs = ARCHIVE_TIMEOUTS.job,
     ignore: IgnoreSettings = defaultIgnore,
   ): boolean {
     this.detachOwner(subscriber.owner);

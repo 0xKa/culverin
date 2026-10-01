@@ -1941,6 +1941,37 @@ sync();
     ),
   );
   console.log(`Repeated large archive jobs: ${JSON.stringify(largeRuns)}`);
+  const slowArchive = await harness.evaluate(async (bytes) => {
+    const started = performance.now();
+    const outcome = await new Promise<Record<string, unknown>>((resolve) =>
+      chrome.runtime.sendMessage(
+        {
+          type: "archive.fixture",
+          requestId: crypto.randomUUID(),
+          bytes,
+          chunkDelayMs: 60,
+        },
+        resolve,
+      ),
+    );
+    return {
+      state: outcome.state,
+      result: outcome.result,
+      elapsedMs: performance.now() - started,
+    };
+  }, largeArchive);
+  assert.equal(slowArchive.state, "analyzed");
+  assert.ok(slowArchive.elapsedMs > 25_000);
+  const slowResult = slowArchive.result as {
+    totals: { files: number; lines: number };
+    coverage: { complete: boolean };
+  };
+  assert.equal(slowResult.totals.files, 1);
+  assert.equal(slowResult.totals.lines, 800_000);
+  assert.equal(slowResult.coverage.complete, true);
+  console.log(
+    `Slow archive completed in ${Math.round(slowArchive.elapsedMs)} ms`,
+  );
   const archiveCountCancellation = await harness.evaluate(async (bytes) => {
     const requestId = crypto.randomUUID();
     const counting = new Promise<void>((resolve) => {

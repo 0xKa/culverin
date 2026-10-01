@@ -194,7 +194,10 @@ class ByteReader {
   private offset = 0;
   bytes = 0;
 
-  constructor(stream: ReadableStream<Uint8Array>) {
+  constructor(
+    stream: ReadableStream<Uint8Array>,
+    private readonly onProgress?: (bytes: number) => void,
+  ) {
     this.reader = stream.getReader();
   }
 
@@ -206,6 +209,7 @@ class ByteReader {
       this.bytes += value.byteLength;
       if (this.bytes > ARCHIVE_LIMITS.decompressed)
         throw new ArchiveError("decompressed_limit_exceeded", "decompressed");
+      this.onProgress?.(this.bytes);
       this.chunk = value;
       this.offset = 0;
     }
@@ -283,8 +287,9 @@ export async function analyzeTar(
   stream: ReadableStream<Uint8Array>,
   sink: ArchiveSink,
   signal?: AbortSignal,
+  onProgress?: (bytes: number) => void,
 ): Promise<ArchiveMetrics> {
-  const input = new ByteReader(stream);
+  const input = new ByteReader(stream, onProgress);
   const metrics: ArchiveMetrics = {
     decompressedBytes: 0,
     entries: 0,

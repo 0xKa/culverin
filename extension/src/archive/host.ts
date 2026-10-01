@@ -1,6 +1,7 @@
 import { validateResult } from "../counter/result";
 import { normalizeIgnore } from "../counter/rules";
 import { ARCHIVE_LIMITS, type ArchiveMetrics } from "./tar";
+import { ARCHIVE_TIMEOUTS } from "./limits";
 
 function validIgnore(value: unknown): boolean {
   try {
@@ -21,6 +22,7 @@ type Active = {
   outcome?: unknown;
   lease: ReturnType<typeof setTimeout>;
   deadline: ReturnType<typeof setTimeout>;
+  idle: ReturnType<typeof setTimeout>;
 };
 
 let active: Active | undefined;
@@ -59,6 +61,7 @@ function stop(outcome: unknown): void {
   active = undefined;
   clearTimeout(job.lease);
   clearTimeout(job.deadline);
+  clearTimeout(job.idle);
   job.worker.terminate();
   job.pending?.(outcome);
   job.finish?.(outcome);
@@ -70,7 +73,18 @@ export function stopArchive(): void {
 
 function renew(job: Active): void {
   clearTimeout(job.lease);
-  job.lease = setTimeout(() => stop({ state: "interrupted" }), 3_000);
+  job.lease = setTimeout(
+    () => stop({ state: "interrupted" }),
+    ARCHIVE_TIMEOUTS.lease,
+  );
+}
+
+function activity(job: Active): void {
+  clearTimeout(job.idle);
+  job.idle = setTimeout(
+    () => stop({ state: "failed", code: "analysis_timeout" }),
+    ARCHIVE_TIMEOUTS.workerIdle,
+  );
 }
 
 export function handleArchiveHost(
@@ -131,10 +145,17 @@ export function handleArchiveHost(
       id: command.jobId,
       worker,
       sequence: 0,
-      lease: setTimeout(() => stop({ state: "interrupted" }), 3_000),
+      lease: setTimeout(
+        () => stop({ state: "interrupted" }),
+        ARCHIVE_TIMEOUTS.lease,
+      ),
       deadline: setTimeout(
         () => stop({ state: "failed", code: "analysis_timeout" }),
-        25_000,
+        ARCHIVE_TIMEOUTS.job,
+      ),
+      idle: setTimeout(
+        () => stop({ state: "failed", code: "analysis_timeout" }),
+        ARCHIVE_TIMEOUTS.workerIdle,
       ),
     };
     active = job;
@@ -143,15 +164,20 @@ export function handleArchiveHost(
         return;
       const value = event.data as Record<string, unknown>;
       if (value.type === "ack" && value.sequence === job.sequence) {
+        activity(job);
         const pending = job.pending;
         job.pending = undefined;
         pending?.({ state: "ok" });
       } else if (value.type === "counting") {
+        activity(job);
         void chrome.runtime.sendMessage({
           type: "archive.counting",
           requestId: job.id,
         });
+      } else if (value.type === "activity") {
+        activity(job);
       } else if (value.type === "result") {
+        clearTimeout(job.idle);
         const outcome =
           value.ok === true &&
           validateResult(value.result) &&

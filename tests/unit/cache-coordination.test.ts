@@ -18,6 +18,7 @@ import {
 import {
   AnalysisCoordinator,
   QUEUED_JOBS,
+  QUEUE_WAIT_MS,
   SUBSCRIPTIONS,
   type AnalysisOutput,
   type Subscriber,
@@ -771,7 +772,7 @@ test("queued work expires before archive execution", async () => {
     });
   expect(subscribe("1")).toBe(true);
   expect(subscribe("2")).toBe(true);
-  now += 30_000;
+  now += QUEUE_WAIT_MS;
   finishFirst(output);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(started).toEqual(["1"]);

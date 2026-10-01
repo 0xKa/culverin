@@ -6,6 +6,8 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { openArchive, type Resolution } from "../github/client";
+import { ARCHIVE_TIMEOUTS } from "./limits";
+import { abortError, waitFor } from "./timeout";
 import {
   ARCHIVE_LIMITS,
   ArchiveError,
@@ -107,16 +109,30 @@ export async function analyzeArchive(
   transport: ArchiveMetrics & { compressedBytes: number };
   wasmLinearMemoryBytes: number;
 }> {
-  const stream = await openArchive(fetch, resolution, token, signal);
-  return analyzeArchiveStream(
-    stream,
-    resolution,
-    signal,
-    jobId,
-    0,
-    onProgress,
-    ignore,
-  );
+  const download = new AbortController();
+  try {
+    const stream = await waitFor(
+      openArchive(
+        fetch,
+        resolution,
+        token,
+        AbortSignal.any([signal, download.signal]),
+      ),
+      signal,
+      ARCHIVE_TIMEOUTS.networkIdle,
+    );
+    return await analyzeArchiveStream(
+      stream,
+      resolution,
+      signal,
+      jobId,
+      0,
+      onProgress,
+      ignore,
+    );
+  } finally {
+    download.abort();
+  }
 }
 
 export async function analyzeArchiveStream(
@@ -147,11 +163,11 @@ export async function analyzeArchiveStream(
   signal.addEventListener("abort", onAbort, { once: true });
   const lease = setInterval(() => {
     if (started) void command("archive.renew", jobId).catch(() => undefined);
-  }, 500);
+  }, ARCHIVE_TIMEOUTS.renew);
   try {
-    if (signal.aborted) throw new ArchiveError("analysis_canceled");
-    await ensureHost();
-    if (signal.aborted) throw new ArchiveError("analysis_canceled");
+    if (signal.aborted) throw abortError(signal);
+    await waitFor(ensureHost(), signal, ARCHIVE_TIMEOUTS.networkIdle);
+    if (signal.aborted) throw abortError(signal);
     requireState(
       await command("archive.start", jobId, {
         rules: {
@@ -167,8 +183,12 @@ export async function analyzeArchiveStream(
     started = true;
     onProgress?.("downloading", 0);
     for (;;) {
-      if (signal.aborted) throw new ArchiveError("analysis_canceled");
-      const { done, value } = await reader.read();
+      if (signal.aborted) throw abortError(signal);
+      const { done, value } = await waitFor(
+        reader.read(),
+        signal,
+        ARCHIVE_TIMEOUTS.networkIdle,
+      );
       if (done) break;
       compressedBytes += value.byteLength;
       if (compressedBytes > ARCHIVE_LIMITS.compressed)
@@ -179,7 +199,7 @@ export async function analyzeArchiveStream(
         offset < value.byteLength;
         offset += ARCHIVE_LIMITS.chunk
       ) {
-        if (signal.aborted) throw new ArchiveError("analysis_canceled");
+        if (signal.aborted) throw abortError(signal);
         sequence++;
         requireState(
           await command("archive.chunk", jobId, {
@@ -211,7 +231,7 @@ export async function analyzeArchiveStream(
     };
   } catch (error) {
     if (started) await command("archive.cancel", jobId).catch(() => undefined);
-    if (signal.aborted) throw new ArchiveError("analysis_canceled");
+    if (signal.aborted) throw abortError(signal);
     throw error;
   } finally {
     clearInterval(lease);

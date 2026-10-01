@@ -23,6 +23,7 @@ import {
   validRateLimit,
 } from "../github/rate-limit";
 import { analyzeArchive } from "../archive/bridge";
+import { ARCHIVE_TIMEOUTS } from "../archive/limits";
 import { ArchiveError } from "../archive/tar";
 import {
   POPUP_PORT,
@@ -628,7 +629,6 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
       }
     }
     const controller = new AbortController();
-    const startedAt = Date.now();
     if (request.type === "analysis.request")
       pending.set(owner, { requestId: request.requestId, controller });
     try {
@@ -801,7 +801,7 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
             );
           },
         },
-        Math.max(1, 25_000 - (Date.now() - startedAt)),
+        ARCHIVE_TIMEOUTS.job,
         rules.ignore,
       );
       if (!accepted) reply({ type: "analysis.failed", code: "analysis_busy" });
@@ -1333,7 +1333,6 @@ export function handleGithub(
         }
       }
       const controller = new AbortController();
-      const startedAt = Date.now();
       if (request.type === "analysis.request")
         pending.set(owner, { requestId: request.requestId, controller });
       try {
@@ -1421,7 +1420,7 @@ export function handleGithub(
                       : safeFailure(error, signal)),
               }),
           },
-          Math.max(1, 25_000 - (Date.now() - startedAt)),
+          ARCHIVE_TIMEOUTS.job,
           rules.ignore,
         );
         if (!accepted) reply({ state: "busy" });

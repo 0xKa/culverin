@@ -13,6 +13,8 @@ Culverin is in early development. Please discuss larger behavior changes in an i
 
 The icon artwork lives in `assets/`. The PNGs in `extension/public/icons/` are committed because Chrome needs them in the loadable extension.
 
+Run `bun run bench:archive` for the synthetic browser archive benchmarks described in [archive scalability](docs/archive-performance.md). This separate workload measures larger snapshots without adding gigabyte fixtures to the ordinary test suite.
+
 ## Release package
 
 `bun run package` builds the extension, checks the build, and writes `dist/culverin-<version>.zip` with a SHA-256 checksum file. The check fails if the manifest keys, permissions, host permissions, or content security policy change, if an unexpected file or source map is present, or if bundled code contains a local path, a development host, or a URL outside the allowed origins. ZIP entries are sorted and use fixed timestamps and file modes, so the same build output always produces the same checksum. The command prints the source commit and notes uncommitted changes.

@@ -189,17 +189,21 @@ pub(crate) fn physical_lines(text: &[u8]) -> u64 {
         + u64::from(!text.is_empty() && !text.ends_with(b"\n"))
 }
 
-pub(crate) fn other_extension(path: &str) -> Option<String> {
-    let name = path.rsplit('/').next()?;
-    let Some((_, extension)) = name.rsplit_once('.') else {
-        return Some(String::new());
-    };
-    (!extension.is_empty()
-        && extension.len() <= 16
+pub(crate) fn other_extension(path: &str) -> String {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let extension = name
+        .rsplit_once('.')
+        .map(|(_, x)| x.to_lowercase())
+        .unwrap_or_default();
+    if (1..=16).contains(&extension.chars().count())
         && extension
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'+')))
-    .then(|| format!(".{}", extension.to_ascii_lowercase()))
+            .chars()
+            .all(|c| c > ' ' && !('\u{7f}'..='\u{9f}').contains(&c))
+    {
+        format!(".{extension}")
+    } else {
+        String::new()
+    }
 }
 
 fn add_text(

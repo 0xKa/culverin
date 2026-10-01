@@ -108,6 +108,7 @@ pub struct OtherFiles {
     pub files: u64,
     pub lines: u64,
     pub extensions: Vec<OtherExtension>,
+    pub more_extensions: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]

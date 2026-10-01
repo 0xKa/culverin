@@ -81,9 +81,9 @@ export function resultView(
     other.files - other.extensions.reduce((sum, row) => sum + row.files, 0);
   const restLines =
     other.lines - other.extensions.reduce((sum, row) => sum + row.lines, 0);
-  if (restFiles > 0)
+  if (other.moreExtensions > 0)
     otherRows.push(
-      `Remaining files: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
+      `${other.moreExtensions.toLocaleString()} more ${other.moreExtensions === 1 ? "extension" : "extensions"}: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
     );
   const skipped = coverage.skippedByReason;
   return {

@@ -162,7 +162,7 @@
             "properties": {
               "extension": {
                 "type": "string",
-                "pattern": "^(|\\.[a-z0-9_+-]{1,16})$"
+                "pattern": "^(|\\.[^\\u0000-\\u0020\\u007f-\\u009f]{1,16})$"
               },
               "files": {
                 "type": "integer",
@@ -177,9 +177,14 @@
             },
             "required": ["extension", "files", "lines"]
           }
+        },
+        "moreExtensions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
-      "required": ["files", "lines", "extensions"]
+      "required": ["files", "lines", "extensions", "moreExtensions"]
     },
     "coverage": {
       "type": "object",

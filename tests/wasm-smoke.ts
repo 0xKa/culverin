@@ -115,6 +115,7 @@ for (const name of cases) {
       files: 1,
       lines: 4,
       extensions: [{ extension: ".golden", files: 1, lines: 4 }],
+      moreExtensions: 0,
     });
   } finally {
     counter.free();

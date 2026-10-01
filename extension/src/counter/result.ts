@@ -37,7 +37,12 @@ export type AnalysisResultV2 = {
   };
   totals: LineCounts & { files: number };
   languages: LanguageCounts[];
-  otherFiles: { files: number; lines: number; extensions: OtherExtension[] };
+  otherFiles: {
+    files: number;
+    lines: number;
+    extensions: OtherExtension[];
+    moreExtensions: number;
+  };
   coverage: {
     regularFiles: number;
     countedFiles: number;
@@ -232,14 +237,36 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
   );
 }
 
+function codePointsBefore(a: string, b: string): boolean {
+  const x = Array.from(a, (c) => c.codePointAt(0)!);
+  const y = Array.from(b, (c) => c.codePointAt(0)!);
+  for (let i = 0; i < Math.min(x.length, y.length); i++)
+    if (x[i] !== y[i]) return x[i]! < y[i]!;
+  return x.length < y.length;
+}
+
+function validExtension(value: string): boolean {
+  if (value === "") return true;
+  const characters = Array.from(value.slice(1), (c) => c.codePointAt(0)!);
+  return (
+    value.startsWith(".") &&
+    characters.length >= 1 &&
+    characters.length <= 16 &&
+    characters.every((c) => c > 0x20 && (c < 0x7f || c > 0x9f))
+  );
+}
+
 function validOtherFiles(value: unknown, files: number): boolean {
   if (
     !record(value) ||
-    !keys(value, ["files", "lines", "extensions"]) ||
+    !keys(value, ["files", "lines", "extensions", "moreExtensions"]) ||
     value.files !== files ||
     !integer(value.lines) ||
+    !integer(value.moreExtensions) ||
     !Array.isArray(value.extensions) ||
-    value.extensions.length > MAX_OTHER_EXTENSIONS
+    value.extensions.length > MAX_OTHER_EXTENSIONS ||
+    (value.moreExtensions > 0 &&
+      value.extensions.length !== MAX_OTHER_EXTENSIONS)
   )
     return false;
   let previous: OtherExtension | undefined;
@@ -250,7 +277,7 @@ function validOtherFiles(value: unknown, files: number): boolean {
       !record(candidate) ||
       !keys(candidate, ["extension", "files", "lines"]) ||
       typeof candidate.extension !== "string" ||
-      !/^(?:|\.[a-z0-9_+-]{1,16})$/.test(candidate.extension) ||
+      !validExtension(candidate.extension) ||
       !integer(candidate.files) ||
       candidate.files === 0 ||
       !integer(candidate.lines)
@@ -263,12 +290,14 @@ function validOtherFiles(value: unknown, files: number): boolean {
         (previous.lines === row.lines &&
           (previous.files < row.files ||
             (previous.files === row.files &&
-              previous.extension >= row.extension))))
+              !codePointsBefore(previous.extension, row.extension)))))
     )
       return false;
     previous = row;
     sumFiles += row.files;
     sumLines += row.lines;
   }
-  return sumFiles <= value.files && sumLines <= value.lines;
+  return value.moreExtensions === 0
+    ? sumFiles === value.files && sumLines === value.lines
+    : sumFiles + value.moreExtensions <= value.files && sumLines <= value.lines;
 }

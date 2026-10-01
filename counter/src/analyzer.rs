@@ -15,7 +15,7 @@ pub struct CounterAnalyzer {
     rules: Rules,
     hash: String,
     languages: BTreeMap<String, LanguageCounts>,
-    others: BTreeMap<Option<String>, (u64, u64)>,
+    others: BTreeMap<String, (u64, u64)>,
     coverage: Coverage,
 }
 
@@ -220,6 +220,7 @@ impl CounterAnalyzer {
             files: 0,
             lines: 0,
             extensions: vec![],
+            more_extensions: 0,
         };
         for (extension, (files, lines)) in self.others {
             other_files.files = other_files
@@ -230,13 +231,11 @@ impl CounterAnalyzer {
                 .lines
                 .checked_add(lines)
                 .ok_or("counter overflow")?;
-            if let Some(extension) = extension {
-                other_files.extensions.push(OtherExtension {
-                    extension,
-                    files,
-                    lines,
-                });
-            }
+            other_files.extensions.push(OtherExtension {
+                extension,
+                files,
+                lines,
+            });
         }
         if other_files.lines > 9_007_199_254_740_991 {
             return Err("counter overflow".into());
@@ -247,6 +246,10 @@ impl CounterAnalyzer {
                 .then(b.files.cmp(&a.files))
                 .then(a.extension.cmp(&b.extension))
         });
+        other_files.more_extensions = other_files
+            .extensions
+            .len()
+            .saturating_sub(MAX_OTHER_EXTENSIONS) as u64;
         other_files.extensions.truncate(MAX_OTHER_EXTENSIONS);
         Ok(AnalysisResult {
             schema_version: 2,

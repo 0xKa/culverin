@@ -501,8 +501,12 @@ fn other_files_are_grouped_by_extension() {
         ("b/two.GOLDEN", b"z"),
         ("data.out", b"1\n2\n3\n"),
         ("hello", b"hi\n"),
+        ("mod/v0.0.0-20200325131415-0123456789ab", b"a\n"),
+        ("trailing.", b"a\n"),
         (".gitignore", b"target\n"),
         ("bad.ext!", b"x\n"),
+        ("config.yml~", b"a\nb\n"),
+        ("\u{e9}t\u{e9}.\u{c9}T\u{c9}", b"a\n"),
         ("empty.out", b""),
         ("late.zst", b"text\0"),
     ] {
@@ -530,11 +534,12 @@ fn other_files_are_grouped_by_extension() {
     assert_eq!(result.totals.files, 0);
     assert_eq!(
         result.coverage.skipped_by_reason["unsupported_language"],
-        118
+        122
     );
     assert_eq!(result.coverage.skipped_by_reason["binary_content"], 2);
-    assert_eq!(result.other_files.files, 118);
-    assert_eq!(result.other_files.lines, 13);
+    assert_eq!(result.other_files.files, 122);
+    assert_eq!(result.other_files.lines, 18);
+    assert_eq!(result.other_files.more_extensions, 17);
     let rows: Vec<_> = result
         .other_files
         .extensions
@@ -542,14 +547,17 @@ fn other_files_are_grouped_by_extension() {
         .map(|x| (x.extension.as_str(), x.files, x.lines))
         .collect();
     assert_eq!(
-        rows[..4],
+        rows[..8],
         [
             (".out", 3, 7),
+            ("", 3, 3),
             (".golden", 2, 3),
-            ("", 1, 1),
+            (".yml~", 1, 2),
+            (".ext!", 1, 1),
             (".gitignore", 1, 1),
+            (".\u{e9}t\u{e9}", 1, 1),
+            (".zz0", 1, 0),
         ]
     );
     assert_eq!(rows.len(), 100);
-    assert_eq!(rows[4], (".zz0", 1, 0));
 }

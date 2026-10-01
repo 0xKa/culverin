@@ -63,11 +63,12 @@ describe("analysis result contract", () => {
       extensions: unknown[],
       files = 2,
       lines = 4,
+      moreExtensions = 0,
       skipped = files,
     ) =>
       validateResult({
         ...result,
-        otherFiles: { files, lines, extensions },
+        otherFiles: { files, lines, extensions, moreExtensions },
         coverage: {
           ...result.coverage,
           regularFiles:
@@ -83,10 +84,21 @@ describe("analysis result contract", () => {
     const empty = { ...row, extension: "" };
     expect(other([empty, row])).toBe(true);
     expect(other([row, empty])).toBe(false);
-    expect(other([row, { ...row, extension: ".GOLDEN" }])).toBe(false);
+    expect(other([row, { ...row, extension: ".yml~" }])).toBe(true);
+    expect(other([row, { ...row, extension: ".\u00e9t\u00e9" }])).toBe(true);
+    expect(other([row, { ...row, extension: ".a b" }])).toBe(false);
+    expect(other([row, { ...row, extension: ".a\u0085" }])).toBe(false);
+    expect(other([row, { ...row, extension: `.${"x".repeat(17)}` }])).toBe(
+      false,
+    );
+    const bmp = { ...row, extension: ".\uff00" };
+    const astral = { ...row, extension: ".\u{10000}" };
+    expect(other([bmp, astral])).toBe(true);
+    expect(other([astral, bmp])).toBe(false);
     expect(other([row, row])).toBe(false);
-    expect(other([row], 3, 4, 2)).toBe(false);
-    expect(other([{ ...row, lines: 5 }])).toBe(false);
+    expect(other([row], 3, 4, 0, 2)).toBe(false);
+    expect(other([row])).toBe(false);
+    expect(other([{ ...row, lines: 5 }], 1)).toBe(false);
     expect(other([{ ...row, files: 0 }])).toBe(false);
     const rows = (length: number) =>
       Array.from({ length }, (_, index) => ({
@@ -95,7 +107,11 @@ describe("analysis result contract", () => {
         lines: 0,
       }));
     const max = MAX_OTHER_EXTENSIONS;
-    expect(other(rows(max), max + 1, 0)).toBe(true);
+    expect(other(rows(max), max, 0)).toBe(true);
+    expect(other(rows(max), max + 2, 0, 2)).toBe(true);
+    expect(other(rows(max), max + 1, 0, 2)).toBe(false);
+    expect(other(rows(max), max + 1, 0)).toBe(false);
+    expect(other(rows(max - 1), max, 0, 1)).toBe(false);
     expect(other(rows(max + 1), max + 1, 0)).toBe(false);
   });
   test("rejects broken sums, file attribution, and identity", () => {

@@ -50,22 +50,23 @@ const result: AnalysisResultV2 = {
     },
   ],
   otherFiles: {
-    files: 3,
-    lines: 40,
+    files: 2,
+    lines: 38,
     extensions: [
       { extension: ".golden", files: 1, lines: 30 },
       { extension: "", files: 1, lines: 8 },
     ],
+    moreExtensions: 0,
   },
   coverage: {
-    regularFiles: 6,
+    regularFiles: 5,
     countedFiles: 2,
     analyzedBytes: 20,
     totalBytes: 30,
-    skippedFiles: 4,
+    skippedFiles: 3,
     skippedByReason: {
       excluded_by_rule: 0,
-      unsupported_language: 3,
+      unsupported_language: 2,
       binary_content: 0,
       oversized_source: 1,
       unsupported_notebook: 0,
@@ -93,12 +94,11 @@ test("formats repository and result details", () => {
     "Markdown: 4 text lines (100.0% of text lines), 1 files",
   ]);
   expect(view.coverage).toContain(
-    "4 skipped (0 excluded by Culverin ignore, 3 other files, 0 binary",
+    "3 skipped (0 excluded by Culverin ignore, 2 other files, 0 binary",
   );
   expect(view.otherRows).toEqual([
     ".golden: 30 lines, 1 files",
     "No extension: 8 lines, 1 files",
-    "Remaining files: 2 lines, 1 files",
   ]);
   expect(view.moreOtherRows).toEqual([]);
   expect(view.warning).toBe(
@@ -130,7 +130,7 @@ test("orders languages by lines and folds other files after the first rows", () 
         row("Rust", 70, 0),
         row("Shell", 50, 0),
       ],
-      otherFiles: { files: 13, lines: 80, extensions },
+      otherFiles: { files: 13, lines: 80, extensions, moreExtensions: 1 },
     },
     resolution,
   );
@@ -148,7 +148,7 @@ test("orders languages by lines and folds other files after the first rows", () 
   expect(view.moreOtherRows).toEqual([
     ".e10: 2 lines, 1 files",
     ".e11: 1 lines, 1 files",
-    "Remaining files: 2 lines, 1 files",
+    "1 more extension: 2 lines, 1 files",
   ]);
 });
 
@@ -157,7 +157,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
     ...result,
     totals: { lines: 0, code: 0, comments: 0, blanks: 0, files: 0 },
     languages: [],
-    otherFiles: { files: 0, lines: 0, extensions: [] },
+    otherFiles: { files: 0, lines: 0, extensions: [], moreExtensions: 0 },
     coverage: {
       ...result.coverage,
       countedFiles: 0,

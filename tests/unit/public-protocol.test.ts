@@ -382,7 +382,7 @@ test("validates envelope, correlation, and safe errors", () => {
     },
     totals: { files: 0, lines: 0, code: 0, comments: 0, blanks: 0 },
     languages: [],
-    otherFiles: { files: 0, lines: 0, extensions: [] },
+    otherFiles: { files: 0, lines: 0, extensions: [], moreExtensions: 0 },
     coverage: {
       regularFiles: 0,
       countedFiles: 0,

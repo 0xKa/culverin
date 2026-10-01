@@ -1776,6 +1776,7 @@ sync();
       { extension: ".zz10", files: 1, lines: 1 },
       { extension: ".zz11", files: 1, lines: 1 },
     ],
+    moreExtensions: 0,
   });
   assert.equal(archivedResult.coverage.complete, true);
   const archiveTransport = archived.transport as {

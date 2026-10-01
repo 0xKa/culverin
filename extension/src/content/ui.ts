@@ -13,7 +13,12 @@ export type RowState =
   | { kind: "hidden" }
   | { kind: "idle" }
   | { kind: "running"; phase: AnalysisPhase }
-  | { kind: "complete"; total: number; customIgnore?: boolean }
+  | {
+      kind: "complete";
+      total: number;
+      uncounted?: number;
+      customIgnore?: boolean;
+    }
   | { kind: "retry"; detail: string }
   | { kind: "notice"; label: string; detail: string }
   | { kind: "connect"; label: string; detail: string };
@@ -110,14 +115,6 @@ export function lookupFailureState(
   return { kind: "idle" };
 }
 
-export function partialState(reasons: string[]): VisibleRowState {
-  return {
-    kind: "notice",
-    label: "Couldn't count every file",
-    detail: `Partial analysis: ${reasons.map((reason) => (reason === "oversized_source" ? "some source files exceeded the safe size limit" : "some source counts may be inaccurate")).join("; ")}. No total is shown.`,
-  };
-}
-
 export function rowView(state: VisibleRowState): RowView {
   if (state.kind === "idle")
     return {
@@ -134,10 +131,13 @@ export function rowView(state: VisibleRowState): RowView {
     };
   if (state.kind === "complete") {
     const label = state.total === 1 ? "line of code" : "lines of code";
+    const uncounted = state.uncounted
+      ? `, not including ${state.uncounted.toLocaleString("en")} source ${state.uncounted === 1 ? "file" : "files"} too large to count`
+      : "";
     return {
-      count: compactCount(state.total),
+      count: `${compactCount(state.total)}${state.uncounted ? "+" : ""}`,
       label,
-      title: `${state.total.toLocaleString("en")} ${label}${state.customIgnore ? " (Culverin ignore active)" : ""}. Open Culverin for details`,
+      title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (Culverin ignore active)" : ""}. Open Culverin for details`,
       action: "details",
     };
   }

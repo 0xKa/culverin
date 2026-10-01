@@ -1372,14 +1372,33 @@ sync();
   await partialPopup
     .getByText("Partial local analysis.")
     .waitFor({ timeout: 15_000 });
-  assert.equal(await page.getByText("Count lines of code").count(), 1);
+  await partialPopup
+    .getByText(
+      "1 source file was too large to count and is not included in these totals.",
+    )
+    .waitFor();
+  const partialRow = {
+    text: "0+ lines of code",
+    title:
+      "0 lines of code, not including 1 source file too large to count. Open Culverin for details",
+  };
+  const readRow = () =>
+    summary.evaluate((host) => {
+      const row = host.shadowRoot?.querySelector(".row");
+      return { text: row?.textContent, title: row?.getAttribute("title") };
+    });
+  await page.getByText("0+", { exact: true }).waitFor();
+  assert.deepEqual(await readRow(), partialRow);
   await partialPopup.close();
   const persistedPartial = await settingsPage.evaluate(async () => {
     const state = await chrome.storage.local.get("culverin.public-results.v1");
     return (state["culverin.public-results.v1"] as { entries: unknown[] })
       .entries.length;
   });
-  assert.equal(persistedPartial, 0);
+  assert.equal(persistedPartial, 1);
+  await page.reload();
+  await page.getByText("0+", { exact: true }).waitFor();
+  assert.deepEqual(await readRow(), partialRow);
   await worker.evaluate(() => {
     const scope = globalThis as typeof globalThis & {
       partialOriginalFetch?: typeof fetch;

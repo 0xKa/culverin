@@ -12,7 +12,6 @@ import {
   createSummaryUi,
   failureState,
   lookupFailureState,
-  partialState,
   showState,
   type RowAction,
   type RowState,
@@ -98,6 +97,7 @@ async function completeState(
   return {
     kind: "complete",
     total: result.totals.code,
+    uncounted: result.coverage.skippedByReason.oversized_source,
     customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
   };
 }
@@ -134,11 +134,9 @@ async function lookup(current: View): Promise<void> {
       setState(current, { kind: "idle" });
       return;
     }
-    const state = reply.result.coverage.complete
-      ? await completeState(reply.result)
-      : undefined;
+    const state = await completeState(reply.result);
     if (!active()) return;
-    setState(current, state ?? { kind: "idle" });
+    setState(current, state);
   } catch {
     if (active()) setState(current, { kind: "idle" });
   } finally {
@@ -164,9 +162,7 @@ async function finishAnalysis(
   if (reply.type === "analysis.completed") {
     const state = await completeState(reply.result);
     if (!currentView(current) || !stopAnalysis(current, requestId)) return;
-    if (!reply.result.coverage.complete)
-      setState(current, partialState(reply.result.coverage.incompleteReasons));
-    else setState(current, state);
+    setState(current, state);
     return;
   }
   stopAnalysis(current, requestId);
@@ -273,6 +269,7 @@ function create(repository: PageRepository): View {
     setState(current, {
       kind: "complete",
       total: message.totalCodeLines,
+      uncounted: message.uncountedFiles,
       customIgnore: message.customIgnore,
     });
   };

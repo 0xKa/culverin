@@ -73,9 +73,9 @@ export function resultView(
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
     coverage: `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by Culverin ignore, ${skipped.unsupported_language.toLocaleString()} unsupported language, ${skipped.binary_content.toLocaleString()} binary, ${skipped.unsupported_notebook.toLocaleString()} unsupported notebook, ${skipped.oversized_source.toLocaleString()} oversized).`,
-    warning: coverage.complete
-      ? undefined
-      : "Partial analysis: some source files exceeded the safe size limit.",
+    warning: skipped.oversized_source
+      ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} too large to count and ${skipped.oversized_source === 1 ? "is" : "are"} not included in these totals.`
+      : undefined,
   };
 }
 

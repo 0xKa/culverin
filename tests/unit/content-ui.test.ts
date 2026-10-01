@@ -4,7 +4,6 @@ import {
   compactCount,
   failureState,
   lookupFailureState,
-  partialState,
   rowView,
 } from "../../extension/src/content/ui";
 
@@ -122,12 +121,16 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   });
 });
 
-test("never presents a partial analysis as a total", () => {
-  const view = rowView(partialState(["oversized_source"]));
-  expect(view.count).toBeUndefined();
-  expect(view.action).toBeUndefined();
-  expect(view.label).toBe("Couldn't count every file");
-  expect(view.title).toContain("exceeded the safe size limit");
+test("marks a total that leaves out files too large to count", () => {
+  const view = rowView({ kind: "complete", total: 1234, uncounted: 2 });
+  expect(view.count).toBe("1.2k+");
+  expect(view.action).toBe("details");
+  expect(view.title).toBe(
+    "1,234 lines of code, not including 2 source files too large to count. Open Culverin for details",
+  );
+  expect(rowView({ kind: "complete", total: 1234, uncounted: 0 }).count).toBe(
+    "1.2k",
+  );
 });
 
 test("uses a pixel-aligned monochrome icon asset", () => {

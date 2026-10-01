@@ -30,6 +30,7 @@ export type SummaryUpdate = {
   type: "summary.update";
   repository: { owner: string; name: string };
   totalCodeLines: number;
+  uncountedFiles: number;
   customIgnore: boolean;
 };
 
@@ -192,6 +193,7 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
       "type",
       "repository",
       "totalCodeLines",
+      "uncountedFiles",
       "customIgnore",
     ]) ||
     value.protocolVersion !== PUBLIC_VERSION ||
@@ -206,6 +208,8 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
   return (
     Number.isSafeInteger(value.totalCodeLines) &&
     (value.totalCodeLines as number) >= 0 &&
+    Number.isSafeInteger(value.uncountedFiles) &&
+    (value.uncountedFiles as number) >= 0 &&
     typeof value.customIgnore === "boolean"
   );
 }
@@ -336,9 +340,6 @@ export function validPublicReply(
         typeof value.fromCache === "boolean") &&
       validEnvelope(value.resolution) &&
       validateResult(value.result) &&
-      (value.type === "analysis.completed" && value.fromCache === false
-        ? true
-        : value.result.coverage.complete) &&
       value.result.repository.id === value.resolution.repositoryId &&
       value.result.revision.commitSha === value.resolution.sha
     );

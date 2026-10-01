@@ -912,16 +912,13 @@ async function updateSummary(
   repository: { owner: string; name: string },
   result: AnalysisResultV2,
 ): Promise<void> {
-  if (
-    !result.coverage.complete ||
-    result.engine.rulesHash !== (await currentRules()).hash
-  )
-    return;
+  if (result.engine.rulesHash !== (await currentRules()).hash) return;
   const update: SummaryUpdate = {
     protocolVersion: 1,
     type: "summary.update",
     repository,
     totalCodeLines: result.totals.code,
+    uncountedFiles: result.coverage.skippedByReason.oversized_source,
     customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
   };
   await chrome.tabs

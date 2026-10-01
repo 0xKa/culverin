@@ -276,22 +276,37 @@ describe("public result cache", () => {
     ).toEqual(value);
   });
 
-  test("rejects partial and corrupted results, and clears only its namespace", async () => {
+  test("keeps partial results, rejects corrupted ones, and clears only its namespace", async () => {
     const storage = new MemoryStorage();
     storage.values.other = "keep";
     const cache = new PublicResultCache(storage);
     const value = await result();
-    await cache.put(resolution(), {
+    const partial: AnalysisResultV2 = {
       ...value,
       coverage: {
         ...value.coverage,
+        regularFiles: 1,
+        totalBytes: 9_000_000,
+        skippedFiles: 1,
+        skippedByReason: {
+          ...value.coverage.skippedByReason,
+          oversized_source: 1,
+        },
         complete: false,
         incompleteReasons: ["oversized_source"],
       },
+    };
+    await cache.put(resolution(), partial);
+    expect(
+      await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
+    ).toEqual(partial);
+    await cache.put(resolution(), {
+      ...value,
+      coverage: { ...value.coverage, complete: false },
     });
     expect(
       await cache.get(resolution(), await effectiveRulesHash(defaultIgnore)),
-    ).toBeUndefined();
+    ).toEqual(partial);
     await cache.put(resolution(), value);
     const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
       entries: { result: AnalysisResultV2 }[];

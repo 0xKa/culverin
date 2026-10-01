@@ -82,7 +82,7 @@ test("formats repository and result details", () => {
   ]);
   expect(view.coverage).toContain("1 skipped (0 excluded by Culverin ignore");
   expect(view.warning).toBe(
-    "Partial analysis: some source files exceeded the safe size limit.",
+    "1 source file was too large to count and is not included in these totals.",
   );
 });
 

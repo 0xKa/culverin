@@ -244,6 +244,7 @@ test("validates popup requests and compact page summary updates", () => {
     type: "summary.update",
     repository: { owner: "owner", name: "repo" },
     totalCodeLines: 125,
+    uncountedFiles: 0,
     customIgnore: false,
   };
   expect(validSummaryUpdate(update)).toBe(true);
@@ -254,6 +255,8 @@ test("validates popup requests and compact page summary updates", () => {
   expect(validSummaryUpdate(withoutFlag)).toBe(false);
   expect(validSummaryUpdate({ ...update, totalCodeLines: -1 })).toBe(false);
   expect(validSummaryUpdate({ ...update, totalCodeLines: "125" })).toBe(false);
+  expect(validSummaryUpdate({ ...update, uncountedFiles: 2 })).toBe(true);
+  expect(validSummaryUpdate({ ...update, uncountedFiles: -1 })).toBe(false);
   expect(validSummaryUpdate({ ...update, token: "secret" })).toBe(false);
 });
 
@@ -422,6 +425,30 @@ test("validates envelope, correlation, and safe errors", () => {
     result,
   };
   expect(validPublicReply(hit, requestId, navigationId)).toBe(true);
+  expect(
+    validPublicReply(
+      {
+        ...hit,
+        result: {
+          ...result,
+          coverage: {
+            ...result.coverage,
+            regularFiles: 1,
+            totalBytes: 9_000_000,
+            skippedFiles: 1,
+            skippedByReason: {
+              ...result.coverage.skippedByReason,
+              oversized_source: 1,
+            },
+            complete: false,
+            incompleteReasons: ["oversized_source"],
+          },
+        },
+      },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(true);
   expect(
     validPublicReply(
       {

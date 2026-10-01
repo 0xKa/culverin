@@ -121,8 +121,7 @@ function validEntry(value: unknown, visibility: Visibility): value is Entry {
     !Number.isSafeInteger(value.bytes) ||
     (value.bytes as number) <= 0 ||
     !validEnvelope(value.resolution) ||
-    !validateResult(value.result) ||
-    !value.result.coverage.complete
+    !validateResult(value.result)
   )
     return false;
   return (
@@ -314,7 +313,6 @@ export class ResultCache {
         !validEnvelope(resolution) ||
         resolution.visibility !== this.options.visibility ||
         !validateResult(result) ||
-        !result.coverage.complete ||
         resultIdentity(result) !==
           resolutionIdentity(resolution, result.engine.rulesHash) ||
         this.revoked.has(resolution.repositoryId)

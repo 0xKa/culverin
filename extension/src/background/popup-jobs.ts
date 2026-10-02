@@ -103,11 +103,20 @@ export function createPopupJobs(
       return;
     }
     void (async () => {
-      const [activeTab] = await chrome.tabs.query({
+      let [activeTab] = await chrome.tabs.query({
         active: true,
         lastFocusedWindow: true,
       });
       const tab = await chrome.tabs.get(tabId);
+      if (
+        !activeTab &&
+        port.sender?.tab === undefined &&
+        tab.windowId !== undefined
+      )
+        [activeTab] = await chrome.tabs.query({
+          active: true,
+          windowId: tab.windowId,
+        });
       const repository = pageRepository(tab.url ?? "");
       if (
         activeTab?.id !== tabId ||

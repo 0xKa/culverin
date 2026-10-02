@@ -16,7 +16,7 @@ import {
   type ResolutionEnvelope,
 } from "../github/public-protocol";
 import type { AnalysisResultV2 } from "../counter/result";
-import { RATE_LIMIT_KEY, validRateLimit } from "../github/rate-limit";
+import { subscribeRateLimit } from "../github/rate-limit-observer";
 import { apiLimitView, resultView, sizesView } from "./view";
 import type { PopupEvent } from "./state";
 import { rememberSection, type SectionId } from "../settings/sections";
@@ -358,24 +358,6 @@ function onUpdated(tabId: number, changeInfo: { url?: string }): void {
     leaveRepository();
 }
 
-let apiLimitChanged = false;
-
-function showApiLimit(value: unknown): void {
-  dispatch({
-    type: "apiLimit",
-    value: validRateLimit(value) ? apiLimitView(value, Date.now()) : undefined,
-  });
-}
-
-function onStorageChanged(
-  changes: Record<string, chrome.storage.StorageChange>,
-  area: string,
-): void {
-  if (area !== "session" || !(RATE_LIMIT_KEY in changes)) return;
-  apiLimitChanged = true;
-  showApiLimit(changes[RATE_LIMIT_KEY]!.newValue);
-}
-
 function onActivated({ tabId }: { tabId: number }): void {
   if (target && tabId !== target.tabId) leaveRepository();
 }
@@ -391,18 +373,17 @@ export function startPopup(
   dispatch = dispatchView;
   chrome.tabs.onUpdated.addListener(onUpdated);
   chrome.tabs.onActivated.addListener(onActivated);
-  chrome.storage.onChanged.addListener(onStorageChanged);
-  void chrome.storage.session
-    .get(RATE_LIMIT_KEY)
-    .then((state) => {
-      if (!apiLimitChanged) showApiLimit(state[RATE_LIMIT_KEY]);
-    })
-    .catch(() => undefined);
+  const stopRateLimit = subscribeRateLimit(({ value, now }) =>
+    dispatch({
+      type: "apiLimit",
+      value: value ? apiLimitView(value, now) : undefined,
+    }),
+  );
   void initialize();
   return () => {
     chrome.tabs.onUpdated.removeListener(onUpdated);
     chrome.tabs.onActivated.removeListener(onActivated);
-    chrome.storage.onChanged.removeListener(onStorageChanged);
+    stopRateLimit();
     clearTimeout(retryTimer);
     port?.disconnect();
     port = undefined;

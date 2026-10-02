@@ -1,11 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { currentRemaining } from "../github/rate-limit";
 import {
-  currentRemaining,
-  RATE_LIMIT_KEY,
-  validRateLimit,
-  type RateLimit,
-} from "../github/rate-limit";
+  subscribeRateLimit,
+  type RateLimitSnapshot,
+} from "../github/rate-limit-observer";
 import {
   readCountTrigger,
   writeCountTrigger,
@@ -47,27 +46,16 @@ function Question({
 export function CountingSection({ hidden }: { hidden: boolean }) {
   const [trigger, setTrigger] = useState<CountTrigger>();
   const [status, setStatus] = useState("");
-  const [rateLimit, setRateLimit] = useState<RateLimit>();
+  const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({
+    value: undefined,
+    now: Date.now(),
+  });
+  const { value: rateLimit, now } = snapshot;
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
-    const show = (value: unknown) =>
-      setRateLimit(validRateLimit(value) ? value : undefined);
-    const changed = (
-      changes: Record<string, chrome.storage.StorageChange>,
-      area: string,
-    ) => {
-      if (area === "session" && RATE_LIMIT_KEY in changes)
-        show(changes[RATE_LIMIT_KEY]!.newValue);
-    };
-    chrome.storage.onChanged.addListener(changed);
-    void chrome.storage.session
-      .get(RATE_LIMIT_KEY)
-      .then((state) => show(state[RATE_LIMIT_KEY]))
-      .catch(() => undefined);
-    return () => chrome.storage.onChanged.removeListener(changed);
+    return subscribeRateLimit(setSnapshot);
   }, []);
-  const now = Date.now();
 
   async function change(next: CountTrigger): Promise<void> {
     setTrigger(next);

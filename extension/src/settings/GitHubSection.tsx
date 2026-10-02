@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { pendingKey } from "../auth/pending";
 import { Button } from "../ui/Button";
+import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import {
   authFailure,
@@ -23,7 +24,7 @@ function send(
   type: string,
   extra: Record<string, unknown> = {},
 ): Promise<AuthReply | undefined> {
-  return new Promise((resolve) =>
+  return new Promise<AuthReply | undefined>((resolve) =>
     chrome.runtime.sendMessage(
       {
         protocolVersion: 1,
@@ -35,7 +36,7 @@ function send(
       (reply: AuthReply | undefined) =>
         resolve(chrome.runtime.lastError ? undefined : reply),
     ),
-  );
+  ).catch(() => undefined);
 }
 
 function show(reply: AuthReply | undefined): ConnectionView | undefined {
@@ -104,16 +105,17 @@ function Link({ href, children }: { href: string; children: string }) {
 export function GitHubSection({ hidden }: { hidden: boolean }) {
   const [view, setView] = useState<ConnectionView>();
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"connect" | "token" | "disconnect">();
   const [token, setToken] = useState("");
 
   useEffect(() => start({ view: setView, status: setStatus }), []);
 
   async function connect(): Promise<void> {
-    setBusy(true);
+    if (busy) return;
+    setBusy("connect");
     setStatus("");
     const reply = await send("auth.device.start");
-    setBusy(false);
+    setBusy(undefined);
     const current = show(reply);
     if (reply?.state === "ok" && current?.device)
       schedule(current.device.interval * 1000);
@@ -137,9 +139,10 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
 
   async function saveToken(event: Event): Promise<void> {
     event.preventDefault();
+    if (busy) return;
     const value = token.trim();
     if (!value) return;
-    setBusy(true);
+    setBusy("token");
     setStatus("Checking the token with GitHub…");
     const submissionId = crypto.randomUUID();
     try {
@@ -147,12 +150,12 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
         [pendingKey]: { token: value, submissionId, createdAt: Date.now() },
       });
     } catch {
-      setBusy(false);
+      setBusy(undefined);
       setStatus("Couldn't save the token. Try again.");
       return;
     }
     const reply = await send("auth.submit", { submissionId });
-    setBusy(false);
+    setBusy(undefined);
     if (reply?.state === "connected") {
       setToken("");
       stopPolling();
@@ -164,10 +167,11 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
   }
 
   async function disconnect(): Promise<void> {
-    setBusy(true);
+    if (busy) return;
+    setBusy("disconnect");
     stopPolling();
     const reply = await send("auth.disconnect");
-    setBusy(false);
+    setBusy(undefined);
     show(await send("auth.status"));
     setStatus(
       reply?.state === "disconnected"
@@ -204,7 +208,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               id="github-disconnect"
               type="button"
               className="px-3 py-[7px]"
-              disabled={busy}
+              disabled={busy !== undefined}
               onClick={() => void disconnect()}
             >
               Disconnect
@@ -219,7 +223,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                 id="github-forget"
                 type="button"
                 className="my-1 px-3 py-[7px]"
-                disabled={busy}
+                disabled={busy !== undefined}
                 onClick={() => void disconnect()}
               >
                 Forget @{view.login} and delete private results
@@ -280,10 +284,12 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   id="github-connect"
                   type="button"
                   className="my-3 px-3 py-[7px]"
-                  disabled={busy}
+                  disabled={busy !== undefined}
+                  aria-busy={busy === "connect"}
                   onClick={() => void connect()}
                 >
-                  Connect with GitHub
+                  {busy === "connect" && <Spinner />}
+                  {busy === "connect" ? "Connecting…" : "Connect with GitHub"}
                 </Button>
               </>
             )}
@@ -315,6 +321,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                     type="password"
                     autoComplete="off"
                     spellcheck={false}
+                    disabled={busy !== undefined}
                     value={token}
                     onInput={(event) => setToken(event.currentTarget.value)}
                     className="border-subtle min-w-0 flex-1 rounded-md border px-2 py-1 font-mono"
@@ -323,9 +330,11 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                     id="github-token-save"
                     type="submit"
                     className="px-3 py-[7px]"
-                    disabled={busy || !token.trim()}
+                    disabled={busy !== undefined || !token.trim()}
+                    aria-busy={busy === "token"}
                   >
-                    Save token
+                    {busy === "token" && <Spinner />}
+                    {busy === "token" ? "Checking token…" : "Save token"}
                   </Button>
                 </form>
               </div>

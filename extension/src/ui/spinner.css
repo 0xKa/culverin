@@ -1,0 +1,25 @@
+.culverin-spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.5em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.125em;
+  animation: culverin-spin 0.8s linear infinite;
+  forced-color-adjust: none;
+}
+
+@keyframes culverin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .culverin-spinner {
+    animation: none;
+  }
+}

@@ -131,7 +131,12 @@ function receive(value: unknown): void {
   }
   const requestId = activeRequestId;
   if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
-  if (value.type === "analysis.progress") setStatus(progressText[value.phase]);
+  if (value.type === "analysis.progress")
+    setStatus(
+      value.phase === "resolving" && reanalyzedSha
+        ? "Checking for updates…"
+        : progressText[value.phase],
+    );
   else void finishAnalysis(requestId, value);
 }
 
@@ -298,7 +303,7 @@ export async function analyze(reanalyze = false): Promise<void> {
   setBusy(true);
   clearResult();
   dispatch({ type: "connect" });
-  setStatus("Resolving default branch…");
+  setStatus(reanalyze ? "Checking for updates…" : "Resolving default branch…");
   try {
     await finishAnalysis(pending.requestId, await pending.response);
   } catch {

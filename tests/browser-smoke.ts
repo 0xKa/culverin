@@ -129,6 +129,7 @@ try {
   let fixtureMode: "ok" | "empty" | "rate" | "slow" | "shared" | "private" =
     "ok";
   let slowArchiveStarted: (() => void) | undefined;
+  let metadataGate: Promise<void> | undefined;
   const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></react-app></main><script>
 const sync = () => {
   const [, owner, name] = location.pathname.split("/");
@@ -150,7 +151,8 @@ sync();
   const summary = page.locator("[data-culverin-root]");
   await context.route(
     "https://api.github.com/repos/culverin/bootstrap-fixture**",
-    (route) => {
+    async (route) => {
+      await metadataGate;
       const url = new URL(route.request().url());
       fixtureApiRequests++;
       fixtureAuthorization = route.request().headers()["authorization"];
@@ -569,6 +571,34 @@ sync();
   const cancelPopup = await openPopup(page);
   await cancelPopup.getByRole("button", { name: "Analyze repository" }).click();
   await started;
+  const analysisSpinner = cancelPopup.locator("#status .culverin-spinner");
+  await analysisSpinner.waitFor();
+  assert.equal(await analysisSpinner.getAttribute("aria-hidden"), "true");
+  assert.equal(await cancelPopup.locator("#analyze").isDisabled(), true);
+  assert.equal(
+    await analysisSpinner.evaluate(
+      (element) => getComputedStyle(element).animationName,
+    ),
+    "culverin-spin",
+  );
+  await cancelPopup.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await analysisSpinner.evaluate(
+      (element) => getComputedStyle(element).animationName,
+    ),
+    "none",
+  );
+  await cancelPopup.emulateMedia({
+    reducedMotion: "no-preference",
+    forcedColors: "active",
+  });
+  assert.equal(
+    await analysisSpinner.evaluate(
+      (element) => getComputedStyle(element).borderRightColor,
+    ),
+    "rgba(0, 0, 0, 0)",
+  );
+  await cancelPopup.emulateMedia({ forcedColors: "none" });
   await page.evaluate(() => {
     location.hash = "readme";
   });
@@ -576,6 +606,7 @@ sync();
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
   await cancelPopup.getByRole("button", { name: "Cancel analysis" }).click();
   await cancelPopup.getByText("Analysis canceled.").waitFor();
+  assert.equal(await analysisSpinner.count(), 0);
   await page.waitForTimeout(1700);
   assert.equal(await page.getByText("Count lines of code").count(), 1);
   await cancelPopup.close();
@@ -897,6 +928,7 @@ sync();
     .getByText("Analysis in progress. Closing the popup does not stop it.")
     .waitFor();
   await resumedPopup.getByRole("button", { name: "Cancel analysis" }).waitFor();
+  await resumedPopup.locator("#status .culverin-spinner").waitFor();
   assert.equal(
     await resumedPopup
       .getByRole("button", { name: "Analyze repository" })
@@ -912,6 +944,7 @@ sync();
     .getByText("Analyzed locally.")
     .waitFor({ timeout: 15_000 });
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
+  assert.equal(await resumedPopup.locator(".culverin-spinner").count(), 0);
   await resumedPopup
     .getByText(
       /Source profile coverage: 2 of 14 regular files counted; 12 skipped \(0 excluded by Culverin ignore, 12 other files,/,
@@ -1071,13 +1104,23 @@ sync();
   await restartControl.send("ServiceWorker.stopAllWorkers");
   await restartControl.detach();
   await page.waitForTimeout(1000);
+  let releaseMetadata!: () => void;
+  metadataGate = new Promise<void>((resolve) => {
+    releaseMetadata = resolve;
+  });
   await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+  await restartPopup.getByText("Checking for updates…").waitFor();
+  await restartPopup.locator("#status .culverin-spinner").waitFor();
+  assert.equal(await restartPopup.locator("#cancel").isVisible(), true);
+  metadataGate = undefined;
+  releaseMetadata();
   await restartPopup
     .getByText(
       "No new commit since the last analysis. Showing the cached result.",
     )
     .waitFor();
   await restartPopup.getByText("1 code lines", { exact: true }).waitFor();
+  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
   assert.equal(fixtureApiRequests, beforeReanalyzeApiRequests + 2);
   assert.equal(fixtureArchiveRequests, beforeReanalyzeArchiveRequests);
   const impostorDisconnected = await harness.evaluate(
@@ -1732,6 +1775,7 @@ sync();
   await interruptedPopup
     .getByText(/Analysis was interrupted/)
     .waitFor({ timeout: 15_000 });
+  assert.equal(await interruptedPopup.locator(".culverin-spinner").count(), 0);
   await page.waitForTimeout(1700);
   assert.equal(fixtureArchiveRequests, 6);
   await interruptedPopup.close();
@@ -2672,9 +2716,21 @@ sync();
     name: "Preparing to count lines…",
   });
   await running.waitFor();
+  const rowSpinner = summary.locator(".culverin-spinner");
+  await rowSpinner.waitFor();
+  assert.equal(await rowSpinner.getAttribute("aria-hidden"), "true");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await rowSpinner.evaluate(
+      (element) => getComputedStyle(element).animationName,
+    ),
+    "none",
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   assert.equal(await rowTitle(), "Click to cancel");
   await running.click();
   await countButton.waitFor();
+  assert.equal(await rowSpinner.count(), 0);
   const canceledPageJobs = await settingsPage.evaluate(async () => {
     for (let attempt = 0; attempt < 100; attempt++) {
       const state = await chrome.storage.session.get("github.job");
@@ -2688,6 +2744,7 @@ sync();
   assert.equal(await countButton.count(), 1);
   await countButton.click();
   assert.equal(await pageFetches(2), 2);
+  await rowSpinner.waitFor();
   await zeroWorker.evaluate(() =>
     (
       globalThis as typeof globalThis & { pageRelease?: () => void }
@@ -2697,7 +2754,14 @@ sync();
     name: "Couldn't count lines · Retry",
   });
   await retryButton.waitFor({ timeout: 15_000 });
+  assert.equal(await rowSpinner.count(), 0);
   assert.ok((await rowTitle())?.length);
+  await retryButton.click();
+  assert.equal(await pageFetches(3), 3);
+  await rowSpinner.waitFor();
+  await page.getByRole("button", { name: "Preparing to count lines…" }).click();
+  await countButton.waitFor();
+  assert.equal(await rowSpinner.count(), 0);
   await zeroWorker.evaluate(() => {
     const scope = globalThis as typeof globalThis & {
       pageOriginalFetch?: typeof fetch;
@@ -2825,7 +2889,12 @@ sync();
   await cachedLimitPopup.close();
   const deviceBodies: string[] = [];
   let devicePolls = 0;
-  await context.route("https://github.com/login/device/code", (route) => {
+  let releaseDeviceCode!: () => void;
+  const deviceCodeGate = new Promise<void>((resolve) => {
+    releaseDeviceCode = resolve;
+  });
+  await context.route("https://github.com/login/device/code", async (route) => {
+    await deviceCodeGate;
     deviceBodies.push(route.request().postData() ?? "");
     return route.fulfill({
       status: 200,
@@ -2861,7 +2930,9 @@ sync();
       });
     },
   );
-  await context.route("https://api.github.com/user", (route) => {
+  let tokenGate: Promise<void> | undefined;
+  await context.route("https://api.github.com/user", async (route) => {
+    await tokenGate;
     const authorization = route.request().headers()["authorization"];
     return route.fulfill(
       authorization === "Bearer fixture-app-token" ||
@@ -2890,7 +2961,15 @@ sync();
   await githubSection
     .getByRole("button", { name: "Connect with GitHub" })
     .click();
+  const connectButton = settingsPage.locator("#github-connect");
+  await connectButton.getByText("Connecting…").waitFor();
+  assert.equal(await connectButton.isDisabled(), true);
+  assert.equal(await connectButton.getAttribute("aria-busy"), "true");
+  await connectButton.locator(".culverin-spinner").waitFor();
+  releaseDeviceCode();
   await settingsPage.locator("#github-device-code").waitFor();
+  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
+  await githubSection.getByText(/Waiting for approval on GitHub/).waitFor();
   assert.equal(
     await settingsPage.locator("#github-device-code").textContent(),
     "ABCD-1234",
@@ -2929,14 +3008,30 @@ sync();
     .waitFor();
   await githubSection.getByText("Use a personal access token instead").click();
   await settingsPage.locator("#github-token").fill("wrong-token");
+  let releaseTokenCheck!: () => void;
+  tokenGate = new Promise<void>((resolve) => {
+    releaseTokenCheck = resolve;
+  });
   await githubSection.getByRole("button", { name: "Save token" }).click();
+  const tokenButton = settingsPage.locator("#github-token-save");
+  await tokenButton.getByText("Checking token…").waitFor();
+  await tokenButton.locator(".culverin-spinner").waitFor();
+  assert.equal(await tokenButton.isDisabled(), true);
+  assert.equal(await tokenButton.getAttribute("aria-busy"), "true");
+  assert.equal(await settingsPage.locator("#github-token").isDisabled(), true);
+  tokenGate = undefined;
+  releaseTokenCheck();
   await githubSection.getByText(/didn't accept that token/).waitFor();
+  assert.equal(await tokenButton.textContent(), "Save token");
+  assert.equal(await tokenButton.isDisabled(), false);
+  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
   await settingsPage.locator("#github-token").fill("fixture-token");
   await githubSection.getByRole("button", { name: "Save token" }).click();
   await githubSection
     .getByText("Connected as @fixture-user with a personal access token.")
     .waitFor();
   assert.equal(await settingsPage.locator("#github-token").count(), 0);
+  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
   fixtureMode = "private";
   await worker.evaluate(
     ({ bytes, sha }) => {

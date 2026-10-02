@@ -1,4 +1,5 @@
 import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
+import spinnerStyles from "../ui/spinner.css" with { type: "text" };
 import { failureMessages, limitNote } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
@@ -183,6 +184,7 @@ export function createSummaryUi(
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent = `
+${spinnerStyles}
 :host { display:block; margin-top:var(--base-size-8,8px); color:var(--fgColor-muted,#59636e) }
 :host([hidden]) { display:none }
 .row { display:inline; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; line-height:inherit; letter-spacing:inherit; text-align:start }
@@ -225,7 +227,14 @@ export function showState(ui: SummaryUi, state: RowState): void {
     ui.live.replaceChildren(row);
     ui.row = row;
   }
-  const parts: Node[] = [icon()];
+  let indicator: Element;
+  if (state.kind === "running") {
+    indicator =
+      row.querySelector(".culverin-spinner") ?? document.createElement("span");
+    indicator.className = "culverin-spinner";
+    indicator.setAttribute("aria-hidden", "true");
+  } else indicator = icon();
+  const parts: Node[] = [indicator];
   if (view.count !== undefined) {
     const count = document.createElement("strong");
     count.textContent = view.count;

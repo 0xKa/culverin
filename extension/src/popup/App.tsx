@@ -1,5 +1,6 @@
 import { useEffect, useReducer } from "preact/hooks";
 import { Button } from "../ui/Button";
+import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { analyze, cancel, openSettings, startPopup } from "./controller";
@@ -46,6 +47,7 @@ function Header({ view }: { view: PopupView }) {
         {view.repository}
       </p>
       <Status id="status" className="my-3 min-h-[1.45em]">
+        {view.cancelVisible && <Spinner />}
         {view.status}
       </Status>
     </>

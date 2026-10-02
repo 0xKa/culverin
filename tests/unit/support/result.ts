@@ -1,4 +1,5 @@
 import type { AnalysisResultV2 } from "../../../extension/src/counter/result";
+import type { PublicPayload } from "../../../extension/src/github/public-protocol";
 import {
   defaultIgnore,
   effectiveRulesHash,
@@ -38,6 +39,26 @@ export async function result(
       },
       complete: true,
       incompleteReasons: [],
+    },
+  };
+}
+
+export async function completedResult(): Promise<
+  Extract<PublicPayload, { type: "analysis.completed" }>
+> {
+  return {
+    type: "analysis.completed",
+    fromCache: false,
+    result: await result(),
+    resolution: {
+      repositoryId: "42",
+      owner: "culverin",
+      name: "sample",
+      defaultBranch: "main",
+      visibility: "public",
+      sha: "a".repeat(40),
+      sizeKb: 1,
+      resolvedAt: Date.now(),
     },
   };
 }

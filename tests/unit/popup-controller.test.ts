@@ -2,6 +2,7 @@ import { afterEach, expect, jest, test } from "bun:test";
 import { createPopupController } from "../../extension/src/popup/controller";
 import type { PopupEvent } from "../../extension/src/popup/state";
 import { deferred, event, settle } from "./support/events";
+import { completedResult } from "./support/result";
 
 const originalChrome = globalThis.chrome;
 let dispose: (() => void) | undefined;
@@ -103,8 +104,16 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
     type: "status",
     value: "Counting source files locally…",
   });
-  ui.reply(request, { type: "analysis.failed", code: "analysis_timeout" });
+  ui.reply(request, await completedResult());
   await pending;
+  expect(ui.events.some((item) => item.type === "result")).toBe(true);
+  const timedOut = ui.controller.analyze();
+  const timeoutRequest = ui.requests.at(-1)!;
+  ui.reply(timeoutRequest, {
+    type: "analysis.failed",
+    code: "analysis_timeout",
+  });
+  await timedOut;
   expect(
     ui.events.some(
       (item) => item.type === "status" && item.value.includes("interrupted"),

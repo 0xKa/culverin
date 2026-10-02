@@ -2,6 +2,7 @@ import { afterEach, beforeAll, expect, jest, test } from "bun:test";
 import { resolve } from "node:path";
 import type { RowAction, RowState } from "../../extension/src/content/ui";
 import { event, settle } from "./support/events";
+import { completedResult } from "./support/result";
 
 let source: string;
 beforeAll(async () => {
@@ -110,6 +111,16 @@ test("page analysis allows sparse progress beyond one minute and ends on engine 
   expect(states.at(-1)).toEqual({ kind: "running", phase: "counting" });
   callbacks.get(request.requestId as string)!({
     ...envelope,
+    ...(await completedResult()),
+  });
+  await settle();
+  expect(states.at(-1)).toMatchObject({ kind: "complete", total: 0 });
+  activate("analyze");
+  const timedOut = requests.at(-1)!;
+  callbacks.get(timedOut.requestId as string)!({
+    protocolVersion: 1,
+    requestId: timedOut.requestId,
+    navigationId: timedOut.navigationId,
     type: "analysis.failed",
     code: "analysis_timeout",
   });

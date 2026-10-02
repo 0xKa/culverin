@@ -7,10 +7,7 @@ export function createPopupControls(
 ) {
   const openActionPopup = async (tab: Page) => {
     await tab.bringToFront();
-    const worker =
-      context.serviceWorkers()[0] ??
-      (await context.waitForEvent("serviceworker"));
-    const opened = await worker.evaluate(async () => {
+    const opened = await harness.evaluate(async () => {
       const [tab] = await chrome.tabs.query({
         active: true,
         lastFocusedWindow: true,
@@ -51,8 +48,10 @@ export function createPopupControls(
     let nextId = 0;
     const evaluate = async <T>(expression: string): Promise<T> => {
       const id = ++nextId;
+      let timer: ReturnType<typeof setTimeout>;
+      let listener: (event: { sessionId: string; message: string }) => void;
       const result = new Promise<T>((resolve, reject) => {
-        const listener = (event: { sessionId: string; message: string }) => {
+        listener = (event) => {
           const message = JSON.parse(event.message) as {
             id?: number;
             error?: unknown;
@@ -62,20 +61,28 @@ export function createPopupControls(
             };
           };
           if (event.sessionId !== sessionId || message.id !== id) return;
-          session.off("Target.receivedMessageFromTarget", listener);
           if (message.error || message.result?.exceptionDetails)
             reject(new Error(event.message));
           else resolve(message.result?.result?.value as T);
         };
         session.on("Target.receivedMessageFromTarget", listener);
-      });
-      await session.send("Target.sendMessageToTarget", {
-        sessionId,
-        message: JSON.stringify({
-          id,
-          method: "Runtime.evaluate",
-          params: { expression, returnByValue: true },
-        }),
+        timer = setTimeout(
+          () => reject(new Error("Action popup evaluation timed out")),
+          5000,
+        );
+        void session
+          .send("Target.sendMessageToTarget", {
+            sessionId,
+            message: JSON.stringify({
+              id,
+              method: "Runtime.evaluate",
+              params: { expression, returnByValue: true },
+            }),
+          })
+          .catch(reject);
+      }).finally(() => {
+        clearTimeout(timer);
+        session.off("Target.receivedMessageFromTarget", listener);
       });
       return result;
     };
@@ -88,7 +95,15 @@ export function createPopupControls(
           if (pattern.test(text)) return text;
           await harness.waitForTimeout(50);
         }
-        throw new Error(`Action popup status: ${await statusText()}`);
+        const repository = await evaluate<string>(
+          "document.querySelector('#repository')?.textContent ?? ''",
+        );
+        const active = await harness.evaluate(() =>
+          chrome.tabs.query({ active: true, lastFocusedWindow: true }),
+        );
+        throw new Error(
+          `Action popup status: ${await statusText()}; repository: ${repository}; active tabs: ${JSON.stringify(active.map(({ id, url, windowId }) => ({ id, url, windowId })))}`,
+        );
       },
       click: (selector: string) =>
         evaluate<void>(

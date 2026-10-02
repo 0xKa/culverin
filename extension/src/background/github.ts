@@ -1088,6 +1088,7 @@ function validRequest(value: unknown): value is Request {
       "auth.disconnect",
       "auth.clear-private-session",
       "cache.clear-public",
+      "cache.clear-all",
       "repository.lookup",
       "analysis.request",
       "analysis.cancel",
@@ -1271,11 +1272,26 @@ export function handleGithub(
       reply({ state: "connected", ...(await statusReply()) });
       return;
     }
-    if (request.type === "cache.clear-public") {
+    if (
+      request.type === "cache.clear-public" ||
+      request.type === "cache.clear-all"
+    ) {
+      if (request.type === "cache.clear-all") {
+        const { previous } = await connection.rotate();
+        await connectionChanged(previous, {
+          clearPrivate: true,
+          clearRefs: true,
+        });
+      }
       await cache.clear();
       await Promise.all([refs.clear(), optionRefs.clear()]);
       await chrome.storage.session.remove(AUTO_COUNT_KEY);
-      reply({ state: "public-cache-cleared" });
+      reply({
+        state:
+          request.type === "cache.clear-all"
+            ? "all-results-cleared"
+            : "public-cache-cleared",
+      });
       return;
     }
     if (request.type === "auth.disconnect") {

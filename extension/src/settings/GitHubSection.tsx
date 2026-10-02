@@ -176,15 +176,6 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
     );
   }
 
-  async function clearPrivate(): Promise<void> {
-    const reply = await send("auth.clear-private-session");
-    setStatus(
-      reply?.state === "cleared"
-        ? "Private results deleted."
-        : "Extension unavailable. Try again.",
-    );
-  }
-
   const device = view?.device;
   return (
     <section aria-labelledby="github-heading" hidden={hidden}>
@@ -217,15 +208,6 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               onClick={() => void disconnect()}
             >
               Disconnect
-            </Button>
-            <Button
-              id="github-clear-private"
-              type="button"
-              className="px-3 py-[7px]"
-              disabled={busy}
-              onClick={() => void clearPrivate()}
-            >
-              Clear private results
             </Button>
           </div>
         </>

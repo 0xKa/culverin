@@ -791,9 +791,9 @@ sync();
   );
   assert.equal(await settingsPage.locator("#rules").isHidden(), true);
   await settingsPage
-    .getByRole("button", { name: "Clear public cache" })
+    .getByRole("button", { name: "Clear public results" })
     .click();
-  await settingsPage.getByText("Public cache cleared.").waitFor();
+  await settingsPage.getByText("Public results cleared.").waitFor();
   await settingsPage
     .locator("#cache-summary", { hasText: "No saved results." })
     .waitFor();
@@ -802,7 +802,7 @@ sync();
   assert.equal(new URL(settingsPage.url()).hash, "#ignore");
   assert.equal(
     await settingsPage
-      .getByRole("button", { name: "Clear public cache" })
+      .getByRole("button", { name: "Clear public results" })
       .isHidden(),
     true,
   );
@@ -810,7 +810,7 @@ sync();
   await settingsNav.getByRole("link", { name: "Storage" }).focus();
   await settingsPage.keyboard.press("Enter");
   await settingsPage
-    .getByRole("button", { name: "Clear public cache" })
+    .getByRole("button", { name: "Clear public results" })
     .waitFor({ state: "visible" });
   assert.equal(
     await settingsNav
@@ -1030,6 +1030,9 @@ sync();
           .fixtureFetchCount,
     ),
     1,
+  );
+  const savedPublicResults = await settingsPage.evaluate(() =>
+    chrome.storage.local.get("culverin.public-results.v1"),
   );
   await resumedPopup.close();
   await page.reload();
@@ -3000,12 +3003,94 @@ sync();
   await settingsPage
     .locator("#private-summary", { hasText: "1 result for 1 repository" })
     .waitFor();
-  await settingsPage.getByRole("link", { name: "GitHub" }).click();
-  await githubSection
+  assert.equal(
+    await githubSection
+      .getByRole("button", { name: "Clear private results" })
+      .count(),
+    0,
+  );
+  const savedPrivateResults = await settingsPage.evaluate(() =>
+    chrome.storage.local.get("culverin.private-results.v1"),
+  );
+  const settingsBeforeClear = await settingsPage.evaluate(() =>
+    chrome.storage.sync.get(null),
+  );
+  const beforeClearApiRequests = fixtureApiRequests;
+  const beforeClearArchiveRequests = fixtureArchiveRequests;
+  const restoreResults = async () => {
+    await settingsPage.evaluate(
+      (results) => chrome.storage.local.set(results),
+      { ...savedPublicResults, ...savedPrivateResults },
+    );
+    await settingsPage
+      .locator("#cache-summary", { hasText: "1 result for 1 repository" })
+      .waitFor();
+    await settingsPage
+      .locator("#private-summary", { hasText: "1 result for 1 repository" })
+      .waitFor();
+  };
+  await restoreResults();
+  const untrustedClearAll = await harness.evaluate(
+    () =>
+      new Promise<string>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "cache.clear-all",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+          },
+          () => resolve(chrome.runtime.lastError ? "rejected" : "handled"),
+        ),
+      ),
+  );
+  assert.equal(untrustedClearAll, "rejected");
+  assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
+  await settingsPage
+    .getByRole("button", { name: "Clear public results" })
+    .click();
+  await settingsPage.getByText("Public results cleared.").waitFor();
+  await settingsPage
+    .locator("#cache-summary", { hasText: "No saved results." })
+    .waitFor();
+  assert.deepEqual(await privateStorage(), { private: 1, public: 0 });
+  await restoreResults();
+  await settingsPage
     .getByRole("button", { name: "Clear private results" })
     .click();
-  await githubSection.getByText("Private results deleted.").waitFor();
+  await settingsPage.getByText("Private results cleared.").waitFor();
+  await settingsPage
+    .locator("#private-summary", { hasText: "No saved results." })
+    .waitFor();
+  assert.deepEqual(await privateStorage(), { private: 0, public: 1 });
+  await restoreResults();
+  await settingsPage.getByRole("button", { name: "Clear all results" }).click();
+  await settingsPage.getByText("All results cleared.").waitFor();
+  await settingsPage
+    .locator("#cache-summary", { hasText: "No saved results." })
+    .waitFor();
+  await settingsPage
+    .locator("#private-summary", { hasText: "No saved results." })
+    .waitFor();
   assert.deepEqual(await privateStorage(), { private: 0, public: 0 });
+  assert.deepEqual(
+    await settingsPage.evaluate(() => chrome.storage.sync.get(null)),
+    settingsBeforeClear,
+  );
+  const credentialKept = await settingsPage.evaluate(async () => {
+    const stored = (await chrome.storage.local.get("github.connection"))[
+      "github.connection"
+    ] as { credential?: { method: string; login: string; token: string } };
+    return (
+      stored.credential?.method === "token" &&
+      stored.credential.login === "fixture-user" &&
+      stored.credential.token === "fixture-token"
+    );
+  });
+  assert.equal(credentialKept, true);
+  assert.equal(fixtureApiRequests, beforeClearApiRequests);
+  assert.equal(fixtureArchiveRequests, beforeClearArchiveRequests);
+  await settingsPage.getByRole("link", { name: "GitHub" }).click();
   await githubSection
     .getByText("Connected as @fixture-user with a personal access token.")
     .waitFor();
@@ -3051,14 +3136,14 @@ sync();
   );
   await openedSettingsPage.getByRole("link", { name: "Storage" }).click();
   await openedSettingsPage
-    .getByRole("button", { name: "Clear public cache" })
+    .getByRole("button", { name: "Clear public results" })
     .waitFor({ state: "visible" });
   await openedSettingsPage.close();
   const reopenedSettings = context.waitForEvent("page");
   await settingsLauncher.getByRole("button", { name: "Settings" }).click();
   const reopenedSettingsPage = await reopenedSettings;
   await reopenedSettingsPage
-    .getByRole("button", { name: "Clear public cache" })
+    .getByRole("button", { name: "Clear public results" })
     .waitFor({ state: "visible" });
   assert.equal(new URL(reopenedSettingsPage.url()).hash, "#storage");
   assert.equal(

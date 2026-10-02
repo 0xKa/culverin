@@ -18,15 +18,27 @@ const exact = (time: number) =>
     timeStyle: "short",
   });
 
-function CacheList({
-  id,
-  title,
-  options,
-}: {
-  id: string;
-  title: string;
-  options: CacheOptions;
-}) {
+const clearActions = {
+  public: {
+    type: "cache.clear-public",
+    state: "public-cache-cleared",
+    message: "Public results cleared.",
+  },
+  private: {
+    type: "auth.clear-private-session",
+    state: "cleared",
+    message: "Private results cleared.",
+  },
+  all: {
+    type: "cache.clear-all",
+    state: "all-results-cleared",
+    message: "All results cleared.",
+  },
+};
+
+type ClearScope = keyof typeof clearActions;
+
+function CacheList({ id, options }: { id: string; options: CacheOptions }) {
   const [entries, setEntries] = useState<CachedResultSummary[]>();
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
@@ -58,7 +70,6 @@ function CacheList({
   if (!entries) return null;
   return (
     <div id={`${id}-list`} className="mt-3">
-      <h3 className="mb-2 text-[1.17em] font-bold">{title}</h3>
       <p id={`${id}-summary`} className="m-0">
         {cacheSummary(entries)}
       </p>
@@ -130,22 +141,32 @@ function CacheList({
 }
 
 export function StorageSection({ hidden }: { hidden: boolean }) {
-  const [cacheStatus, setCacheStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{
+    scope: ClearScope;
+    message: string;
+  }>();
 
-  function clearPublic(): void {
+  function clear(scope: ClearScope): void {
+    const action = clearActions[scope];
+    setBusy(true);
+    setStatus(undefined);
     chrome.runtime.sendMessage(
       {
         protocolVersion: 1,
-        type: "cache.clear-public",
+        type: action.type,
         requestId: crypto.randomUUID(),
         navigationId: crypto.randomUUID(),
       },
       (reply: { state?: string } | undefined) => {
-        setCacheStatus(
-          !chrome.runtime.lastError && reply?.state === "public-cache-cleared"
-            ? "Public cache cleared."
-            : "Extension unavailable. Try again.",
-        );
+        setBusy(false);
+        setStatus({
+          scope,
+          message:
+            !chrome.runtime.lastError && reply?.state === action.state
+              ? action.message
+              : "Couldn't clear saved results. Try again.",
+        });
       },
     );
   }
@@ -155,39 +176,68 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
       <h2 id="storage-heading" className="mb-4 text-[1.5em] font-bold">
         Storage
       </h2>
-      <h3 id="cache-heading" className="mb-2 text-[1.17em] font-bold">
-        Public result cache
-      </h3>
+      <p className="text-muted mb-6">
+        Clearing saved results keeps your settings and GitHub connection.
+      </p>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 id="cache-heading" className="text-[1.17em] font-bold">
+          Public results
+        </h3>
+        <Button
+          id="clear-public"
+          type="button"
+          className="px-3 py-[7px]"
+          disabled={busy}
+          onClick={() => clear("public")}
+        >
+          Clear public results
+        </Button>
+      </div>
       <p>
         Complete public results are stored locally for reuse. Culverin checks
         repository visibility before showing a cached result.
       </p>
-      <Button
-        id="clear-public"
-        type="button"
-        className="my-3 px-3 py-[7px]"
-        onClick={clearPublic}
-      >
-        Clear public cache
-      </Button>
-      <Status id="status" className="min-h-[1.5em] whitespace-pre-wrap">
-        {cacheStatus}
+      <Status id="status">
+        {status?.scope === "public" && status.message}
       </Status>
-      <CacheList id="cache" title="Saved results" options={publicCache} />
-      <h3 id="private-heading" className="mt-6 mb-2 text-[1.17em] font-bold">
-        Private result cache
-      </h3>
+      <CacheList id="cache" options={publicCache} />
+      <div className="mt-6 mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 id="private-heading" className="text-[1.17em] font-bold">
+          Private results
+        </h3>
+        <Button
+          id="clear-private"
+          type="button"
+          className="px-3 py-[7px]"
+          disabled={busy}
+          onClick={() => clear("private")}
+        >
+          Clear private results
+        </Button>
+      </div>
       <p>
         Complete results for private repositories are stored separately and
         shown only after GitHub confirms your connection can still read the
-        repository. They are deleted when you disconnect GitHub or select Clear
-        private results in the GitHub section.
+        repository. They are also deleted when you disconnect GitHub.
       </p>
-      <CacheList
-        id="private"
-        title="Saved private results"
-        options={privateCache}
-      />
+      <Status id="private-status">
+        {status?.scope === "private" && status.message}
+      </Status>
+      <CacheList id="private" options={privateCache} />
+      <div className="border-divider mt-6 border-t pt-4">
+        <Button
+          id="clear-all"
+          type="button"
+          className="border-error/60! px-3 py-[7px]"
+          disabled={busy}
+          onClick={() => clear("all")}
+        >
+          Clear all results
+        </Button>
+        <Status id="all-status" className="mt-2">
+          {status?.scope === "all" && status.message}
+        </Status>
+      </div>
     </section>
   );
 }

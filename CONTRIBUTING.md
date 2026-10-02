@@ -15,10 +15,12 @@ The icon artwork lives in `assets/`. The PNGs in `extension/public/icons/` are c
 
 Run `bun run bench:archive` for the synthetic browser archive benchmarks described in [archive scalability](docs/archive-performance.md). This separate workload measures larger snapshots without adding gigabyte fixtures to the ordinary test suite.
 
+`bun run test:browser` builds and checks both the production extension in `extension/dist` and a separate diagnostic extension in `.bun/test-extension`. The latter is built by `bun run build:test-extension` and composes production logic with local test adapters; it is never packaged. See [browser checks](docs/browser-tests.md) for the scenario organization.
+
 ## Release package
 
 `bun run package` builds the extension, checks the build, and writes `dist/culverin-<version>.zip` with a SHA-256 checksum file. The check fails if the manifest keys, permissions, host permissions, or content security policy change, if an unexpected file or source map is present, or if bundled code contains a local path, a development host, or a URL outside the allowed origins. ZIP entries are sorted and use fixed timestamps and file modes, so the same build output always produces the same checksum. The command prints the source commit and notes uncommitted changes.
 
-`bun run test:package` rebuilds the package, confirms the ZIP matches its checksum, extracts it, and runs the browser smoke test against the extracted files. Set `CULVERIN_LIVE_PUBLIC=1` to include the live public GitHub check.
+`bun run test:package` rebuilds the package, confirms the ZIP matches its checksum, extracts it, and runs the product browser scenarios against the extracted files. Set `CULVERIN_LIVE_PUBLIC=1` to include the live public GitHub check.
 
 `extension/public/THIRD_PARTY_NOTICES.txt` lists the licenses of the Rust crates linked into the WebAssembly counter and the bundled Preact and Tailwind CSS packages. It is shipped in the package. Regenerate it with `bun run notices:build` after dependency changes; `bun run verify` fails when it is out of date.

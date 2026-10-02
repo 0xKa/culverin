@@ -1,3 +1,4 @@
+import { reconcileArchiveHost } from "./offscreen";
 import { analyzeArchive } from "../archive/bridge";
 import { ArchiveError } from "../archive/tar";
 import { ConnectionStore } from "../auth/connection";
@@ -89,6 +90,7 @@ export function createBackgroundResources(
       .setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })
       .catch(() => undefined),
   ]).then(async () => {
+    await reconcileArchiveHost(chrome);
     const state = await chrome.storage.session.get(MARKER);
     const marker = state[MARKER];
     if (Array.isArray(marker)) {

@@ -55,7 +55,7 @@ for (let index = 0; index < count; index++) {
 }
 
 console.log(`Testing ${name} (${digest})`);
-const run = spawnSync("bun", ["tests/browser-smoke.ts"], {
+const run = spawnSync("bun", ["tests/browser-smoke.ts", "--product-only"], {
   cwd: root,
   stdio: "inherit",
   env: { ...process.env, CULVERIN_EXTENSION_DIR: target },

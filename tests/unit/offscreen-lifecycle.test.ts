@@ -1,5 +1,8 @@
 import { afterEach, expect, jest, test } from "bun:test";
-import { createOffscreenManager } from "../../extension/src/background/offscreen";
+import {
+  createOffscreenManager,
+  reconcileArchiveHost,
+} from "../../extension/src/background/offscreen";
 import { deferred, settle } from "./support/events";
 afterEach(() => jest.useRealTimers());
 
@@ -139,4 +142,37 @@ test("host busy state defers closing and a failed close does not poison new acqu
   jest.advanceTimersByTime(1000);
   await settle();
   expect(service.active()).toBe(false);
+});
+
+test("startup creates no absent host and releases an existing host after a lost reconciliation reply", async () => {
+  jest.useFakeTimers();
+  let present = false;
+  const api = manager();
+  api.dependencies.exists = async () => present;
+  const service = api.create();
+  const sendMessage = jest.fn(async () => {
+    throw new Error("Host closed");
+  });
+  const browser = {
+    runtime: {
+      getURL: (path: string) => `chrome-extension://test/${path}`,
+      getContexts: async () => (present ? [{}] : []),
+      sendMessage,
+    },
+  } as unknown as typeof chrome;
+  await reconcileArchiveHost(browser, service);
+  expect(sendMessage).not.toHaveBeenCalled();
+  expect(api.creates()).toBe(0);
+  present = true;
+  await reconcileArchiveHost(browser, service);
+  expect(sendMessage).toHaveBeenCalledWith({
+    target: "archive.host",
+    protocolVersion: 1,
+    type: "archive.reconcile",
+  });
+  expect(service.active()).toBe(false);
+  expect(api.creates()).toBe(0);
+  jest.advanceTimersByTime(1000);
+  await settle();
+  expect(api.closes()).toBe(1);
 });

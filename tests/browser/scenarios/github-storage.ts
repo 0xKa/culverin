@@ -16,7 +16,6 @@ export async function runGithubStorage(
     savedPublicResults,
     harness,
     openPopup,
-    outcome,
   } = state;
 
   const deviceBodies: string[] = [];
@@ -515,11 +514,7 @@ export async function runGithubStorage(
   await settingsLauncher.close();
 
   console.log(
-    `Browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,
-  );
-
-  console.log(
-    "Browser smoke passed: packaged WASM counted under CSP and recovered after trap",
+    "Production browser checks passed: popup, page, settings, auth, cache, archive acquisition, and recovery",
   );
   return { ...state };
 }

@@ -47,6 +47,7 @@ function fixture() {
       id: "test",
       getURL: (path: string) => `chrome-extension://test/${path}`,
       onConnect: event<(port: chrome.runtime.Port) => void>(),
+      getContexts: async () => [],
     },
     tabs: {
       onUpdated: event(),

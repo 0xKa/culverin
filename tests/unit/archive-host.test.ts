@@ -127,3 +127,18 @@ test("cancel terminates a blocked worker without waiting for progress", () => {
   expect(finish).toHaveBeenCalledWith({ state: "canceled" });
   expect(jest.getTimerCount()).toBe(0);
 });
+
+test("startup reconciliation interrupts an orphan and leaves the host ready for a new job", () => {
+  const { send, finish } = start();
+  const orphan = latest();
+  const respond = jest.fn();
+  send("archive.reconcile", respond);
+  expect(orphan.terminated).toBe(true);
+  expect(finish).toHaveBeenCalledWith({ state: "interrupted" });
+  expect(respond).toHaveBeenCalledWith({ ok: true });
+  expect(archiveHostActive()).toBe(false);
+  expect(jest.getTimerCount()).toBe(0);
+  start();
+  expect(latest()).not.toBe(orphan);
+  expect(archiveHostActive()).toBe(true);
+});

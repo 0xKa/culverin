@@ -1,4 +1,4 @@
-import { runCounter } from "../counter/runner";
+import { runCounter } from "../../../extension/src/counter/runner";
 import type { JobInput } from "./protocol";
 
 self.onmessage = (event: MessageEvent<JobInput>) => {

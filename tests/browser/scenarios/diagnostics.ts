@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { runLivePublic } from "./live-public";
+import type { Page } from "playwright";
+import type { runSetup } from "./setup";
 export async function runDiagnostics(
-  state: Awaited<ReturnType<typeof runLivePublic>>,
+  state: Pick<
+    Awaited<ReturnType<typeof runSetup>>,
+    "context" | "harness" | "worker" | "page" | "fixtures"
+  > & { settingsPage: Page },
 ) {
   const { context, harness, worker, page, settingsPage, fixtures } = state;
 
@@ -747,5 +751,11 @@ export async function runDiagnostics(
   await cdp.detach();
 
   fixtures.mode = "ok";
-  return { ...state, outcome };
+  console.log(
+    `Diagnostic browser count ${outcome.countMs.toFixed(2)} ms, JS heap ${outcome.memory ?? "unavailable"} bytes`,
+  );
+  console.log(
+    "Diagnostic browser checks passed: bounded archive work, cancellation, leases, restart, and WASM trap recovery",
+  );
+  return { ...state };
 }

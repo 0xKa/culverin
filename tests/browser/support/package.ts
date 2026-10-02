@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-export function inspectPackage(directory: string): void {
+export function inspectPackage(directory: string, diagnostic = false): void {
   assert.deepEqual(readdirSync(directory).sort(), [
     "THIRD_PARTY_NOTICES.txt",
     "assets",
@@ -26,18 +26,31 @@ export function inspectPackage(directory: string): void {
     readdirSync(resolve(directory, "assets"))
       .map((name) => name.replace(/-[A-Za-z0-9_-]+(?=\.)/, "-HASH"))
       .sort(),
-    [
-      "culverin_counter_bg-HASH.wasm",
-      "preact-HASH.js",
-      "result-HASH.js",
-      "settings-HASH.js",
-      "settings-HASH.js",
-      "styles-HASH.css",
-      "styles-HASH.js",
-      "tar-HASH.js",
-      "worker-HASH.js",
-      "worker-HASH.js",
-    ],
+    diagnostic
+      ? [
+          "archive-HASH.js",
+          "culverin_counter_bg-HASH.wasm",
+          "preact-HASH.js",
+          "protocol-HASH.js",
+          "result-HASH.js",
+          "settings-HASH.js",
+          "settings-HASH.js",
+          "styles-HASH.css",
+          "styles-HASH.js",
+          "worker-HASH.js",
+          "worker-HASH.js",
+        ]
+      : [
+          "culverin_counter_bg-HASH.wasm",
+          "preact-HASH.js",
+          "result-HASH.js",
+          "settings-HASH.js",
+          "settings-HASH.js",
+          "styles-HASH.css",
+          "styles-HASH.js",
+          "tar-HASH.js",
+          "worker-HASH.js",
+        ],
   );
   const manifest = JSON.parse(
     readFileSync(resolve(directory, "manifest.json"), "utf8"),
@@ -74,23 +87,50 @@ export function inspectPackage(directory: string): void {
     "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.github.com https://codeload.github.com https://github.com",
   );
   for (const file of [
+    "background.js",
     "settings.js",
     "popup.js",
     "content.js",
     "offscreen.js",
   ]) {
     const source = readFileSync(resolve(directory, file), "utf8");
-    assert.equal(source.includes("github.connection"), false);
-    assert.equal(source.includes("login/oauth/access_token"), false);
+    if (!diagnostic)
+      for (const marker of [
+        "archive.fixture",
+        "counter.analyze",
+        "bootstrap.ping",
+        "feasibility.",
+        "culverin-feasibility-probe",
+        "test-harness.html",
+      ])
+        assert.equal(
+          source.includes(marker),
+          false,
+          `${file} includes ${marker}`,
+        );
+    if (file !== "background.js") {
+      assert.equal(source.includes("github.connection"), false);
+      assert.equal(source.includes("login/oauth/access_token"), false);
+    }
   }
   for (const file of readdirSync(resolve(directory, "assets")).filter((name) =>
     name.endsWith(".js"),
   )) {
-    assert.equal(
-      readFileSync(resolve(directory, "assets", file), "utf8").includes(
-        "github.connection",
-      ),
-      false,
-    );
+    const source = readFileSync(resolve(directory, "assets", file), "utf8");
+    if (!diagnostic)
+      for (const marker of [
+        "archive.fixture",
+        "counter.analyze",
+        "bootstrap.ping",
+        "feasibility.",
+        "culverin-feasibility-probe",
+        "test-harness.html",
+      ])
+        assert.equal(
+          source.includes(marker),
+          false,
+          `${file} includes ${marker}`,
+        );
+    assert.equal(source.includes("github.connection"), false);
   }
 }

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { runDiagnostics } from "./diagnostics";
+import type { runLivePublic } from "./live-public";
 export async function runPageCounting(
-  state: Awaited<ReturnType<typeof runDiagnostics>>,
+  state: Awaited<ReturnType<typeof runLivePublic>>,
 ) {
   const {
     context,

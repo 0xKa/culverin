@@ -1,5 +1,5 @@
-import type { AnalysisResultV2 } from "../counter/result";
-import type { CounterRules } from "../counter/runner";
+import type { AnalysisResultV2 } from "../../../extension/src/counter/result";
+import type { CounterRules } from "../../../extension/src/counter/runner";
 
 export const PROTOCOL_VERSION = 1;
 export const JOB_DEADLINE_MS = 25_000;

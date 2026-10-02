@@ -95,3 +95,27 @@ export const offscreen = createOffscreenManager({
       })
     )?.state === "idle",
 });
+
+export async function reconcileArchiveHost(
+  browser: typeof chrome = chrome,
+  manager = offscreen,
+): Promise<void> {
+  const contexts = await browser.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [browser.runtime.getURL("offscreen.html")],
+  });
+  if (!contexts.length) return;
+  const lease = manager.acquire();
+  try {
+    await lease.ready;
+    await browser.runtime
+      .sendMessage({
+        target: "archive.host",
+        protocolVersion: 1,
+        type: "archive.reconcile",
+      })
+      .catch(() => undefined);
+  } finally {
+    lease.release();
+  }
+}

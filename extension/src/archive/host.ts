@@ -92,6 +92,8 @@ export function handleArchiveHost(
   sender: chrome.runtime.MessageSender,
   respond: Reply,
   fixtureActive: boolean,
+  createWorker: () => Worker = () =>
+    new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
 ): boolean {
   if (
     sender.id !== chrome.runtime.id ||
@@ -103,6 +105,11 @@ export function handleArchiveHost(
   const command = message as Record<string, unknown>;
   if (command.target !== "archive.host" || command.protocolVersion !== 1)
     return false;
+  if (command.type === "archive.reconcile") {
+    stopArchive();
+    respond({ ok: true });
+    return false;
+  }
   if (command.type === "archive.status") {
     respond({ state: fixtureActive || active ? "busy" : "idle" });
     return false;
@@ -138,9 +145,7 @@ export function handleArchiveHost(
       respond({ state: "failed", code: "archive_invalid" });
       return false;
     }
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), {
-      type: "module",
-    });
+    const worker = createWorker();
     const job: Active = {
       id: command.jobId,
       worker,

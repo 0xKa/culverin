@@ -7,25 +7,24 @@ export function createPopupControls(
 ) {
   const openActionPopup = async (tab: Page) => {
     await tab.bringToFront();
-    const opened = await harness.evaluate(
-      () =>
-        new Promise<{ ok: boolean }>((resolve) =>
-          chrome.tabs.query(
-            { active: true, lastFocusedWindow: true },
-            (tabs) => {
-              const tabId = tabs[0]?.id;
-              if (tabId === undefined) {
-                resolve({ ok: false });
-                return;
-              }
-              chrome.runtime.sendMessage(
-                { type: "popup.open", targetTabId: tabId },
-                resolve,
-              );
-            },
-          ),
-        ),
-    );
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent("serviceworker"));
+    const opened = await worker.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      if (tab?.id === undefined || tab.windowId === undefined)
+        return { ok: false };
+      try {
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.action.openPopup({ windowId: tab.windowId });
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    });
     assert.equal(opened.ok, true);
   };
 

@@ -87,6 +87,11 @@ const assets = readdirSync(resolve(source, "assets"));
 for (const name of assets)
   check(ASSET.test(name), `unexpected asset file: assets/${name}`);
 const wasm = assets.filter((name) => name.endsWith(".wasm"));
+check(
+  assets.filter((name) => /^worker-[A-Za-z0-9_-]{8}\.js$/.test(name)).length ===
+    1,
+  "expected one production archive worker",
+);
 check(wasm.length === 1, "expected exactly one WebAssembly module");
 for (const name of wasm)
   check(
@@ -137,6 +142,12 @@ const forbidden = [
   "sourceMappingURL",
   "localhost",
   "127.0.0.1",
+  "archive.fixture",
+  "counter.analyze",
+  "bootstrap.ping",
+  "feasibility.",
+  "culverin-feasibility-probe",
+  "test-harness.html",
 ];
 for (const file of files) {
   check(!file.endsWith(".map"), `source map included: ${file}`);

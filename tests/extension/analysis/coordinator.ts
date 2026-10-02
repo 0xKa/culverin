@@ -1,4 +1,4 @@
-import { offscreen } from "../background/offscreen";
+import { offscreen } from "../../../extension/src/background/offscreen";
 import {
   JOB_DEADLINE_MS,
   MAX_FILE_BYTES,
@@ -6,7 +6,7 @@ import {
   PROTOCOL_VERSION,
   type JobOutcome,
 } from "./protocol";
-import { archiveBridgeActive } from "../archive/bridge";
+import { archiveBridgeActive } from "../../../extension/src/archive/bridge";
 
 const MARKER = "feasibility.active";
 const LAST = "feasibility.last";

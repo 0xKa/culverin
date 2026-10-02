@@ -1,3 +1,4 @@
+import { ExternalLink } from "../ui/ExternalLink";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { Button } from "../ui/Button";
@@ -5,14 +6,6 @@ import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { createGitHubController, type GitHubBusy } from "./github-controller";
-
-function Link({ href, children }: { href: string; children: string }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="underline">
-      {children}
-    </a>
-  );
-}
 
 export function GitHubSection({ hidden }: { hidden: boolean }) {
   const [view, setView] = useState<ConnectionView>();
@@ -55,14 +48,16 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             <p>
               Culverin can read the repositories you chose when you installed
               the app.{" "}
-              <Link href={INSTALL_URL}>Choose repositories on GitHub</Link>
+              <ExternalLink href={INSTALL_URL}>
+                Choose repositories on GitHub
+              </ExternalLink>
             </p>
           )}
           <div className="my-3 flex flex-wrap gap-2">
             <Button
               id="github-disconnect"
               type="button"
-              className="px-3 py-[7px]"
+
               disabled={busy !== undefined}
               onClick={() => void controller.disconnect()}
             >
@@ -77,7 +72,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               <Button
                 id="github-forget"
                 type="button"
-                className="my-1 px-3 py-[7px]"
+                className="my-1"
                 disabled={busy !== undefined}
                 onClick={() => void controller.disconnect()}
               >
@@ -90,8 +85,9 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             {device ? (
               <div id="github-device">
                 <p className="m-0">
-                  Enter this code at <Link href={DEVICE_URL}>{DEVICE_URL}</Link>
-                  , then approve Culverin:
+                  Enter this code at{" "}
+                  <ExternalLink href={DEVICE_URL}>{DEVICE_URL}</ExternalLink>,
+                  then approve Culverin:
                 </p>
                 <p
                   id="github-device-code"
@@ -102,14 +98,14 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                 <div className="my-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    className="px-3 py-[7px]"
+
                     onClick={() => void controller.copy(device.userCode)}
                   >
                     Copy code
                   </Button>
                   <Button
                     type="button"
-                    className="px-3 py-[7px]"
+
                     onClick={() => void chrome.tabs.create({ url: DEVICE_URL })}
                   >
                     Open GitHub
@@ -117,7 +113,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   <Button
                     id="github-device-cancel"
                     type="button"
-                    className="px-3 py-[7px]"
+
                     onClick={() => void controller.cancel()}
                   >
                     Cancel
@@ -138,7 +134,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                 <Button
                   id="github-connect"
                   type="button"
-                  className="my-3 px-3 py-[7px]"
+                  className="my-3"
                   disabled={busy !== undefined}
                   aria-busy={busy === "connect"}
                   onClick={() => void controller.connect()}
@@ -150,8 +146,10 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             )}
             <p>
               To add or remove repositories later,{" "}
-              <Link href={INSTALL_URL}>manage the Culverin app on GitHub</Link>.
-              Organizations may need an owner to approve it.
+              <ExternalLink href={INSTALL_URL}>
+                manage the Culverin app on GitHub
+              </ExternalLink>
+              . Organizations may need an owner to approve it.
             </p>
             <details className="my-4">
               <summary className="cursor-pointer">
@@ -160,9 +158,11 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               <div className="mt-2 pl-4">
                 <p>
                   For accounts or organizations that can't install the app.{" "}
-                  <Link href={TOKEN_URL}>Create a fine-grained token</Link> with
-                  read-only access to Contents for the repositories you want to
-                  count, then paste it here.
+                  <ExternalLink href={TOKEN_URL}>
+                    Create a fine-grained token
+                  </ExternalLink>{" "}
+                  with read-only access to Contents for the repositories you
+                  want to count, then paste it here.
                 </p>
                 <form
                   className="my-3 flex flex-wrap items-center gap-2"
@@ -187,7 +187,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   <Button
                     id="github-token-save"
                     type="submit"
-                    className="px-3 py-[7px]"
+
                     disabled={busy !== undefined || !token.trim()}
                     aria-busy={busy === "token"}
                   >

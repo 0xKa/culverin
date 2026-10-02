@@ -1,3 +1,4 @@
+import { ExternalLink } from "../ui/ExternalLink";
 import { sendSettings } from "./client";
 import { useEffect, useState } from "preact/hooks";
 import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
@@ -97,14 +98,12 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
               {entries.map((entry) => (
                 <tr key={entry.identity} className="border-divider border-b">
                   <td className="py-1.5 pr-4 align-top">
-                    <a
+                    <ExternalLink
                       href={`https://github.com/${entry.owner}/${entry.name}`}
-                      target="_blank"
-                      rel="noreferrer"
                       className="underline"
                     >
                       {entry.owner}/{entry.name}
-                    </a>
+                    </ExternalLink>
                     <div className="text-muted text-[0.9em]">
                       <span className="font-mono">{entry.sha.slice(0, 7)}</span>
                       {entry.topLanguage && ` · mostly ${entry.topLanguage}`}
@@ -179,7 +178,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
         <Button
           id="clear-public"
           type="button"
-          className="px-3 py-[7px]"
+
           disabled={busy}
           onClick={() => clear("public")}
         >
@@ -201,7 +200,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
         <Button
           id="clear-private"
           type="button"
-          className="px-3 py-[7px]"
+
           disabled={busy}
           onClick={() => clear("private")}
         >
@@ -221,7 +220,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
         <Button
           id="clear-all"
           type="button"
-          className="border-error/60! px-3 py-[7px]"
+          variant="danger"
           disabled={busy}
           onClick={() => clear("all")}
         >

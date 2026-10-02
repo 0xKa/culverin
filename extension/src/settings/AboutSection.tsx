@@ -1,3 +1,4 @@
+import { ExternalLink } from "../ui/ExternalLink";
 import { useState } from "preact/hooks";
 import {
   engineVersion,
@@ -63,14 +64,12 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
         ))}
         <dt className="text-muted">License</dt>
         <dd className="m-0">
-          <a
+          <ExternalLink
             href={`${REPOSITORY_URL}/blob/main/LICENSE`}
-            target="_blank"
-            rel="noreferrer"
             className="underline"
           >
             Apache License 2.0
-          </a>
+          </ExternalLink>
           {" · "}
           <a
             href="THIRD_PARTY_NOTICES.txt"
@@ -84,7 +83,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
       <Button
         id="copy-details"
         type="button"
-        className="px-3 py-[7px]"
+
         onClick={() => void copy()}
       >
         Copy details
@@ -96,14 +95,9 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
       <ul className="list-disc pl-5">
         {links.map(([label, url]) => (
           <li key={label}>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-            >
+            <ExternalLink href={url} className="underline">
               {label}
-            </a>
+            </ExternalLink>
           </li>
         ))}
       </ul>

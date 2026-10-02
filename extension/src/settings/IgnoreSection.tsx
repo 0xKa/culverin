@@ -153,7 +153,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
         <Button
           id="save-rules"
           type="button"
-          className="px-3 py-[7px]"
+
           disabled={parsed.errors.length > 0}
           onClick={() =>
             void save({
@@ -167,7 +167,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
         <Button
           id="reset-rules"
           type="button"
-          className="px-3 py-[7px]"
+
           onClick={() => {
             if (
               confirm(

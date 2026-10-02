@@ -6,7 +6,8 @@ import { UsageMeter } from "../ui/UsageMeter";
 import { createPopupController, openSettings } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
 import type { ResultView } from "./view";
-import { ResultRows } from "./ResultRows";
+import { ResultSection } from "./ResultSection";
+import { ExternalLink } from "../ui/ExternalLink";
 
 function Header({ view }: { view: PopupView }) {
   return (
@@ -32,7 +33,7 @@ function Header({ view }: { view: PopupView }) {
           <Button
             id="settings"
             type="button"
-            className="px-2.5 py-1.5"
+            size="popup"
             onClick={() => openSettings()}
           >
             Settings
@@ -79,7 +80,7 @@ function Totals({ view }: { view: PopupView }) {
         <Button
           id="ignore-edit"
           type="button"
-          className="px-2 py-0.5"
+          size="compact"
           onClick={() => openSettings("ignore")}
         >
           Edit
@@ -120,14 +121,9 @@ function OversizedFiles({ result }: { result: ResultView }) {
     >
       {result.oversizedFiles.map((file) => (
         <li key={file.path} className="my-1">
-          <a
-            href={file.url}
-            target="_blank"
-            rel="noreferrer"
-            className="wrap-anywhere underline"
-          >
+          <ExternalLink href={file.url} className="wrap-anywhere underline">
             {file.path}
-          </a>{" "}
+          </ExternalLink>{" "}
           <span className="whitespace-nowrap">{file.size}</span>
         </li>
       ))}
@@ -176,50 +172,42 @@ function Details({
           </p>
         ))}
         {result && result.codeRows.length > 0 && (
-          <>
-            <h2 className="mt-3 text-[0.95rem] font-bold">Code</h2>
-            <p id="code-summary" className="my-1 font-semibold">
-              {result.codeSummary}
-            </p>
-            <ResultRows
-              rows={result.codeRows}
-              label="Languages by code lines"
-              moreLabel="More languages by code lines"
-              id="more-code-languages"
-            />
-          </>
+          <ResultSection
+            title="Code"
+            summary={result.codeSummary}
+            summaryId="code-summary"
+            rows={result.codeRows}
+            label="Languages by code lines"
+            moreLabel="More languages by code lines"
+            id="more-code-languages"
+          ></ResultSection>
         )}
         {result && result.textRows.length > 0 && (
-          <>
-            <h2 className="mt-3 text-[0.95rem] font-bold">Text</h2>
-            <p id="text-summary" className="my-1 font-semibold">
-              {result.textSummary}
-            </p>
-            <ResultRows
-              rows={result.textRows}
-              label="Text formats by text lines"
-              moreLabel="More text formats by text lines"
-              id="more-text-formats"
-            />
-          </>
+          <ResultSection
+            title="Text"
+            summary={result.textSummary}
+            summaryId="text-summary"
+            rows={result.textRows}
+            label="Text formats by text lines"
+            moreLabel="More text formats by text lines"
+            id="more-text-formats"
+          ></ResultSection>
         )}
         {result && result.otherRows.length > 0 && (
-          <>
-            <h2 className="mt-3 text-[0.95rem] font-bold">Other files</h2>
-            <p id="other-summary" className="my-1 font-semibold">
-              {result.otherSummary}
-            </p>
+          <ResultSection
+            title="Other files"
+            summary={result.otherSummary}
+            summaryId="other-summary"
+            rows={result.otherRows}
+            label="Other files by lines"
+            moreLabel="More other files by lines"
+            id="more-other-files"
+          >
             <p className="my-1.5">
               Not recognized as a programming or text language. Their lines are
               not included in code or text lines.
             </p>
-            <ResultRows
-              rows={result.otherRows}
-              label="Other files by lines"
-              moreLabel="More other files by lines"
-              id="more-other-files"
-            />
-          </>
+          </ResultSection>
         )}
         {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}
         {result && <p className="my-1.5">{result.coverage}</p>}
@@ -251,7 +239,7 @@ export function App() {
           <Button
             id="analyze"
             type="button"
-            className="px-2.5 py-1.5"
+            size="popup"
             disabled={view.analyzeDisabled}
             aria-busy={view.cancelVisible}
             onClick={() => void controller.analyze(view.reanalyze)}
@@ -262,7 +250,7 @@ export function App() {
           <Button
             id="cancel"
             type="button"
-            className="px-2.5 py-1.5"
+            size="popup"
             hidden={!view.cancelVisible}
             onClick={() => void controller.cancel()}
           >
@@ -271,7 +259,7 @@ export function App() {
           <Button
             id="connect"
             type="button"
-            className="px-2.5 py-1.5"
+            size="popup"
             hidden={!view.connect}
             onClick={() => openSettings("github")}
           >

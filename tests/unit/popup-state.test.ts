@@ -27,6 +27,8 @@ test("tracks repository, busy state, sizes, result and details", () => {
     moreOtherRows: [],
     noLanguages: "No language totals.",
     coverage: "",
+    fileLimit: "The per-file limit is 8 MiB.",
+    oversizedFiles: [],
   };
   expect(ready.reanalyze).toBe(false);
   const shown = reduce(ready, { type: "result", value: result, sizes });

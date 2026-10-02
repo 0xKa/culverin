@@ -107,6 +107,54 @@ test("formats repository and result details", () => {
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
   );
+  expect(view.fileLimit).toBe("The per-file limit is 8 MiB.");
+  expect(view.oversizedFiles).toEqual([]);
+  expect(view.oversizedNote).toBe(
+    "File names aren't available for this saved result. Reanalyze to see them.",
+  );
+});
+
+test("links oversized paths to the counted commit and formats their sizes", () => {
+  const path = "src/large #?%é.rs";
+  const view = resultView(
+    {
+      ...result,
+      coverage: {
+        ...result.coverage,
+        oversizedFiles: [{ path, bytes: 9 * 1024 * 1024 }],
+      },
+    },
+    { ...resolution, sha: "c".repeat(40) },
+  );
+  expect(view.oversizedFiles).toEqual([
+    {
+      path,
+      size: "9 MB",
+      url: `https://github.com/culverin/sample/blob/${result.revision.commitSha}/src/large%20%23%3F%25%C3%A9.rs`,
+    },
+  ]);
+  expect(view.oversizedNote).toBeUndefined();
+  const truncated = resultView(
+    {
+      ...result,
+      coverage: {
+        ...result.coverage,
+        skippedByReason: {
+          ...result.coverage.skippedByReason,
+          oversized_source: 257,
+        },
+        oversizedFiles: Array.from({ length: 256 }, (_, index) => ({
+          path: `src/${index}.rs`,
+          bytes: 9_000_000,
+        })),
+      },
+    },
+    resolution,
+  );
+  expect(truncated.oversizedFiles).toHaveLength(256);
+  expect(truncated.oversizedNote).toBe(
+    "1 additional oversized file isn't listed.",
+  );
 });
 
 test("orders languages by lines and folds other files after the first rows", () => {
@@ -186,6 +234,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
   expect(view.textRows).toEqual([]);
   expect(view.codeSummary).toBe("0 code lines · 0 files");
   expect(view.warning).toBeUndefined();
+  expect(view.oversizedNote).toBeUndefined();
   expect(JSON.stringify(view)).not.toMatch(/NaN|Infinity/);
   expect(sizesView({ ...resolution, sizeKb: null }).repositorySize).toBe(
     "Not reported",

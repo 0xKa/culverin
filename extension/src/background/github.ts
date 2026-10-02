@@ -683,7 +683,15 @@ function runPublicRequest(request: PublicRequest, client: PublicClient): void {
         reply({ type: "analysis.failed", code: "repository_unavailable" });
         return;
       }
-      if (cached) {
+      if (
+        cached &&
+        !(
+          request.type === "analysis.request" &&
+          client.force &&
+          cached.coverage.skippedByReason.oversized_source > 0 &&
+          cached.coverage.oversizedFiles === undefined
+        )
+      ) {
         if (request.type === "repository.lookup")
           reply({
             type: "repository.cache_hit",

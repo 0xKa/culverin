@@ -4,6 +4,7 @@ import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { analyze, cancel, openSettings, startPopup } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
+import type { ResultView } from "./view";
 
 function Header({ view }: { view: PopupView }) {
   return (
@@ -105,6 +106,46 @@ function Totals({ view }: { view: PopupView }) {
         </div>
       </dl>
     </>
+  );
+}
+
+function OversizedFiles({ result }: { result: ResultView }) {
+  const list = (
+    <ul
+      aria-label="Files too large to count"
+      className="my-1.5 list-disc pl-[22px]"
+    >
+      {result.oversizedFiles.map((file) => (
+        <li key={file.path} className="my-1">
+          <a
+            href={file.url}
+            target="_blank"
+            rel="noreferrer"
+            className="wrap-anywhere underline"
+          >
+            {file.path}
+          </a>{" "}
+          <span className="whitespace-nowrap">{file.size}</span>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <div
+      id="oversized-files"
+      className="border-warning my-1.5 border-l-[3px] pl-2"
+    >
+      <p className="my-1.5">{result.warning}</p>
+      <p className="my-1.5">{result.fileLimit}</p>
+      {result.oversizedFiles.length === 1 && list}
+      {result.oversizedFiles.length > 1 && (
+        <details id="oversized-file-list">
+          <summary>Show files</summary>
+          {list}
+        </details>
+      )}
+      {result.oversizedNote && <p className="my-1.5">{result.oversizedNote}</p>}
+    </div>
   );
 }
 
@@ -219,11 +260,7 @@ function Details({
         )}
         {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}
         {result && <p className="my-1.5">{result.coverage}</p>}
-        {result?.warning && (
-          <p className="border-warning my-1.5 border-l-[3px] pl-2">
-            {result.warning}
-          </p>
-        )}
+        {result?.warning && <OversizedFiles result={result} />}
       </div>
     </details>
   );

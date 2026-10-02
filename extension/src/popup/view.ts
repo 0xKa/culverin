@@ -1,4 +1,5 @@
 import type { AnalysisResultV2 } from "../counter/result";
+import { ARCHIVE_LIMITS } from "../archive/limits";
 import type { ResolutionEnvelope } from "../github/public-protocol";
 import { currentRemaining, type RateLimit } from "../github/rate-limit";
 import { formatBytes } from "./size";
@@ -32,6 +33,9 @@ export type ResultView = {
   noLanguages?: string;
   coverage: string;
   warning?: string;
+  fileLimit: string;
+  oversizedFiles: { path: string; size: string; url: string }[];
+  oversizedNote?: string;
 };
 
 export const VISIBLE_OTHER_ROWS = 10;
@@ -91,6 +95,12 @@ export function resultView(
       `${other.moreExtensions.toLocaleString()} more ${other.moreExtensions === 1 ? "extension" : "extensions"}: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
     );
   const skipped = coverage.skippedByReason;
+  const oversizedFiles = (coverage.oversizedFiles ?? []).map((file) => ({
+    path: file.path,
+    size: formatBytes(file.bytes),
+    url: `https://github.com/${encodeURIComponent(resolution.owner)}/${encodeURIComponent(resolution.name)}/blob/${result.revision.commitSha}/${file.path.split("/").map(encodeURIComponent).join("/")}`,
+  }));
+  const unlisted = skipped.oversized_source - oversizedFiles.length;
   return {
     codeLines: `${totals.code.toLocaleString()} code lines`,
     textLines: `${text.toLocaleString()} text lines`,
@@ -114,6 +124,14 @@ export function resultView(
     warning: skipped.oversized_source
       ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} too large to count and ${skipped.oversized_source === 1 ? "is" : "are"} not included in these totals.`
       : undefined,
+    fileLimit: `The per-file limit is ${ARCHIVE_LIMITS.file / 1024 ** 2} MiB.`,
+    oversizedFiles,
+    oversizedNote:
+      skipped.oversized_source && coverage.oversizedFiles === undefined
+        ? "File names aren't available for this saved result. Reanalyze to see them."
+        : unlisted > 0
+          ? `${unlisted.toLocaleString()} additional oversized ${unlisted === 1 ? "file isn't" : "files aren't"} listed.`
+          : undefined,
   };
 }
 

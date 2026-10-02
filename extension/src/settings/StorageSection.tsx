@@ -7,7 +7,7 @@ import {
   type CacheOptions,
   type CachedResultSummary,
 } from "../github/cache";
-import { formatBytes } from "../popup/size";
+import { formatBytes } from "../ui/format";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";

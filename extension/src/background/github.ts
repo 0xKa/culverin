@@ -1,3 +1,4 @@
+import { validRepository } from "../github/repository";
 import { ConnectionStore, type Auth } from "../auth/connection";
 import {
   pollDeviceCode,
@@ -12,7 +13,6 @@ import {
   fetchLogin,
   resolveRepository,
   safeFailure,
-  validRepository,
   type Fetcher,
   type Resolution,
 } from "../github/client";
@@ -39,7 +39,7 @@ import {
   type SummaryUpdate,
 } from "../github/public-protocol";
 import type { AnalysisResultV2 } from "../counter/result";
-import { pageRepository } from "../content/repository";
+import { pageRepository, sameRepository } from "../github/repository";
 import {
   PrivateResultCache,
   PUBLIC_RESOLUTION_TTL,
@@ -902,17 +902,6 @@ function handlePublic(
       publicProgress(tabId, documentId, current, phase, processedBytes),
   });
   return true;
-}
-
-function sameRepository(
-  current: { owner: string; name: string } | undefined,
-  expected: { owner: string; name: string },
-): boolean {
-  return (
-    current !== undefined &&
-    current.owner.toLowerCase() === expected.owner.toLowerCase() &&
-    current.name.toLowerCase() === expected.name.toLowerCase()
-  );
 }
 
 async function updateSummary(

@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
+import { pageContext } from "../../extension/src/content/repository";
 import {
-  pageContext,
   pageRepository,
-} from "../../extension/src/content/repository";
+  sameRepository,
+} from "../../extension/src/github/repository";
 import {
   publicFailure,
   validEnvelope,
@@ -496,4 +497,19 @@ test("validates envelope, correlation, and safe errors", () => {
     publicFailure("rate_limited", Date.now() + 1000).retryAt,
   ).toBeDefined();
   expect(publicFailure("rate_limited", Infinity).retryAt).toBeUndefined();
+});
+
+test("repository identity comparisons preserve casing without matching renamed or missing targets", () => {
+  const repository = { owner: "Culverin", name: "Sample" };
+  expect(
+    sameRepository({ owner: "culverin", name: "sample" }, repository),
+  ).toBe(true);
+  expect(sameRepository({ owner: "other", name: "sample" }, repository)).toBe(
+    false,
+  );
+  expect(
+    sameRepository({ owner: "culverin", name: "renamed" }, repository),
+  ).toBe(false);
+  expect(sameRepository(undefined, repository)).toBe(false);
+  expect(sameRepository(repository, undefined)).toBe(false);
 });

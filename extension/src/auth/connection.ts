@@ -1,4 +1,4 @@
-import { validLogin } from "../github/client";
+import { validLogin } from "../github/repository";
 import { GrantRejected, type Grant } from "./device";
 import { validToken } from "./pending";
 

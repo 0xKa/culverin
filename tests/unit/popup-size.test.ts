@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { formatBytes } from "../../extension/src/popup/size";
+import { formatBytes } from "../../extension/src/ui/format";
 
 test("formats byte counts with binary units", () => {
   const cases: [number, string][] = [

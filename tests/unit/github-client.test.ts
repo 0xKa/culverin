@@ -1,3 +1,4 @@
+import { validRepository } from "../../extension/src/github/repository";
 import { expect, test } from "bun:test";
 import {
   AcquisitionError,
@@ -5,7 +6,6 @@ import {
   downloadArchive,
   resolveRepository,
   safeFailure,
-  validRepository,
   type Fetcher,
 } from "../../extension/src/github/client";
 

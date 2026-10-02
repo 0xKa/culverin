@@ -1,5 +1,6 @@
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
-import { validRepository, type Resolution } from "./client";
+import type { Resolution } from "./client";
+import { validRepository } from "./repository";
 
 export const PUBLIC_VERSION = 1;
 export const PUBLIC_PORT = "culverin.public";

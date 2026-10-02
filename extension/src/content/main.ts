@@ -7,7 +7,8 @@ import {
   type PublicRequest,
 } from "../github/public-protocol";
 import { failureMessages } from "../github/failure-messages";
-import { pageContext, type PageRepository } from "./repository";
+import { pageContext } from "./repository";
+import { sameRepository, type PageRepository } from "../github/repository";
 import {
   createSummaryUi,
   failureState,
@@ -248,10 +249,7 @@ function create(repository: PageRepository): View {
     }
     if (
       !validSummaryUpdate(message) ||
-      message.repository.owner.toLowerCase() !==
-        current.repository.owner.toLowerCase() ||
-      message.repository.name.toLowerCase() !==
-        current.repository.name.toLowerCase()
+      !sameRepository(message.repository, current.repository)
     )
       return;
     if (requestId) stopAnalysis(current, requestId);

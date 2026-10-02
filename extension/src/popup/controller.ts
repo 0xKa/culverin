@@ -1,6 +1,10 @@
 import { effectiveRulesHash, isDefaultIgnore } from "../counter/rules";
 import { describeIgnore, readIgnore } from "../ignore/settings";
-import { pageRepository, type PageRepository } from "../content/repository";
+import {
+  pageRepository,
+  sameRepository,
+  type PageRepository,
+} from "../github/repository";
 import { failureMessages, limitNote } from "../github/failure-messages";
 import {
   POPUP_PORT,
@@ -344,21 +348,12 @@ function leaveRepository(): void {
   dispatch({ type: "left" });
 }
 
-function sameRepository(url: string, expected: PageRepository): boolean {
-  const current = pageRepository(url);
-  return Boolean(
-    current &&
-    current.owner.toLowerCase() === expected.owner.toLowerCase() &&
-    current.name.toLowerCase() === expected.name.toLowerCase(),
-  );
-}
-
 function onUpdated(tabId: number, changeInfo: { url?: string }): void {
   if (
     target &&
     tabId === target.tabId &&
     changeInfo.url &&
-    !sameRepository(changeInfo.url, target.repository)
+    !sameRepository(pageRepository(changeInfo.url), target.repository)
   )
     leaveRepository();
 }

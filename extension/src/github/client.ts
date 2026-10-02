@@ -1,3 +1,4 @@
+import { validLogin, validRepository } from "./repository";
 import { ARCHIVE_LIMITS } from "../archive/limits";
 
 export const API_VERSION = "2026-03-10";
@@ -36,22 +37,6 @@ export class AcquisitionError extends Error {
   ) {
     super(code);
   }
-}
-
-const ownerPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
-const repositoryPattern = /^[A-Za-z0-9._-]{1,100}$/;
-
-export function validLogin(login: string): boolean {
-  return ownerPattern.test(login);
-}
-
-export function validRepository(owner: string, name: string): boolean {
-  return (
-    ownerPattern.test(owner) &&
-    repositoryPattern.test(name) &&
-    name !== "." &&
-    name !== ".."
-  );
 }
 
 function apiUrl(owner: string, name: string, suffix = ""): string {

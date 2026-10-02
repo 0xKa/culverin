@@ -24,3 +24,5 @@ The Storage settings place each individual clear button beside its public or pri
 - Chrome 120 is the minimum supported version. Bun 1.4.2 runs the TypeScript build and checks; Cargo runs native Rust tests; direct WASM tests exercise the generated module; and Playwright smoke tests load the packaged extension in Chromium.
 
 The project is licensed under Apache-2.0. The extension icon PNGs in `extension/public/icons/` are generated deterministically from the project-owned `assets/original/culverin-original-stats.svg` with `bun run icons:build`; `bun run icons:check` verifies the committed sizes.
+
+Pure repository identity, validation, overview URL parsing, and comparison live in `extension/src/github/repository.ts`; the content adapter owns only DOM discovery and hydration. Popup and Storage share display formatting through `extension/src/ui/format.ts`. These helpers have no browser API or DOM effects at import time.

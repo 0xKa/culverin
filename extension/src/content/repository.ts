@@ -1,6 +1,5 @@
-import { validRepository } from "../github/client";
+import { pageRepository, type PageRepository } from "../github/repository";
 
-export type PageRepository = { owner: string; name: string };
 export type PageContext = {
   repository: PageRepository;
   anchor?: Element;
@@ -12,26 +11,6 @@ function visible(element: Element | null): element is Element {
     element !== null &&
     (typeof element.checkVisibility !== "function" || element.checkVisibility())
   );
-}
-
-export function pageRepository(url: string): PageRepository | undefined {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return undefined;
-  }
-  if (
-    parsed.origin !== "https://github.com" ||
-    parsed.username ||
-    parsed.password
-  )
-    return undefined;
-  const parts = /^\/([^/]+)\/([^/]+)\/?$/.exec(parsed.pathname);
-  if (!parts || !validRepository(parts[1] ?? "", parts[2] ?? ""))
-    return undefined;
-  if (parsed.search) return undefined;
-  return { owner: parts[1]!, name: parts[2]! };
 }
 
 export function pageContext(

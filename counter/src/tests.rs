@@ -312,6 +312,47 @@ fn oversized_source_is_partial_and_file_is_skipped() {
     let result = analyzer.finish().unwrap();
     assert_eq!(result.coverage.counted_files, 0);
     assert_eq!(result.coverage.incomplete_reasons, ["oversized_source"]);
+    assert_eq!(result.coverage.oversized_files[0].path, "big.rs");
+    assert_eq!(
+        result.coverage.oversized_files[0].bytes,
+        (MAX_FILE + 1) as u64
+    );
+}
+
+#[test]
+fn oversized_file_details_are_bounded_and_independent_of_input_order() {
+    let max = crate::analyzer::MAX_OVERSIZED_FILES;
+    let analyze = |reverse: bool| {
+        let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+        let mut indexes: Vec<usize> = (0..max + 2).collect();
+        if reverse {
+            indexes.reverse();
+        }
+        for i in indexes {
+            analyzer
+                .skip_file(
+                    &format!("src/{i:03}.rs"),
+                    b"fn ",
+                    "oversized_source",
+                    (MAX_FILE + 1 + i / 2) as u64,
+                )
+                .unwrap();
+        }
+        analyzer
+            .skip_file("vendor/large.rs", b"fn ", "excluded_by_rule", 9_000_000)
+            .unwrap();
+        analyzer.finish().unwrap().coverage
+    };
+    let forward = analyze(false);
+    let reverse = analyze(true);
+    assert_eq!(forward.oversized_files, reverse.oversized_files);
+    assert_eq!(forward.oversized_files.len(), max);
+    assert_eq!(
+        forward.skipped_by_reason["oversized_source"],
+        (max + 2) as u64
+    );
+    assert_eq!(forward.oversized_files[0].path, "src/256.rs");
+    assert_eq!(forward.oversized_files[max - 1].path, "src/003.rs");
 }
 
 #[test]
@@ -320,6 +361,13 @@ fn streamed_skip_records_only_valid_classification() {
     analyzer
         .skip_file("large.rs", b"fn ", "oversized_source", 9_000_000)
         .unwrap();
+    assert_eq!(
+        analyzer
+            .skip_file("small.rs", b"fn ", "oversized_source", MAX_FILE as u64)
+            .err()
+            .unwrap(),
+        "invalid skip size"
+    );
     analyzer
         .skip_other("unknown.xyz", b"text", 4, 1, false)
         .unwrap();
@@ -360,6 +408,9 @@ fn streamed_skip_records_only_valid_classification() {
     assert_eq!(result.coverage.skipped_by_reason["oversized_source"], 1);
     assert_eq!(result.coverage.skipped_by_reason["unsupported_language"], 1);
     assert_eq!(result.coverage.incomplete_reasons, ["oversized_source"]);
+    assert_eq!(result.coverage.oversized_files.len(), 1);
+    assert_eq!(result.coverage.oversized_files[0].path, "large.rs");
+    assert_eq!(result.coverage.oversized_files[0].bytes, 9_000_000);
 }
 
 #[test]

@@ -215,6 +215,23 @@
           "minimum": 0,
           "maximum": 9007199254740991
         },
+        "oversizedFiles": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+              "bytes": {
+                "type": "integer",
+                "minimum": 8388609,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["path", "bytes"]
+          }
+        },
         "skippedByReason": {
           "type": "object",
           "additionalProperties": false,

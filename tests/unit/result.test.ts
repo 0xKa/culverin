@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import {
   MAX_OTHER_EXTENSIONS,
+  MAX_OVERSIZED_FILES,
   validateResult,
 } from "../../extension/src/counter/result";
 import {
@@ -41,9 +42,10 @@ describe("analysis result contract", () => {
     expect(schema.properties.engine.required.sort()).toEqual(
       Object.keys(result.engine).sort(),
     );
-    expect(schema.properties.coverage.required.sort()).toEqual(
+    expect(Object.keys(schema.properties.coverage.properties).sort()).toEqual(
       Object.keys(result.coverage).sort(),
     );
+    expect(schema.properties.coverage.required).not.toContain("oversizedFiles");
     expect(schema.properties.languages.items.required.sort()).toEqual(
       Object.keys(result.languages[0]).sort(),
     );
@@ -53,6 +55,72 @@ describe("analysis result contract", () => {
     expect(
       schema.properties.otherFiles.properties.extensions.items.required.sort(),
     ).toEqual(Object.keys(result.otherFiles.extensions[0]).sort());
+  });
+  test("validates oversized paths, sizes, ordering, and bounds while accepting old results", () => {
+    const max = MAX_OVERSIZED_FILES;
+    const row = { path: "src/large.rs", bytes: 9_000_000 };
+    const check = (rows: unknown, files = 1, bytes = 9_000_000) =>
+      validateResult({
+        ...result,
+        coverage: {
+          ...result.coverage,
+          regularFiles: result.coverage.regularFiles + files,
+          skippedFiles: result.coverage.skippedFiles + files,
+          totalBytes: result.coverage.totalBytes + bytes,
+          skippedByReason: {
+            ...result.coverage.skippedByReason,
+            oversized_source: files,
+          },
+          complete: files === 0,
+          incompleteReasons: files ? ["oversized_source"] : [],
+          oversizedFiles: rows,
+        },
+      });
+    expect(check([row])).toBe(true);
+    const legacy = structuredClone(result);
+    delete legacy.coverage.oversizedFiles;
+    expect(validateResult(legacy)).toBe(true);
+    expect(check(undefined)).toBe(false);
+    for (const path of [
+      "",
+      "/a.rs",
+      "../a.rs",
+      "src/./a.rs",
+      "a//b.rs",
+      "a\\b.rs",
+      "a\0b.rs",
+      "a\uD800.rs",
+      "é".repeat(2049) + ".rs",
+    ])
+      expect(check([{ ...row, path }])).toBe(false);
+    expect(check([{ ...row, path: "src/hello #?%é.rs" }])).toBe(true);
+    expect(check([{ ...row, bytes: 8 * 1024 * 1024 }])).toBe(false);
+    expect(check([{ ...row, bytes: Number.MAX_SAFE_INTEGER }])).toBe(false);
+    expect(check([{ ...row, extra: true }])).toBe(false);
+    expect(check([row], 0)).toBe(false);
+    expect(check([])).toBe(false);
+    expect(check([row, row], 2, 18_000_000)).toBe(false);
+    const bmp = { ...row, path: "\uFF00.rs" };
+    const astral = { ...row, path: "\u{10000}.rs" };
+    expect(check([bmp, astral], 2, 18_000_000)).toBe(true);
+    expect(check([astral, bmp], 2, 18_000_000)).toBe(false);
+    const smaller = { ...row, path: "other.rs", bytes: row.bytes - 1 };
+    expect(check([row, smaller], 2, 18_000_000)).toBe(true);
+    expect(check([smaller, row], 2, 18_000_000)).toBe(false);
+    const rows = Array.from({ length: max }, (_, index) => ({
+      ...row,
+      path: `src/${String(index).padStart(3, "0")}.rs`,
+    }));
+    expect(check(rows, max, max * row.bytes)).toBe(true);
+    expect(check(rows, max + 1, (max + 1) * row.bytes)).toBe(true);
+    expect(check(rows.slice(1), max, max * row.bytes)).toBe(false);
+    expect(
+      check(
+        [...rows, { ...row, path: "src/extra.rs" }],
+        max + 1,
+        (max + 1) * row.bytes,
+      ),
+    ).toBe(false);
   });
   test("checks other files against the skipped count and their order", () => {
     expect(result.otherFiles.files).toBe(

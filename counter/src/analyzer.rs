@@ -1,14 +1,15 @@
 use crate::file::{
-    FileAnalysis, MAX_OTHER_EXTENSIONS, merge_rows, other_extension, physical_lines,
+    FileAnalysis, MAX_FILE, MAX_OTHER_EXTENSIONS, merge_rows, other_extension, physical_lines,
 };
 use crate::model::{
     AnalysisResult, Classification, Counts, Coverage, Engine, LanguageCounts, OtherExtension,
-    OtherFiles, Totals,
+    OtherFiles, OversizedFile, Totals,
 };
 use crate::rules::{RULES_VERSION, Rules};
 
 const COVERAGE_VERSION: &str = "2";
 const WRAPPER_VERSION: &str = "3";
+pub(crate) const MAX_OVERSIZED_FILES: usize = 256;
 use std::collections::BTreeMap;
 
 pub struct CounterAnalyzer {
@@ -44,6 +45,7 @@ impl CounterAnalyzer {
                 total_bytes: 0,
                 skipped_files: 0,
                 skipped_by_reason,
+                oversized_files: vec![],
                 complete: true,
                 incomplete_reasons: vec![],
             },
@@ -66,6 +68,9 @@ impl CounterAnalyzer {
         }
         if classification.kind != "counted" {
             self.record_skip(classification.kind)?;
+            if classification.kind == "oversized_source" {
+                self.record_oversized(path, bytes.len() as u64);
+            }
             return Ok(classification);
         }
         let rows = match crate::file::analyze_counted(path, bytes)? {
@@ -105,11 +110,15 @@ impl CounterAnalyzer {
         {
             return Err("invalid skip reason".into());
         }
-        if (prefix.len() as u64) > size {
+        if (prefix.len() as u64) > size || reason == "oversized_source" && size <= MAX_FILE as u64 {
             return Err("invalid skip size".into());
         }
         self.record_file(size)?;
-        self.record_skip(reason)
+        self.record_skip(reason)?;
+        if reason == "oversized_source" {
+            self.record_oversized(path, size);
+        }
+        Ok(())
     }
     pub fn skip_other(
         &mut self,
@@ -162,6 +171,16 @@ impl CounterAnalyzer {
             .checked_add(size)
             .ok_or("counter overflow")?;
         Ok(())
+    }
+    fn record_oversized(&mut self, path: &str, bytes: u64) {
+        self.coverage.oversized_files.push(OversizedFile {
+            path: path.into(),
+            bytes,
+        });
+        self.coverage
+            .oversized_files
+            .sort_by(|a, b| b.bytes.cmp(&a.bytes).then(a.path.cmp(&b.path)));
+        self.coverage.oversized_files.truncate(MAX_OVERSIZED_FILES);
     }
     fn record_skip(&mut self, reason: &str) -> Result<(), String> {
         self.coverage.skipped_files = self

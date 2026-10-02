@@ -1,3 +1,4 @@
+import { ARCHIVE_LIMITS } from "../archive/limits";
 import {
   coveragePolicyVersion,
   engineVersion,
@@ -22,6 +23,7 @@ export type OtherExtension = {
   files: number;
   lines: number;
 };
+export type OversizedFile = { path: string; bytes: number };
 export type AnalysisResultV2 = {
   schemaVersion: 2;
   repository: { id: string };
@@ -50,6 +52,7 @@ export type AnalysisResultV2 = {
     totalBytes: number;
     skippedFiles: number;
     skippedByReason: Record<SkippedReason, number>;
+    oversizedFiles?: OversizedFile[];
     complete: boolean;
     incompleteReasons: "oversized_source"[];
   };
@@ -64,6 +67,7 @@ const reasons: SkippedReason[] = [
 ];
 const incomplete = ["oversized_source"];
 export const MAX_OTHER_EXTENSIONS = 100;
+export const MAX_OVERSIZED_FILES = 256;
 const integer = (x: unknown): x is number =>
   Number.isSafeInteger(x) && (x as number) >= 0;
 const record = (x: unknown): x is Record<string, unknown> =>
@@ -188,6 +192,7 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
       "totalBytes",
       "skippedFiles",
       "skippedByReason",
+      ...("oversizedFiles" in coverage ? ["oversizedFiles"] : []),
       "complete",
       "incompleteReasons",
     ]) ||
@@ -231,10 +236,69 @@ export function validateResult(value: unknown): value is AnalysisResultV2 {
         0)
   )
     return false;
+  if (
+    "oversizedFiles" in coverage &&
+    !validOversizedFiles(
+      coverage.oversizedFiles,
+      (coverage.skippedByReason as Record<string, number>).oversized_source!,
+      coverage.totalBytes - coverage.analyzedBytes,
+    )
+  )
+    return false;
   return validOtherFiles(
     otherFiles,
     (coverage.skippedByReason as Record<string, number>).unsupported_language!,
   );
+}
+
+function validOversizedFiles(
+  value: unknown,
+  files: number,
+  bytes: number,
+): boolean {
+  if (
+    !Array.isArray(value) ||
+    value.length !== Math.min(files, MAX_OVERSIZED_FILES)
+  )
+    return false;
+  let previous: OversizedFile | undefined;
+  let totalBytes = 0;
+  const paths = new Set<string>();
+  for (const candidate of value as unknown[]) {
+    if (
+      !record(candidate) ||
+      !keys(candidate, ["path", "bytes"]) ||
+      typeof candidate.path !== "string" ||
+      !candidate.path ||
+      candidate.path.length > ARCHIVE_LIMITS.pathBytes ||
+      candidate.path.startsWith("/") ||
+      candidate.path.includes("\\") ||
+      candidate.path.includes("\0") ||
+      /[\uD800-\uDFFF]/u.test(candidate.path) ||
+      candidate.path
+        .split("/")
+        .some((part) => !part || part === "." || part === "..") ||
+      new TextEncoder().encode(candidate.path).length >
+        ARCHIVE_LIMITS.pathBytes ||
+      !integer(candidate.bytes) ||
+      candidate.bytes <= ARCHIVE_LIMITS.file ||
+      paths.has(candidate.path)
+    )
+      return false;
+    const row = candidate as OversizedFile;
+    if (
+      previous &&
+      (previous.bytes < row.bytes ||
+        (previous.bytes === row.bytes &&
+          !codePointsBefore(previous.path, row.path)))
+    )
+      return false;
+    previous = row;
+    paths.add(row.path);
+    totalBytes += row.bytes;
+    if (!integer(totalBytes) || totalBytes > bytes) return false;
+  }
+  return true;
 }
 
 function codePointsBefore(a: string, b: string): boolean {

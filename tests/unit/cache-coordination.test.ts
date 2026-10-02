@@ -101,6 +101,41 @@ class MemoryStorage implements PublicStorage {
   }
 }
 
+test.each(["public", "private"] as const)(
+  "preserves fresh and legacy oversized file details in the %s cache",
+  async (visibility) => {
+    const storage = new MemoryStorage();
+    const cache =
+      visibility === "public"
+        ? new PublicResultCache(storage)
+        : new PrivateResultCache(storage);
+    const envelope = { ...resolution(), visibility };
+    const value = await result();
+    value.coverage = {
+      ...value.coverage,
+      regularFiles: 1,
+      totalBytes: 9_000_000,
+      skippedFiles: 1,
+      skippedByReason: {
+        ...value.coverage.skippedByReason,
+        oversized_source: 1,
+      },
+      complete: false,
+      incompleteReasons: ["oversized_source"],
+      oversizedFiles: [{ path: "src/large.rs", bytes: 9_000_000 }],
+    };
+    await cache.put(envelope, value);
+    const reopen = () =>
+      visibility === "public"
+        ? new PublicResultCache(storage)
+        : new PrivateResultCache(storage);
+    expect(await reopen().get(envelope, value.engine.rulesHash)).toEqual(value);
+    delete value.coverage.oversizedFiles;
+    await cache.put(envelope, value);
+    expect(await reopen().get(envelope, value.engine.rulesHash)).toEqual(value);
+  },
+);
+
 describe("private result cache", () => {
   const privateResolution = (id = "42", name = "repo"): ResolutionEnvelope => ({
     ...resolution(id, name),

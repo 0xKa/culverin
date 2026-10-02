@@ -111,6 +111,9 @@ for (const name of cases) {
     const result = JSON.parse(counter.finish());
     assert.equal(result.coverage.totalBytes, 9_000_010);
     assert.equal(result.coverage.analyzedBytes, 0);
+    assert.deepEqual(result.coverage.oversizedFiles, [
+      { path: "large.rs", bytes: 9_000_000 },
+    ]);
     assert.deepEqual(result.otherFiles, {
       files: 1,
       lines: 4,

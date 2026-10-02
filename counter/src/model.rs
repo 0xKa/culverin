@@ -65,8 +65,16 @@ pub struct Coverage {
     pub total_bytes: u64,
     pub skipped_files: u64,
     pub skipped_by_reason: BTreeMap<String, u64>,
+    pub oversized_files: Vec<OversizedFile>,
     pub complete: bool,
     pub incomplete_reasons: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OversizedFile {
+    pub path: String,
+    pub bytes: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]

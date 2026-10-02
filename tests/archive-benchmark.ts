@@ -1,3 +1,4 @@
+import type { SettingsRequest } from "../extension/src/protocol/settings";
 import assert from "node:assert/strict";
 import {
   cpSync,
@@ -199,7 +200,7 @@ try {
               navigationId: crypto.randomUUID(),
               owner: "culverin",
               name: `benchmark-${id}`,
-            },
+            } satisfies SettingsRequest,
             resolve,
           );
         }),

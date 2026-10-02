@@ -300,6 +300,17 @@ export function publicFailure(
   };
 }
 
+export function validFailureDetails(value: Record<string, unknown>): boolean {
+  return (
+    codes.includes(value.code as PublicErrorCode) &&
+    (value.retryAt === undefined ||
+      (Number.isSafeInteger(value.retryAt) && (value.retryAt as number) > 0)) &&
+    (value.limit === undefined ||
+      (typeof value.limit === "string" &&
+        /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(value.limit)))
+  );
+}
+
 export function validPublicReply(
   value: unknown,
   requestId: string,
@@ -351,14 +362,7 @@ export function validPublicReply(
         "code",
         ...(value.retryAt === undefined ? [] : ["retryAt"]),
         ...(value.limit === undefined ? [] : ["limit"]),
-      ]) &&
-      codes.includes(value.code as PublicErrorCode) &&
-      (value.retryAt === undefined ||
-        (Number.isSafeInteger(value.retryAt) &&
-          (value.retryAt as number) > 0)) &&
-      (value.limit === undefined ||
-        (typeof value.limit === "string" &&
-          /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(value.limit)))
+      ]) && validFailureDetails(value)
     );
   if (value.type === "analysis.canceled")
     return (

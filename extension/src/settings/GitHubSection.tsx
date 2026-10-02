@@ -1,3 +1,4 @@
+import { sendSettings } from "./client";
 import { useEffect, useState } from "preact/hooks";
 import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { pendingKey } from "../auth/pending";
@@ -20,25 +21,6 @@ type Update = {
 let update: Update | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
-function send(
-  type: string,
-  extra: Record<string, unknown> = {},
-): Promise<AuthReply | undefined> {
-  return new Promise<AuthReply | undefined>((resolve) =>
-    chrome.runtime.sendMessage(
-      {
-        protocolVersion: 1,
-        type,
-        requestId: crypto.randomUUID(),
-        navigationId: crypto.randomUUID(),
-        ...extra,
-      },
-      (reply: AuthReply | undefined) =>
-        resolve(chrome.runtime.lastError ? undefined : reply),
-    ),
-  ).catch(() => undefined);
-}
-
 function show(reply: AuthReply | undefined): ConnectionView | undefined {
   const next = connectionView(reply);
   if (next) update?.view(next);
@@ -60,7 +42,7 @@ function schedule(delay: number): void {
 }
 
 async function check(): Promise<void> {
-  const reply = await send("auth.device.poll");
+  const reply = await sendSettings({ type: "auth.device.poll" });
   if (reply?.state === "pending") {
     schedule(reply.retryIn ?? 5000);
     return;
@@ -77,14 +59,14 @@ async function check(): Promise<void> {
     );
     return;
   }
-  const current = show(await send("auth.status"));
+  const current = show(await sendSettings({ type: "auth.status" }));
   if (reply?.state !== "device-missing" || !current?.connected)
     update?.status(authFailure(reply));
 }
 
 function start(next: Update): () => void {
   update = next;
-  void send("auth.status").then((reply) => {
+  void sendSettings({ type: "auth.status" }).then((reply) => {
     const current = show(reply);
     if (current?.device) schedule(current.device.interval * 1000);
   });
@@ -114,7 +96,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
     if (busy) return;
     setBusy("connect");
     setStatus("");
-    const reply = await send("auth.device.start");
+    const reply = await sendSettings({ type: "auth.device.start" });
     setBusy(undefined);
     const current = show(reply);
     if (reply?.state === "ok" && current?.device)
@@ -124,7 +106,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
 
   async function cancel(): Promise<void> {
     stopPolling();
-    show(await send("auth.device.cancel"));
+    show(await sendSettings({ type: "auth.device.cancel" }));
     setStatus("");
   }
 
@@ -154,7 +136,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
       setStatus("Couldn't save the token. Try again.");
       return;
     }
-    const reply = await send("auth.submit", { submissionId });
+    const reply = await sendSettings({ type: "auth.submit", submissionId });
     setBusy(undefined);
     if (reply?.state === "connected") {
       setToken("");
@@ -170,9 +152,9 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
     if (busy) return;
     setBusy("disconnect");
     stopPolling();
-    const reply = await send("auth.disconnect");
+    const reply = await sendSettings({ type: "auth.disconnect" });
     setBusy(undefined);
-    show(await send("auth.status"));
+    show(await sendSettings({ type: "auth.status" }));
     setStatus(
       reply?.state === "disconnected"
         ? "Disconnected. The saved token and private results were deleted."

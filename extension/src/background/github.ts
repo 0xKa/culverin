@@ -1,3 +1,8 @@
+import {
+  validSettingsRequest,
+  type SettingsPayload,
+  type SettingsStatus,
+} from "../protocol/settings";
 import { validRepository } from "../github/repository";
 import { ConnectionStore, type Auth } from "../auth/connection";
 import {
@@ -251,17 +256,6 @@ const ready = Promise.all([
   }
 });
 
-type Request = {
-  protocolVersion: 1;
-  type: string;
-  requestId: string;
-  navigationId: string;
-  owner?: string;
-  name?: string;
-  targetRequestId?: string;
-  submissionId?: string;
-};
-
 type DeviceState = DeviceCode & { generation: string; nextPollAt: number };
 let device: DeviceState | undefined;
 
@@ -291,7 +285,7 @@ async function saveDevice(next?: DeviceState): Promise<void> {
   else await chrome.storage.session.remove(DEVICE);
 }
 
-async function statusReply(): Promise<Record<string, unknown>> {
+async function statusReply(): Promise<SettingsStatus> {
   const current = await readDevice();
   const active =
     current && Date.now() < current.expiresAt ? current : undefined;
@@ -1062,37 +1056,6 @@ function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
   );
 }
 
-function validRequest(value: unknown): value is Request {
-  if (!value || typeof value !== "object") return false;
-  const request = value as Partial<Request>;
-  return (
-    request.protocolVersion === VERSION &&
-    typeof request.type === "string" &&
-    [
-      "auth.status",
-      "auth.submit",
-      "auth.device.start",
-      "auth.device.poll",
-      "auth.device.cancel",
-      "auth.disconnect",
-      "auth.clear-private-session",
-      "cache.clear-public",
-      "cache.clear-all",
-      "repository.lookup",
-      "analysis.request",
-      "analysis.cancel",
-      "analysis.status",
-    ].includes(request.type) &&
-    typeof request.requestId === "string" &&
-    /^[0-9a-f-]{36}$/.test(request.requestId) &&
-    typeof request.navigationId === "string" &&
-    /^[0-9a-f-]{36}$/.test(request.navigationId) &&
-    (request.submissionId === undefined ||
-      (typeof request.submissionId === "string" &&
-        /^[0-9a-f-]{36}$/.test(request.submissionId)))
-  );
-}
-
 export function handleGithub(
   value: unknown,
   sender: chrome.runtime.MessageSender,
@@ -1104,12 +1067,12 @@ export function handleGithub(
     !isPageUrl(sender.url, SETTINGS_URL) ||
     typeof sender.documentId !== "string" ||
     sender.frameId !== 0 ||
-    !validRequest(value)
+    !validSettingsRequest(value)
   )
     return false;
   const request = value;
   const documentId = sender.documentId;
-  const reply = (payload: Record<string, unknown>) =>
+  const reply = (payload: SettingsPayload) =>
     respond({
       protocolVersion: VERSION,
       requestId: request.requestId,

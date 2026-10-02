@@ -1,3 +1,4 @@
+import { sendSettings } from "./client";
 import { useEffect, useState } from "preact/hooks";
 import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
@@ -34,7 +35,7 @@ const clearActions = {
     state: "all-results-cleared",
     message: "All results cleared.",
   },
-};
+} as const;
 
 type ClearScope = keyof typeof clearActions;
 
@@ -151,24 +152,16 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
     const action = clearActions[scope];
     setBusy(true);
     setStatus(undefined);
-    chrome.runtime.sendMessage(
-      {
-        protocolVersion: 1,
-        type: action.type,
-        requestId: crypto.randomUUID(),
-        navigationId: crypto.randomUUID(),
-      },
-      (reply: { state?: string } | undefined) => {
-        setBusy(false);
-        setStatus({
-          scope,
-          message:
-            !chrome.runtime.lastError && reply?.state === action.state
-              ? action.message
-              : "Couldn't clear saved results. Try again.",
-        });
-      },
-    );
+    void sendSettings({ type: action.type }).then((reply) => {
+      setBusy(false);
+      setStatus({
+        scope,
+        message:
+          reply?.state === action.state
+            ? action.message
+            : "Couldn't clear saved results. Try again.",
+      });
+    });
   }
 
   return (

@@ -17,7 +17,7 @@ export type ConnectionView = {
 };
 
 export type AuthReply = {
-  state?: string;
+  state?: import("../protocol/settings").SettingsPayload["state"];
   code?: string;
   retryIn?: number;
 } & Partial<ConnectionView>;

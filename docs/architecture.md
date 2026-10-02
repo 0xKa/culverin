@@ -26,3 +26,5 @@ The Storage settings place each individual clear button beside its public or pri
 The project is licensed under Apache-2.0. The extension icon PNGs in `extension/public/icons/` are generated deterministically from the project-owned `assets/original/culverin-original-stats.svg` with `bun run icons:build`; `bun run icons:check` verifies the committed sizes.
 
 Pure repository identity, validation, overview URL parsing, and comparison live in `extension/src/github/repository.ts`; the content adapter owns only DOM discovery and hydration. Popup and Storage share display formatting through `extension/src/ui/format.ts`. These helpers have no browser API or DOM effects at import time.
+
+One offscreen-document manager owns context checks, shared creation, leases for starting and active clients, and idle closing. Archive and diagnostic clients release ownership on completion, cancellation, deadline, or setup failure. A new acquisition invalidates a pending idle check; when closing has already started, setup waits and recreates the document before dispatching work. The manager does not own archive deadlines, credentials, or job restart policy.

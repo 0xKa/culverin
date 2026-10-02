@@ -1,3 +1,4 @@
+import { offscreen } from "../background/offscreen";
 import {
   JOB_DEADLINE_MS,
   MAX_FILE_BYTES,
@@ -16,9 +17,9 @@ type Active = {
   timer: ReturnType<typeof setInterval>;
   deadline: ReturnType<typeof setTimeout>;
   finish: (outcome: JobOutcome) => void;
+  release: () => void;
 };
 let active: Active | undefined;
-let creating: Promise<void> | undefined;
 
 const command = (type: string, jobId?: string, input?: unknown) => ({
   target: "analysis.host",
@@ -27,29 +28,6 @@ const command = (type: string, jobId?: string, input?: unknown) => ({
   jobId,
   input,
 });
-
-async function hostExists(): Promise<boolean> {
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: ["OFFSCREEN_DOCUMENT"],
-    documentUrls: [chrome.runtime.getURL("offscreen.html")],
-  });
-  return contexts.length > 0;
-}
-
-async function ensureHost(): Promise<void> {
-  if (await hostExists()) return;
-  creating ??= chrome.offscreen
-    .createDocument({
-      url: "offscreen.html",
-      reasons: ["WORKERS"],
-      justification:
-        "Run the packaged WASM counter in a terminable dedicated worker",
-    })
-    .finally(() => {
-      creating = undefined;
-    });
-  await creating;
-}
 
 async function sendHost(
   type: string,
@@ -62,7 +40,7 @@ async function sendHost(
 async function reconcile(): Promise<void> {
   const stored = await chrome.storage.session.get(MARKER);
   if (stored[MARKER]) {
-    if (await hostExists())
+    if (await offscreen.exists())
       await sendHost("host.reconcile").catch(() => undefined);
     await chrome.storage.session.remove(MARKER);
     const marker = stored[MARKER] as {
@@ -76,7 +54,7 @@ async function reconcile(): Promise<void> {
         state: "interrupted",
       },
     });
-  } else if ((await hostExists()) && !archiveBridgeActive()) {
+  } else if ((await offscreen.exists()) && !archiveBridgeActive()) {
     await sendHost("host.reconcile").catch(() => undefined);
   }
 }
@@ -200,6 +178,7 @@ export function handleFeasibility(
       clearInterval(active.timer);
       clearTimeout(active.deadline);
       active.finish({ state: "canceled" });
+      active.release();
       active = undefined;
       await sendHost("host.cancel", id).catch(() => undefined);
       await chrome.storage.session.remove(MARKER);
@@ -226,7 +205,9 @@ export function handleFeasibility(
         reply({ state: "busy" });
         return;
       }
+      const host = offscreen.acquire();
       const job: Active = {
+        release: host.release,
         id,
         owner: sender.documentId ?? "",
         navigationId: request.navigationId as string,
@@ -237,6 +218,7 @@ export function handleFeasibility(
         deadline: setTimeout(() => {
           if (active?.id !== id) return;
           clearInterval(job.timer);
+          job.release();
           active = undefined;
           void sendHost("host.cancel", id).catch(() => undefined);
           void chrome.storage.session.remove(MARKER);
@@ -252,26 +234,27 @@ export function handleFeasibility(
         }, JOB_DEADLINE_MS),
       };
       active = job;
-      await chrome.storage.session.set({
-        [MARKER]: {
-          id,
-          owner: job.owner,
-          navigationId: request.navigationId,
-          startedAt: Date.now(),
-        },
-      });
       try {
+        await chrome.storage.session.set({
+          [MARKER]: {
+            id,
+            owner: job.owner,
+            navigationId: request.navigationId,
+            startedAt: Date.now(),
+          },
+        });
         const fixtureDelayMs = (input as Record<string, unknown>)
           .fixtureDelayMs as number | undefined;
         if (fixtureDelayMs)
           await new Promise((resolve) => setTimeout(resolve, fixtureDelayMs));
         if (active?.id !== id) return;
-        await ensureHost();
+        await host.ready;
         if (active?.id !== id) return;
         const outcome = (await sendHost("host.start", id, input)) as JobOutcome;
         if (active?.id !== id) return;
         clearInterval(job.timer);
         clearTimeout(job.deadline);
+        job.release();
         active = undefined;
         await chrome.storage.session.remove(MARKER);
         await chrome.storage.session.set({
@@ -282,14 +265,11 @@ export function handleFeasibility(
           },
         });
         reply(outcome);
-        setTimeout(() => {
-          if (!active && !archiveBridgeActive())
-            void chrome.offscreen.closeDocument().catch(() => undefined);
-        }, 1_000);
       } catch {
         if (active?.id !== id) return;
         clearInterval(job.timer);
         clearTimeout(job.deadline);
+        job.release();
         active = undefined;
         await chrome.storage.session.remove(MARKER);
         await chrome.storage.session.set({

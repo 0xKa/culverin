@@ -1,3 +1,4 @@
+import { offscreen } from "../background/offscreen";
 import type { AnalysisResultV2 } from "../counter/result";
 import { validateResult } from "../counter/result";
 import {
@@ -24,31 +25,10 @@ type HostResponse = {
   wasmLinearMemoryBytes?: number;
 };
 
-let creating: Promise<void> | undefined;
 let activeJobs = 0;
 
 export function archiveBridgeActive(): boolean {
   return activeJobs > 0;
-}
-
-async function ensureHost(): Promise<void> {
-  const url = chrome.runtime.getURL("offscreen.html");
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: ["OFFSCREEN_DOCUMENT"],
-    documentUrls: [url],
-  });
-  if (contexts.length) return;
-  creating ??= chrome.offscreen
-    .createDocument({
-      url: "offscreen.html",
-      reasons: ["WORKERS"],
-      justification:
-        "Analyze a bounded repository archive in a terminable worker",
-    })
-    .finally(() => {
-      creating = undefined;
-    });
-  await creating;
 }
 
 async function command(
@@ -153,6 +133,7 @@ export async function analyzeArchiveStream(
 }> {
   const reader = stream.getReader();
   activeJobs++;
+  const host = offscreen.acquire();
   let started = false;
   let compressedBytes = 0;
   let sequence = 0;
@@ -166,7 +147,7 @@ export async function analyzeArchiveStream(
   }, ARCHIVE_TIMEOUTS.renew);
   try {
     if (signal.aborted) throw abortError(signal);
-    await waitFor(ensureHost(), signal, ARCHIVE_TIMEOUTS.networkIdle);
+    await waitFor(host.ready, signal, ARCHIVE_TIMEOUTS.networkIdle);
     if (signal.aborted) throw abortError(signal);
     requireState(
       await command("archive.start", jobId, {
@@ -239,14 +220,6 @@ export async function analyzeArchiveStream(
     await reader.cancel().catch(() => undefined);
     reader.releaseLock();
     activeJobs--;
-    setTimeout(() => {
-      if (activeJobs === 0)
-        void command("archive.status", jobId)
-          .then((status) => {
-            if (status.state === "idle")
-              return chrome.offscreen.closeDocument().catch(() => undefined);
-          })
-          .catch(() => undefined);
-    }, 1_000);
+    host.release();
   }
 }

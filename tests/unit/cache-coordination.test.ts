@@ -1,3 +1,4 @@
+import { result } from "./support/result";
 import { describe, expect, test } from "bun:test";
 import {
   cachedResultSummaries,
@@ -41,42 +42,6 @@ const resolution = (id = "42", name = "repo"): ResolutionEnvelope => ({
   sizeKb: 2048,
   resolvedAt: Date.now(),
 });
-
-async function result(id = "42"): Promise<AnalysisResultV2> {
-  return {
-    schemaVersion: 2,
-    repository: { id },
-    revision: { commitSha: sha },
-    engine: {
-      name: "tokei",
-      version: "15.0.0",
-      wrapperVersion: "3",
-      rulesProfile: "source-v1",
-      rulesVersion: "2",
-      rulesHash: await effectiveRulesHash(defaultIgnore),
-      coveragePolicyVersion: "2",
-    },
-    totals: { files: 0, lines: 0, code: 0, comments: 0, blanks: 0 },
-    languages: [],
-    otherFiles: { files: 0, lines: 0, extensions: [], moreExtensions: 0 },
-    coverage: {
-      regularFiles: 0,
-      countedFiles: 0,
-      analyzedBytes: 0,
-      totalBytes: 0,
-      skippedFiles: 0,
-      skippedByReason: {
-        excluded_by_rule: 0,
-        unsupported_language: 0,
-        binary_content: 0,
-        oversized_source: 0,
-        unsupported_notebook: 0,
-      },
-      complete: true,
-      incompleteReasons: [],
-    },
-  };
-}
 
 class MemoryStorage implements PublicStorage {
   values: Record<string, unknown> = {};

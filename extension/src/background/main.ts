@@ -4,8 +4,14 @@ import {
   type CounterRules,
 } from "../counter/runner";
 import { handleFeasibility } from "../analysis/coordinator";
-import { handleArchiveCounting, handleGithub } from "./github";
+import {
+  handleArchiveCounting,
+  handleGithub,
+  initializeGitHub,
+} from "./github";
 import { analyzeArchiveStream } from "../archive/bridge";
+
+initializeGitHub();
 
 let fixtureJob:
   { id: string; owner: string; controller: AbortController } | undefined;

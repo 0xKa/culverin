@@ -301,7 +301,7 @@ export async function analyze(reanalyze = false): Promise<void> {
   if (!pending) return;
   watchAnalysis(pending.requestId);
   setBusy(true);
-  clearResult();
+  if (!reanalyze) clearResult();
   dispatch({ type: "connect" });
   setStatus(reanalyze ? "Checking for updates…" : "Resolving default branch…");
   try {

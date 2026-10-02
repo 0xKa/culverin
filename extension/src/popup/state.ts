@@ -70,7 +70,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         sizes: event.sizes,
         snapshotSize: event.value.snapshotSize,
         result: event.value,
-        detailsOpen: true,
+        detailsOpen: view.result ? view.detailsOpen : true,
         reanalyze: true,
       };
     case "ignore":

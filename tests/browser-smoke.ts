@@ -123,6 +123,8 @@ const context = await chromium.launchPersistentContext(profile, {
 try {
   const page = await context.newPage();
   const publicSha = "a".repeat(40);
+  let fixtureSha = publicSha;
+  let metadataFailure = false;
   let fixtureArchiveRequests = 0;
   let fixtureApiRequests = 0;
   let fixtureAuthorization: string | undefined;
@@ -156,6 +158,7 @@ sync();
       const url = new URL(route.request().url());
       fixtureApiRequests++;
       fixtureAuthorization = route.request().headers()["authorization"];
+      if (metadataFailure) return route.abort("failed");
       if (fixtureMode === "rate")
         return route.fulfill({
           status: 403,
@@ -174,10 +177,10 @@ sync();
             "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600),
             "x-ratelimit-resource": "core",
           },
-          body: JSON.stringify({ sha: publicSha }),
+          body: JSON.stringify({ sha: fixtureSha }),
         });
       }
-      if (url.pathname.endsWith(`/tarball/${publicSha}`)) {
+      if (url.pathname.endsWith(`/tarball/${fixtureSha}`)) {
         fixtureArchiveRequests++;
         if (fixtureMode === "slow" || fixtureMode === "shared") {
           slowArchiveStarted?.();
@@ -1097,6 +1100,21 @@ sync();
   const cachedStatus =
     "Cached local analysis, checked on GitHub in the last 20 minutes. Select Reanalyze to check for a newer commit.";
   await restartPopup.getByText(cachedStatus).waitFor();
+  await restartPopup.locator("#details > summary").click();
+  const resultSnapshot = async () =>
+    restartPopup.evaluate(() => ({
+      totals: [
+        "code-lines",
+        "text-lines",
+        "metrics",
+        "snapshot-size",
+        "snapshot-label",
+      ].map((id) => document.getElementById(id)?.textContent),
+      details: document.getElementById("detail-content")?.innerHTML,
+      open: (document.getElementById("details") as HTMLDetailsElement).open,
+    }));
+  const beforeReanalyzeResult = await resultSnapshot();
+  assert.equal(beforeReanalyzeResult.open, false);
   const beforeReanalyzeApiRequests = fixtureApiRequests;
   const beforeReanalyzeArchiveRequests = fixtureArchiveRequests;
   const restartControl = await context.newCDPSession(page);
@@ -1110,7 +1128,21 @@ sync();
   });
   await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
   await restartPopup.getByText("Checking for updates…").waitFor();
-  await restartPopup.locator("#status .culverin-spinner").waitFor();
+  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  assert.equal(
+    await restartPopup.locator("#status .culverin-spinner").count(),
+    0,
+  );
+  assert.equal(
+    await restartPopup.locator("#analyze").textContent(),
+    "Reanalyze",
+  );
+  assert.equal(await restartPopup.locator("#analyze").isDisabled(), true);
+  assert.equal(
+    await restartPopup.locator("#analyze").getAttribute("aria-busy"),
+    "true",
+  );
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
   assert.equal(await restartPopup.locator("#cancel").isVisible(), true);
   metadataGate = undefined;
   releaseMetadata();
@@ -1123,6 +1155,113 @@ sync();
   assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
   assert.equal(fixtureApiRequests, beforeReanalyzeApiRequests + 2);
   assert.equal(fixtureArchiveRequests, beforeReanalyzeArchiveRequests);
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+  metadataGate = new Promise<void>((resolve) => {
+    releaseMetadata = resolve;
+  });
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  await restartPopup.getByRole("button", { name: "Cancel analysis" }).click();
+  await restartPopup.getByText("Analysis canceled.").waitFor();
+  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(await restartPopup.locator("#analyze").isEnabled(), true);
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+  metadataGate = undefined;
+  releaseMetadata();
+  await harness.waitForFunction(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return !(state["github.job"] as unknown[] | undefined)?.length;
+  });
+  metadataFailure = true;
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+  await restartPopup
+    .getByText("GitHub could not be reached.", { exact: true })
+    .waitFor();
+  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+  metadataFailure = false;
+  fixtureSha = "b".repeat(40);
+  await worker.evaluate(
+    ({ bytes, sha }) => {
+      const scope = globalThis as typeof globalThis & {
+        reanalysisOriginalFetch?: typeof fetch;
+        reanalysisRelease?: () => void;
+      };
+      scope.reanalysisOriginalFetch = fetch;
+      globalThis.fetch = (async (input, init) => {
+        if (!String(input).endsWith(`/tarball/${sha}`))
+          return scope.reanalysisOriginalFetch!(input, init);
+        const response = new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              scope.reanalysisRelease = () => {
+                controller.enqueue(Uint8Array.from(bytes));
+                controller.close();
+              };
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/gzip" },
+          },
+        );
+        Object.defineProperty(response, "url", {
+          value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+        });
+        return response;
+      }) as typeof fetch;
+    },
+    { bytes: publicFixtureBytes, sha: fixtureSha },
+  );
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+  await restartPopup
+    .getByText("Downloading source snapshot from GitHub…")
+    .waitFor();
+  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+  await worker.evaluate(async () => {
+    const scope = globalThis as typeof globalThis & {
+      reanalysisRelease?: () => void;
+    };
+    for (let attempt = 0; attempt < 200 && !scope.reanalysisRelease; attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    if (!scope.reanalysisRelease)
+      throw new Error("Reanalysis archive did not start");
+    scope.reanalysisRelease();
+  });
+  await restartPopup.locator("#cancel").waitFor({ state: "hidden" });
+  assert.equal(
+    await restartPopup.locator("#status").textContent(),
+    "Analyzed locally.",
+  );
+  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(
+    await restartPopup.locator("#snapshot-label").textContent(),
+    `Files at ${fixtureSha.slice(0, 12)}`,
+  );
+  assert.equal((await resultSnapshot()).open, false);
+  assert.match(
+    (await resultSnapshot()).details ?? "",
+    new RegExp(fixtureSha.slice(0, 12)),
+  );
+  await worker.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      reanalysisOriginalFetch?: typeof fetch;
+      reanalysisRelease?: () => void;
+    };
+    if (scope.reanalysisOriginalFetch)
+      globalThis.fetch = scope.reanalysisOriginalFetch;
+    delete scope.reanalysisOriginalFetch;
+    delete scope.reanalysisRelease;
+  });
+  fixtureSha = publicSha;
+  await settingsPage.evaluate(
+    (state) => chrome.storage.local.set(state),
+    savedPublicResults,
+  );
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+  await restartPopup.getByText(cachedStatus).waitFor();
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
   const impostorDisconnected = await harness.evaluate(
     () =>
       new Promise<boolean>((resolve) => {

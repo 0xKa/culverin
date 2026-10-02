@@ -47,7 +47,7 @@ function Header({ view }: { view: PopupView }) {
         {view.repository}
       </p>
       <Status id="status" className="my-3 min-h-[1.45em]">
-        {view.cancelVisible && <Spinner />}
+        {view.cancelVisible && !view.reanalyze && <Spinner />}
         {view.status}
       </Status>
     </>
@@ -249,10 +249,12 @@ export function App() {
             type="button"
             className="px-2.5 py-1.5"
             disabled={view.analyzeDisabled}
+            aria-busy={view.cancelVisible}
             onClick={() => void analyze(view.reanalyze)}
           >
             {view.reanalyze ? "Reanalyze" : "Analyze repository"}
           </Button>
+          {view.cancelVisible && view.reanalyze && <Spinner />}
           <Button
             id="cancel"
             type="button"

@@ -34,9 +34,23 @@ test("tracks repository, busy state, sizes, result and details", () => {
   expect(shown.detailsOpen).toBe(true);
   expect(shown.reanalyze).toBe(true);
   expect(shown.snapshotSize).toBe("20 B");
-  expect(reduce(shown, { type: "details", open: false }).detailsOpen).toBe(
-    false,
-  );
+  const collapsed = reduce(shown, { type: "details", open: false });
+  const reanalyzing = reduce(collapsed, {
+    type: "busy",
+    busy: true,
+    disabled: true,
+  });
+  expect(reanalyzing.result).toBe(result);
+  expect(reanalyzing.snapshotSize).toBe("20 B");
+  expect(reanalyzing.detailsOpen).toBe(false);
+  expect(reanalyzing.reanalyze).toBe(true);
+  const updated = reduce(reanalyzing, {
+    type: "result",
+    value: { ...result, codeLines: "2 code lines" },
+    sizes,
+  });
+  expect(updated.result?.codeLines).toBe("2 code lines");
+  expect(updated.detailsOpen).toBe(false);
   const cleared = reduce(shown, { type: "clearResult" });
   expect(cleared.result).toBeUndefined();
   expect(cleared.sizes).toEqual(sizes);

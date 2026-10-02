@@ -1,11 +1,7 @@
 import { afterEach, expect, jest, test } from "bun:test";
-import {
-  analyze,
-  cancel,
-  startPopup,
-} from "../../extension/src/popup/controller";
+import { createPopupController } from "../../extension/src/popup/controller";
 import type { PopupEvent } from "../../extension/src/popup/state";
-import { event, settle } from "./support/events";
+import { deferred, event, settle } from "./support/events";
 
 const originalChrome = globalThis.chrome;
 let dispose: (() => void) | undefined;
@@ -16,44 +12,50 @@ afterEach(() => {
   globalThis.chrome = originalChrome;
 });
 
-function popup() {
+function popup(
+  query = async () => [{ id: 1, url: "https://github.com/culverin/sample" }],
+) {
+  let connects = 0;
   const events: PopupEvent[] = [];
   const requests: Record<string, unknown>[] = [];
   const messages = event<(value: unknown) => void>();
   const disconnect = event<() => void>();
   globalThis.chrome = {
     runtime: {
-      connect: () => ({
-        onMessage: messages,
-        onDisconnect: disconnect,
-        disconnect: () => undefined,
-        postMessage: (request: Record<string, unknown>) => {
-          requests.push(request);
-          if (request.type === "repository.lookup")
-            queueMicrotask(() =>
-              messages.emit({
-                protocolVersion: 1,
-                requestId: request.requestId,
-                navigationId: request.navigationId,
-                type: "analysis.failed",
-                code: "network_unavailable",
-              }),
-            );
-          if (request.type === "analysis.status")
-            queueMicrotask(() =>
-              messages.emit({
-                protocolVersion: 1,
-                requestId: request.requestId,
-                navigationId: request.navigationId,
-                type: "analysis.status",
-                state: "idle",
-              }),
-            );
-        },
-      }),
+      connect: () => {
+        connects++;
+        return {
+          onMessage: messages,
+          onDisconnect: disconnect,
+          disconnect: () => undefined,
+          postMessage: (request: Record<string, unknown>) => {
+            requests.push(request);
+            if (request.type === "repository.lookup")
+              queueMicrotask(() =>
+                messages.emit({
+                  protocolVersion: 1,
+                  requestId: request.requestId,
+                  navigationId: request.navigationId,
+                  type: "analysis.failed",
+                  code: "network_unavailable",
+                }),
+              );
+            if (request.type === "analysis.status")
+              queueMicrotask(() =>
+                messages.emit({
+                  protocolVersion: 1,
+                  requestId: request.requestId,
+                  navigationId: request.navigationId,
+                  type: "analysis.status",
+                  state: "idle",
+                }),
+              );
+          },
+        };
+      },
     },
     tabs: {
-      query: async () => [{ id: 1, url: "https://github.com/culverin/sample" }],
+      query,
       onUpdated: event(),
       onActivated: event(),
     },
@@ -63,7 +65,9 @@ function popup() {
       onChanged: event(),
     },
   } as unknown as typeof chrome;
-  dispose = startPopup((value) => events.push(value));
+  const controller = createPopupController((value) => events.push(value));
+  controller.start();
+  dispose = controller.dispose;
   const reply = (
     request: Record<string, unknown>,
     value: Record<string, unknown>,
@@ -71,14 +75,21 @@ function popup() {
     const { requestId, navigationId, protocolVersion } = request;
     messages.emit({ requestId, navigationId, protocolVersion, ...value });
   };
-  return { events, requests, reply, disconnect };
+  return {
+    events,
+    requests,
+    reply,
+    disconnect,
+    controller,
+    connects: () => connects,
+  };
 }
 
 test("popup waits beyond a minute for queued and active work, preserves timeout and explicit cancel", async () => {
   jest.useFakeTimers();
   const ui = popup();
   await settle();
-  const pending = analyze();
+  const pending = ui.controller.analyze();
   await settle();
   const request = ui.requests.find((item) => item.type === "analysis.request")!;
   ui.reply(request, { type: "analysis.progress", phase: "queued" });
@@ -104,8 +115,8 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
       (item) => item.type === "status" && item.value.includes("time"),
     ),
   ).toBe(true);
-  const canceled = analyze();
-  await cancel();
+  const canceled = ui.controller.analyze();
+  await ui.controller.cancel();
   const second = ui.requests
     .filter((item) => item.type === "analysis.request")
     .at(-1)!;
@@ -115,4 +126,39 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
   });
   ui.reply(second, { type: "analysis.failed", code: "analysis_canceled" });
   await canceled;
+});
+
+test("disposing during initialization suppresses late connections and publications", async () => {
+  const query = deferred<{ id: number; url: string }[]>();
+  const first = popup(() => query.promise);
+  first.controller.dispose();
+  first.controller.dispose();
+  const count = first.events.length;
+  const second = popup();
+  await settle();
+  query.resolve([{ id: 2, url: "https://github.com/other/repo" }]);
+  await settle();
+  expect(first.events).toHaveLength(count);
+  expect(first.connects()).toBe(0);
+  expect(second.connects()).toBe(1);
+  expect(second.events.filter((event) => event.type === "repository")).toEqual([
+    { type: "repository", value: "culverin/sample" },
+  ]);
+});
+
+test("port interruption settles the active request and disposal sends no cancel", async () => {
+  const ui = popup();
+  await settle();
+  const pending = ui.controller.analyze();
+  ui.disconnect.emit();
+  await pending;
+  expect(
+    ui.events.filter(
+      (event) => event.type === "status" && event.value.includes("interrupted"),
+    ),
+  ).toHaveLength(1);
+  ui.controller.dispose();
+  expect(
+    ui.requests.some((request) => request.type === "analysis.cancel"),
+  ).toBe(false);
 });

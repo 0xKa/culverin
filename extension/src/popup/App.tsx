@@ -1,9 +1,9 @@
-import { useEffect, useReducer } from "preact/hooks";
+import { useEffect, useMemo, useReducer } from "preact/hooks";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
-import { analyze, cancel, openSettings, startPopup } from "./controller";
+import { createPopupController, openSettings } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
 import type { ResultView } from "./view";
 import { ResultRows } from "./ResultRows";
@@ -232,7 +232,11 @@ function Details({
 export function App() {
   const [view, dispatch] = useReducer(reduce, initialView);
 
-  useEffect(() => startPopup(dispatch), []);
+  const controller = useMemo(() => createPopupController(dispatch), [dispatch]);
+  useEffect(() => {
+    controller.start();
+    return controller.dispose;
+  }, [controller]);
 
   return (
     <main className="p-4">
@@ -250,7 +254,7 @@ export function App() {
             className="px-2.5 py-1.5"
             disabled={view.analyzeDisabled}
             aria-busy={view.cancelVisible}
-            onClick={() => void analyze(view.reanalyze)}
+            onClick={() => void controller.analyze(view.reanalyze)}
           >
             {view.reanalyze ? "Reanalyze" : "Analyze repository"}
           </Button>
@@ -260,7 +264,7 @@ export function App() {
             type="button"
             className="px-2.5 py-1.5"
             hidden={!view.cancelVisible}
-            onClick={() => void cancel()}
+            onClick={() => void controller.cancel()}
           >
             Cancel analysis
           </Button>

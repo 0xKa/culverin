@@ -1,80 +1,10 @@
-import { sendSettings } from "./client";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
-import { pendingKey } from "../auth/pending";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
-import {
-  authFailure,
-  connectionSummary,
-  connectionView,
-  type AuthReply,
-  type ConnectionView,
-} from "./github";
-
-type Update = {
-  view: (value: ConnectionView) => void;
-  status: (value: string) => void;
-};
-
-let update: Update | undefined;
-let timer: ReturnType<typeof setTimeout> | undefined;
-
-function show(reply: AuthReply | undefined): ConnectionView | undefined {
-  const next = connectionView(reply);
-  if (next) update?.view(next);
-  return next;
-}
-
-function stopPolling(): void {
-  clearTimeout(timer);
-  timer = undefined;
-}
-
-function schedule(delay: number): void {
-  stopPolling();
-  if (!update) return;
-  timer = setTimeout(
-    () => void check(),
-    Math.min(Math.max(delay, 1000), 60_000),
-  );
-}
-
-async function check(): Promise<void> {
-  const reply = await sendSettings({ type: "auth.device.poll" });
-  if (reply?.state === "pending") {
-    schedule(reply.retryIn ?? 5000);
-    return;
-  }
-  if (reply?.state === "failed" && reply.code === "network_unavailable") {
-    schedule(10_000);
-    return;
-  }
-  stopPolling();
-  if (reply?.state === "connected") {
-    show(reply);
-    update?.status(
-      "Connected. Private repositories you gave Culverin access to can now be counted.",
-    );
-    return;
-  }
-  const current = show(await sendSettings({ type: "auth.status" }));
-  if (reply?.state !== "device-missing" || !current?.connected)
-    update?.status(authFailure(reply));
-}
-
-function start(next: Update): () => void {
-  update = next;
-  void sendSettings({ type: "auth.status" }).then((reply) => {
-    const current = show(reply);
-    if (current?.device) schedule(current.device.interval * 1000);
-  });
-  return () => {
-    stopPolling();
-    update = undefined;
-  };
-}
+import { connectionSummary, type ConnectionView } from "./github";
+import { createGitHubController, type GitHubBusy } from "./github-controller";
 
 function Link({ href, children }: { href: string; children: string }) {
   return (
@@ -87,80 +17,23 @@ function Link({ href, children }: { href: string; children: string }) {
 export function GitHubSection({ hidden }: { hidden: boolean }) {
   const [view, setView] = useState<ConnectionView>();
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState<"connect" | "token" | "disconnect">();
+  const [busy, setBusy] = useState<GitHubBusy>();
   const [token, setToken] = useState("");
 
-  useEffect(() => start({ view: setView, status: setStatus }), []);
-
-  async function connect(): Promise<void> {
-    if (busy) return;
-    setBusy("connect");
-    setStatus("");
-    const reply = await sendSettings({ type: "auth.device.start" });
-    setBusy(undefined);
-    const current = show(reply);
-    if (reply?.state === "ok" && current?.device)
-      schedule(current.device.interval * 1000);
-    else setStatus(authFailure(reply));
-  }
-
-  async function cancel(): Promise<void> {
-    stopPolling();
-    show(await sendSettings({ type: "auth.device.cancel" }));
-    setStatus("");
-  }
-
-  async function copy(code: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(code);
-      setStatus("Code copied.");
-    } catch {
-      setStatus("Couldn't copy. Type the code shown above instead.");
-    }
-  }
-
-  async function saveToken(event: Event): Promise<void> {
-    event.preventDefault();
-    if (busy) return;
-    const value = token.trim();
-    if (!value) return;
-    setBusy("token");
-    setStatus("Checking the token with GitHub…");
-    const submissionId = crypto.randomUUID();
-    try {
-      await chrome.storage.session.set({
-        [pendingKey]: { token: value, submissionId, createdAt: Date.now() },
-      });
-    } catch {
-      setBusy(undefined);
-      setStatus("Couldn't save the token. Try again.");
-      return;
-    }
-    const reply = await sendSettings({ type: "auth.submit", submissionId });
-    setBusy(undefined);
-    if (reply?.state === "connected") {
-      setToken("");
-      stopPolling();
-      show(reply);
-      setStatus(
-        "Connected. Private repositories this token can read can now be counted.",
-      );
-    } else setStatus(authFailure(reply));
-  }
-
-  async function disconnect(): Promise<void> {
-    if (busy) return;
-    setBusy("disconnect");
-    stopPolling();
-    const reply = await sendSettings({ type: "auth.disconnect" });
-    setBusy(undefined);
-    show(await sendSettings({ type: "auth.status" }));
-    setStatus(
-      reply?.state === "disconnected"
-        ? "Disconnected. The saved token and private results were deleted."
-        : "Extension unavailable. Try again.",
-    );
-  }
+  const controller = useMemo(
+    () =>
+      createGitHubController({
+        view: setView,
+        status: setStatus,
+        busy: setBusy,
+        tokenCleared: () => setToken(""),
+      }),
+    [setView, setStatus, setBusy, setToken],
+  );
+  useEffect(() => {
+    controller.start();
+    return controller.dispose;
+  }, [controller]);
 
   const device = view?.device;
   return (
@@ -191,7 +64,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               type="button"
               className="px-3 py-[7px]"
               disabled={busy !== undefined}
-              onClick={() => void disconnect()}
+              onClick={() => void controller.disconnect()}
             >
               Disconnect
             </Button>
@@ -206,7 +79,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                 type="button"
                 className="my-1 px-3 py-[7px]"
                 disabled={busy !== undefined}
-                onClick={() => void disconnect()}
+                onClick={() => void controller.disconnect()}
               >
                 Forget @{view.login} and delete private results
               </Button>
@@ -230,7 +103,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   <Button
                     type="button"
                     className="px-3 py-[7px]"
-                    onClick={() => void copy(device.userCode)}
+                    onClick={() => void controller.copy(device.userCode)}
                   >
                     Copy code
                   </Button>
@@ -245,7 +118,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                     id="github-device-cancel"
                     type="button"
                     className="px-3 py-[7px]"
-                    onClick={() => void cancel()}
+                    onClick={() => void controller.cancel()}
                   >
                     Cancel
                   </Button>
@@ -268,7 +141,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   className="my-3 px-3 py-[7px]"
                   disabled={busy !== undefined}
                   aria-busy={busy === "connect"}
-                  onClick={() => void connect()}
+                  onClick={() => void controller.connect()}
                 >
                   {busy === "connect" && <Spinner />}
                   {busy === "connect" ? "Connecting…" : "Connect with GitHub"}
@@ -293,7 +166,10 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                 </p>
                 <form
                   className="my-3 flex flex-wrap items-center gap-2"
-                  onSubmit={(event) => void saveToken(event)}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void controller.saveToken(token);
+                  }}
                 >
                   <label htmlFor="github-token" className="font-semibold">
                     Token

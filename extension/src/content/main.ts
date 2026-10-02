@@ -26,7 +26,6 @@ type View = {
   lookupRequestId?: string;
   analysisRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
-  analysisTimer?: ReturnType<typeof setTimeout>;
   retryTimer?: ReturnType<typeof setTimeout>;
   port: chrome.runtime.Port;
   messageListener: (
@@ -149,7 +148,6 @@ async function lookup(current: View): Promise<void> {
 function stopAnalysis(current: View, requestId: string): boolean {
   if (current.analysisRequestId !== requestId) return false;
   current.analysisRequestId = undefined;
-  clearTimeout(current.analysisTimer);
   return true;
 }
 
@@ -183,13 +181,6 @@ async function analyze(current: View): Promise<void> {
   current.lookupRequestId = undefined;
   current.analysisRequestId = requestId;
   setState(current, { kind: "running", phase: "resolving" });
-  current.analysisTimer = setTimeout(() => {
-    if (!currentView(current) || !stopAnalysis(current, requestId)) return;
-    setState(current, failureState("analysis_interrupted"));
-    void send(current, "analysis.cancel", {
-      targetRequestId: requestId,
-    }).response.catch(() => undefined);
-  }, 60_000);
   try {
     await finishAnalysis(current, requestId, await response);
   } catch {
@@ -221,7 +212,6 @@ function detach(): void {
   const current = view;
   if (!current) return;
   clearTimeout(current.timer);
-  clearTimeout(current.analysisTimer);
   clearTimeout(current.retryTimer);
   stopHydration();
   current.port.disconnect();
@@ -273,6 +263,15 @@ function create(repository: PageRepository): View {
       customIgnore: message.customIgnore,
     });
   };
+  current.port.onDisconnect.addListener(() => {
+    if (!currentView(current)) return;
+    const requestId = current.analysisRequestId;
+    current.lookupRequestId = undefined;
+    clearTimeout(current.timer);
+    if (requestId && stopAnalysis(current, requestId))
+      setState(current, failureState("analysis_interrupted"));
+    else setState(current, { kind: "idle" });
+  });
   chrome.runtime.onMessage.addListener(current.messageListener);
   return current;
 }

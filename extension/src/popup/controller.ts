@@ -53,7 +53,6 @@ let lookupRequestId: string | undefined;
 let activeRequestId: string | undefined;
 let shownSha: string | undefined;
 let reanalyzedSha: string | undefined;
-let timer: ReturnType<typeof setTimeout> | undefined;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryUntil = 0;
 
@@ -246,21 +245,11 @@ async function lookup(): Promise<void> {
 
 function watchAnalysis(requestId: string): void {
   activeRequestId = requestId;
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    if (activeRequestId !== requestId) return;
-    activeRequestId = undefined;
-    setBusy(false);
-    setStatus(errors.analysis_interrupted);
-    const cancel = send("analysis.cancel", { targetRequestId: requestId });
-    void cancel?.response.catch(() => undefined);
-  }, 60_000);
 }
 
 function stopWatching(requestId: string): void {
   if (activeRequestId !== requestId) return;
   activeRequestId = undefined;
-  clearTimeout(timer);
   setBusy(false);
 }
 
@@ -341,7 +330,6 @@ export async function cancel(): Promise<void> {
   const requestId = activeRequestId;
   if (!requestId) return;
   activeRequestId = undefined;
-  clearTimeout(timer);
   setBusy(false);
   setStatus(errors.analysis_canceled);
   const pending = send("analysis.cancel", { targetRequestId: requestId });
@@ -352,7 +340,6 @@ function leaveRepository(): void {
   activeRequestId = undefined;
   lookupRequestId = undefined;
   target = undefined;
-  clearTimeout(timer);
   clearTimeout(retryTimer);
   dispatch({ type: "left" });
 }
@@ -421,7 +408,6 @@ export function startPopup(
     chrome.tabs.onUpdated.removeListener(onUpdated);
     chrome.tabs.onActivated.removeListener(onActivated);
     chrome.storage.onChanged.removeListener(onStorageChanged);
-    clearTimeout(timer);
     clearTimeout(retryTimer);
     port?.disconnect();
     port = undefined;

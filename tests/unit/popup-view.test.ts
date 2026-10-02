@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
-import {
-  resultView,
-  sizesView,
-  VISIBLE_OTHER_ROWS,
-} from "../../extension/src/popup/view";
+import { resultView, sizesView } from "../../extension/src/popup/view";
 
 const resolution: ResolutionEnvelope = {
   repositoryId: "1",
@@ -103,7 +99,6 @@ test("formats repository and result details", () => {
     ".golden: 30 lines, 1 files",
     "No extension: 8 lines, 1 files",
   ]);
-  expect(view.moreOtherRows).toEqual([]);
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
   );
@@ -157,7 +152,7 @@ test("links oversized paths to the counted commit and formats their sizes", () =
   );
 });
 
-test("orders languages by lines and folds other files after the first rows", () => {
+test("orders languages by lines and retains all other file rows for display", () => {
   const row = (language: string, code: number, comments: number) => ({
     language,
     files: 1,
@@ -197,9 +192,9 @@ test("orders languages by lines and folds other files after the first rows", () 
     "Plain Text",
     "Markdown",
   ]);
-  expect(view.otherRows).toHaveLength(VISIBLE_OTHER_ROWS);
+  expect(view.otherRows).toHaveLength(13);
   expect(view.otherRows[0]).toBe(".e00: 12 lines, 1 files");
-  expect(view.moreOtherRows).toEqual([
+  expect(view.otherRows.slice(10)).toEqual([
     ".e10: 2 lines, 1 files",
     ".e11: 1 lines, 1 files",
     "1 more extension: 2 lines, 1 files",

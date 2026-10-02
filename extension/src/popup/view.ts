@@ -29,7 +29,6 @@ export type ResultView = {
   textRows: string[];
   otherSummary: string;
   otherRows: string[];
-  moreOtherRows: string[];
   noLanguages?: string;
   coverage: string;
   warning?: string;
@@ -37,8 +36,6 @@ export type ResultView = {
   oversizedFiles: { path: string; size: string; url: string }[];
   oversizedNote?: string;
 };
-
-export const VISIBLE_OTHER_ROWS = 10;
 
 const bySize = <T extends { files: number; language: string }>(
   size: (row: T) => number,
@@ -116,8 +113,7 @@ export function resultView(
     textSummary: `${text.toLocaleString()} text lines · ${files(textLanguages)} files`,
     textRows,
     otherSummary: `${other.lines.toLocaleString()} lines · ${other.files.toLocaleString()} files`,
-    otherRows: otherRows.slice(0, VISIBLE_OTHER_ROWS),
-    moreOtherRows: otherRows.slice(VISIBLE_OTHER_ROWS),
+    otherRows,
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
     coverage: `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by Culverin ignore, ${skipped.unsupported_language.toLocaleString()} other files, ${skipped.binary_content.toLocaleString()} binary, ${skipped.unsupported_notebook.toLocaleString()} unsupported notebook, ${skipped.oversized_source.toLocaleString()} oversized).`,

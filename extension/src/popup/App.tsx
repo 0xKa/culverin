@@ -5,6 +5,7 @@ import { UsageMeter } from "../ui/UsageMeter";
 import { analyze, cancel, openSettings, startPopup } from "./controller";
 import { initialView, reduce, type PopupView } from "./state";
 import type { ResultView } from "./view";
+import { ResultRows } from "./ResultRows";
 
 function Header({ view }: { view: PopupView }) {
   return (
@@ -178,14 +179,12 @@ function Details({
             <p id="code-summary" className="my-1 font-semibold">
               {result.codeSummary}
             </p>
-            <ul
-              aria-label="Languages by code lines"
-              className="mt-1 list-disc pl-[22px]"
-            >
-              {result.codeRows.map((row) => (
-                <li key={row}>{row}</li>
-              ))}
-            </ul>
+            <ResultRows
+              rows={result.codeRows}
+              label="Languages by code lines"
+              moreLabel="More languages by code lines"
+              id="more-code-languages"
+            />
           </>
         )}
         {result && result.textRows.length > 0 && (
@@ -194,14 +193,12 @@ function Details({
             <p id="text-summary" className="my-1 font-semibold">
               {result.textSummary}
             </p>
-            <ul
-              aria-label="Text formats by text lines"
-              className="mt-1 list-disc pl-[22px]"
-            >
-              {result.textRows.map((row) => (
-                <li key={row}>{row}</li>
-              ))}
-            </ul>
+            <ResultRows
+              rows={result.textRows}
+              label="Text formats by text lines"
+              moreLabel="More text formats by text lines"
+              id="more-text-formats"
+            />
           </>
         )}
         {result && result.otherRows.length > 0 && (
@@ -214,48 +211,12 @@ function Details({
               Not recognized as a programming or text language. Their lines are
               not included in code or text lines.
             </p>
-            <ul
-              aria-label="Other files by lines"
-              className="mt-1 list-disc pl-[22px]"
-            >
-              {result.otherRows.map((row) => (
-                <li key={row}>{row}</li>
-              ))}
-            </ul>
-            {result.moreOtherRows.length > 0 && (
-              <details id="more-other-files" className="group">
-                <summary className="inline-flex list-none items-center gap-1 pl-[22px] [&::-webkit-details-marker]:hidden">
-                  <span className="group-open:hidden">
-                    Show {result.moreOtherRows.length} more
-                  </span>
-                  <span className="hidden group-open:inline">Show fewer</span>
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 16 16"
-                    width="12"
-                    height="12"
-                    className="transition-transform group-open:rotate-180"
-                  >
-                    <path
-                      d="M4 6l4 4 4-4"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </summary>
-                <ul
-                  aria-label="More other files by lines"
-                  className="mt-1 list-disc pl-[22px]"
-                >
-                  {result.moreOtherRows.map((row) => (
-                    <li key={row}>{row}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
+            <ResultRows
+              rows={result.otherRows}
+              label="Other files by lines"
+              moreLabel="More other files by lines"
+              id="more-other-files"
+            />
           </>
         )}
         {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}

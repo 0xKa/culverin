@@ -24,7 +24,6 @@ test("tracks repository, busy state, sizes, result and details", () => {
     textRows: [],
     otherSummary: "",
     otherRows: [],
-    moreOtherRows: [],
     noLanguages: "No language totals.",
     coverage: "",
     fileLimit: "The per-file limit is 8 MiB.",

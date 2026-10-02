@@ -28,7 +28,7 @@ export function subscribeRateLimit(
     timer = undefined;
     const time = now();
     publish({ value, now: time });
-    if (value && value.reset > time)
+    if (!disposed && value && value.reset > time)
       timer = setTimeout(show, Math.min(value.reset - time, 2_147_483_647));
   };
   const accept = (next: unknown) => {

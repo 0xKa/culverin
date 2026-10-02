@@ -98,3 +98,13 @@ test("disposal suppresses late reads and failures publish unknown without reject
   expect(failed.snapshots[0]?.value).toBeUndefined();
   failed.dispose();
 });
+
+test("a subscriber disposed while publishing retains no reset timer", () => {
+  jest.useFakeTimers();
+  const ui = observer();
+  ui.dispose();
+  const dispose = subscribeRateLimit(() => dispose(), ui.dependencies);
+  ui.change({ limit: 60, remaining: 2, reset: Date.now() + 3000 });
+  expect(ui.changes.listeners.size).toBe(0);
+  expect(jest.getTimerCount()).toBe(0);
+});

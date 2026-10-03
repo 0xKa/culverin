@@ -12,10 +12,15 @@ import {
   fetchLogin,
   resolveRepository,
   safeFailure,
+  type Fetcher,
   type Resolution,
 } from "../github/client";
 import { type PublicErrorCode } from "../github/public-protocol";
-import { RATE_LIMIT_KEY } from "../github/rate-limit";
+import {
+  RATE_LIMIT_KEY,
+  readRateLimit,
+  type RateLimit,
+} from "../github/rate-limit";
 import type { SettingsRequest } from "../protocol/settings";
 import {
   type SettingsPayload,
@@ -40,7 +45,11 @@ export function createAuthService(resources: BackgroundResources) {
   const LAST = "github.last";
   async function connectionChanged(
     previous: string,
-    options: { clearPrivate: boolean; clearRefs: boolean },
+    options: {
+      clearPrivate: boolean;
+      clearRefs: boolean;
+      rateLimit?: RateLimit;
+    },
   ): Promise<void> {
     coordinator.abortGeneration(previous);
     rates.clear(previous);
@@ -49,6 +58,17 @@ export function createAuthService(resources: BackgroundResources) {
       ...(options.clearRefs ? [refs.clear(), optionRefs.clear()] : []),
       ...(options.clearPrivate ? [privateResults.clear()] : []),
     ]);
+    if (options.rateLimit)
+      await chrome.storage.session.set({ [RATE_LIMIT_KEY]: options.rateLimit });
+  }
+  function observeRateLimit() {
+    let observed: RateLimit | undefined;
+    const fetcher: Fetcher = async (input, init) => {
+      const response = await fetch(input, init);
+      observed = readRateLimit(response.headers, true);
+      return response;
+    };
+    return { fetcher, observed: () => observed };
   }
   async function resolveFor(
     repository: { owner: string; name: string },
@@ -180,9 +200,10 @@ export function createAuthService(resources: BackgroundResources) {
       }
       const generation = await connection.generation();
       const signal = AbortSignal.timeout(10_000);
+      const loginRate = observeRateLimit();
       let login: string;
       try {
-        login = await fetchLogin(trackedFetch(true), stored.token, signal);
+        login = await fetchLogin(loginRate.fetcher, stored.token, signal);
       } catch (error) {
         reply({ state: "failed", ...safeFailure(error, signal) });
         return true;
@@ -199,6 +220,7 @@ export function createAuthService(resources: BackgroundResources) {
       await connectionChanged(result.previous, {
         clearPrivate: result.accountChanged,
         clearRefs: true,
+        rateLimit: loginRate.observed(),
       });
       reply({ state: "connected", ...(await statusReply()) });
       return true;
@@ -266,10 +288,11 @@ export function createAuthService(resources: BackgroundResources) {
         });
         return true;
       }
+      const loginRate = observeRateLimit();
       let login: string;
       try {
         login = await fetchLogin(
-          trackedFetch(true),
+          loginRate.fetcher,
           outcome.grant.token,
           signal,
         );
@@ -293,6 +316,7 @@ export function createAuthService(resources: BackgroundResources) {
       await connectionChanged(result.previous, {
         clearPrivate: result.accountChanged,
         clearRefs: true,
+        rateLimit: loginRate.observed(),
       });
       reply({ state: "connected", ...(await statusReply()) });
       return true;

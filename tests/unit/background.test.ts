@@ -62,6 +62,19 @@ function fixture() {
   const fetcher = (async (input: RequestInfo | URL) => {
     const url = String(input);
     calls.push(url);
+    if (url === "https://api.github.com/user") {
+      const response = new Response(JSON.stringify({ login: "octo" }), {
+        status: 200,
+        headers: {
+          "x-ratelimit-limit": "5000",
+          "x-ratelimit-remaining": "4963",
+          "x-ratelimit-reset": "1900000000",
+          "x-ratelimit-resource": "core",
+        },
+      });
+      Object.defineProperty(response, "url", { value: url });
+      return response;
+    }
     const response = new Response(
       JSON.stringify(
         url.includes("/commits/")
@@ -228,6 +241,40 @@ test("trusted analysis keeps its authorized public archive policy and strict sen
     resolution: { visibility: "public" },
   });
   expect(api.tokens).toEqual(["fixture-token"]);
+});
+
+test("signing in keeps the rate limit GitHub reported for the new account", async () => {
+  const api = fixture();
+  const submissionId = crypto.randomUUID();
+  await api.session.set({
+    "github.rateLimit": { limit: 60, remaining: 1, reset: 1_950_000_000_000 },
+    "github.pending": {
+      token: "fixture-token",
+      submissionId,
+      createdAt: Date.now(),
+    },
+  });
+  const outcome = await new Promise<unknown>(
+    (resolve) =>
+      void api.auth.handle(
+        {
+          protocolVersion: 1,
+          requestId: crypto.randomUUID(),
+          navigationId: crypto.randomUUID(),
+          type: "auth.submit",
+          submissionId,
+        },
+        resolve,
+      ),
+  );
+  expect(outcome).toMatchObject({ state: "connected" });
+  expect(api.calls).toEqual(["https://api.github.com/user"]);
+  expect(api.session.values["github.rateLimit"]).toEqual({
+    limit: 5000,
+    remaining: 4963,
+    reset: 1_900_000_000_000,
+    authenticated: true,
+  });
 });
 
 test("runtime listener registration is explicit and idempotent", () => {

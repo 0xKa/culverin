@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import icon from "../../../assets/dark/culverin-dark-stats.svg";
+import darkIcon from "../../../assets/dark/culverin-dark-stats.svg";
+import lightIcon from "../../../assets/light/culverin-light-stats.svg";
 import { AboutSection } from "./AboutSection";
 import { CountingSection } from "./CountingSection";
 import { GitHubSection } from "./GitHubSection";
@@ -46,7 +47,10 @@ export function App() {
     <div className="mx-auto my-8 max-w-[960px] px-5 leading-[1.5]">
       <header className="mb-6">
         <h1 className="mb-1 flex items-center gap-3 text-[2em] font-bold">
-          <img src={icon} alt="" className="size-[1.25em]" />
+          <picture className="shrink-0">
+            <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
+            <img src={lightIcon} alt="" className="block size-[2em]" />
+          </picture>
           Culverin
         </h1>
         <p>

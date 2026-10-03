@@ -312,6 +312,11 @@ export async function runPageCounting(
     /^GitHub API usage\d+\/60resets at /,
   );
 
+  assert.match(
+    (await countingSettings.locator("#api-usage-shared").textContent()) ?? "",
+    /^Everything on your network that uses GitHub without signing in shares the same 60\./,
+  );
+
   await countingSettings.getByText("Why does a check use 2 requests?").click();
 
   await countingSettings

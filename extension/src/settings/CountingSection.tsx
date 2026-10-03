@@ -10,6 +10,7 @@ import {
   writeCountTrigger,
   type CountTrigger,
 } from "../counting/trigger";
+import { formatClockTime } from "../ui/format";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 
@@ -51,6 +52,9 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
     now: Date.now(),
   });
   const { value: rateLimit, now } = snapshot;
+  const limit = rateLimit?.authenticated
+    ? rateLimit.limit.toLocaleString()
+    : "60";
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
@@ -100,9 +104,13 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
         GitHub requests
       </h3>
       <p>
-        Checking a repository uses 2 of your{" "}
-        {rateLimit?.authenticated ? rateLimit.limit.toLocaleString() : "60"}{" "}
-        GitHub requests per hour. The toolbar popup shows how many are left.
+        Checking a repository uses 2 of your {limit} GitHub requests per hour.
+        The toolbar popup shows how many are left.
+      </p>
+      <p id="api-usage-shared">
+        {rateLimit?.authenticated
+          ? `GitHub counts every request made with your account toward the same ${limit}, including VS Code, GitHub Desktop, the gh command line, and other GitHub apps or tokens you use. The count can be below ${limit} before Culverin has used any.`
+          : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}
       </p>
       <div id="api-usage" className="my-3">
         <p className="m-0 font-semibold">GitHub API usage</p>
@@ -120,17 +128,15 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
               </span>
               {now < rateLimit.reset && (
                 <span className="text-muted">
-                  resets at{" "}
-                  {new Date(rateLimit.reset).toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  resets at {formatClockTime(rateLimit.reset)}
                 </span>
               )}
             </>
           ) : (
             <span className="text-muted">
-              Not known yet. It appears after Culverin next checks GitHub.
+              Not known yet. GitHub only reports it in reply to a request, and
+              Culverin doesn't send one just to check. It appears after Culverin
+              next contacts GitHub.
             </span>
           )}
         </p>

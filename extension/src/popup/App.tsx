@@ -19,16 +19,23 @@ function Header({ view }: { view: PopupView }) {
             id="api-limit"
             hidden={!view.apiLimit}
             title={view.apiLimit?.title}
-            className="text-muted flex items-center gap-1.5 text-sm tabular-nums"
+            className="text-muted flex flex-col items-end text-sm leading-tight tabular-nums"
           >
-            {view.apiLimit && (
-              <UsageMeter
-                id="api-limit-meter"
-                value={view.apiLimit.value}
-                now={view.apiLimit.now}
-              />
+            <span className="flex items-center gap-1.5">
+              {view.apiLimit && (
+                <UsageMeter
+                  id="api-limit-meter"
+                  value={view.apiLimit.value}
+                  now={view.apiLimit.now}
+                />
+              )}
+              {view.apiLimit?.text}
+            </span>
+            {view.apiLimit?.reset && (
+              <span id="api-limit-reset" className="text-xs">
+                {view.apiLimit.reset}
+              </span>
             )}
-            {view.apiLimit?.text}
           </span>
           <Button
             id="settings"

@@ -158,6 +158,15 @@ export async function runGithubStorage(
     device: {},
   });
 
+  await settingsPage
+    .locator("#api-usage", { hasText: "4990/5000" })
+    .waitFor({ state: "attached" });
+
+  assert.match(
+    (await settingsPage.locator("#api-usage-shared").textContent()) ?? "",
+    /VS Code, GitHub Desktop, the gh command line/,
+  );
+
   await githubSection.getByRole("button", { name: "Disconnect" }).click();
 
   await githubSection

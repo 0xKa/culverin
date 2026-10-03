@@ -2,7 +2,7 @@ import type { AnalysisResultV2 } from "../counter/result";
 import { ARCHIVE_LIMITS } from "../archive/limits";
 import type { ResolutionEnvelope } from "../github/public-protocol";
 import { currentRemaining, type RateLimit } from "../github/rate-limit";
-import { formatBytes } from "../ui/format";
+import { formatBytes, formatClockTime } from "../ui/format";
 import { isTextLanguage, textLines } from "./text-lines";
 
 export type SizesView = {
@@ -12,6 +12,7 @@ export type SizesView = {
 
 export type ApiLimitView = {
   text: string;
+  reset?: string;
   title: string;
   value: RateLimit;
   now: number;
@@ -133,14 +134,14 @@ export function resultView(
 
 export function apiLimitView(value: RateLimit, now: number): ApiLimitView {
   const title = value.authenticated
-    ? "GitHub API requests left for your connected GitHub account. Each repository lookup uses up to 2."
-    : "Unauthenticated GitHub API requests left for your network. Each repository lookup uses up to 2.";
+    ? "GitHub API requests left for your connected GitHub account, shared with your other GitHub apps and tokens. Each repository lookup uses up to 2."
+    : "Unauthenticated GitHub API requests left for your network, shared with everything on it that uses GitHub without signing in. Each repository lookup uses up to 2.";
   return {
     text: `API ${currentRemaining(value, now).toLocaleString()}/${value.limit.toLocaleString()}`,
-    title:
-      now >= value.reset
-        ? title
-        : `${title} Resets at ${new Date(value.reset).toLocaleTimeString()}.`,
+    ...(now < value.reset
+      ? { reset: `Resets at ${formatClockTime(value.reset)}` }
+      : {}),
+    title,
     value,
     now,
   };

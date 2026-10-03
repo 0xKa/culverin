@@ -162,6 +162,11 @@ export async function runPagePopupLifetimes(
     "low",
   );
 
+  assert.match(
+    (await knownPopup.locator("#api-limit-reset").textContent()) ?? "",
+    /^Resets at \d/,
+  );
+
   assert.equal(
     await knownPopup.locator("#snapshot-label").textContent(),
     `Files at ${publicSha.slice(0, 12)}`,

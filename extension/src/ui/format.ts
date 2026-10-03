@@ -12,3 +12,10 @@ export function formatBytes(bytes: number, locale?: string): string {
     unit++;
   }
 }
+
+export function formatClockTime(time: number): string {
+  return new Date(time).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

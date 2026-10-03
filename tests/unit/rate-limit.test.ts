@@ -103,6 +103,7 @@ test("tags signed-in limits and replaces a value from the other kind", () => {
     mergeRateLimit(account, { ...account, remaining: 4980 }).remaining,
   ).toBe(4980);
   expect(apiLimitView(account, 0).title).toContain("GitHub account");
+  expect(apiLimitView(account, 0).title).toContain("shared with your other");
   expect(apiLimitView(anonymous, 0).title).toContain("Unauthenticated");
 });
 
@@ -149,8 +150,9 @@ test("treats a passed reset time as a full allowance", () => {
   expect(currentUsed(value, 5000)).toBe(0);
   const pending = apiLimitView(value, 4999);
   expect(pending.text).toBe("API 3/60");
-  expect(pending.title).toContain("Resets at");
+  expect(pending.reset).toStartWith("Resets at ");
+  expect(pending.title).not.toContain("Resets at");
   const reset = apiLimitView(value, 5000);
   expect(reset.text).toBe("API 60/60");
-  expect(reset.title).not.toContain("Resets at");
+  expect(reset.reset).toBeUndefined();
 });

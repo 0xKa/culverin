@@ -32,7 +32,7 @@ export async function runSetup(
       before: "Report repository",
       live: "Count lines of code",
       icon: "currentColor",
-      shapes: 7,
+      shapes: 6,
     },
   );
 

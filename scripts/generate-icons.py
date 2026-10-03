@@ -7,6 +7,7 @@ from pathlib import Path
 SOURCE = Path("assets/original/culverin-original-stats.svg")
 OUTPUT = Path("extension/public/icons")
 SIZES = (16, 32, 48, 128)
+GRID = 128 // 16
 NAMESPACE = "{http://www.w3.org/2000/svg}"
 
 
@@ -29,6 +30,8 @@ def rectangles(source):
             y = int(node.get("y", "0"))
             width = int(node.attrib["width"])
             height = int(node.attrib["height"])
+            if any(value % GRID for value in (x, y, width, height)):
+                raise ValueError("Icon rectangles must align to the 16 by 16 grid")
             result.append((x, y, x + width, y + height, color(fill)))
         elif node.tag in (NAMESPACE + "svg", NAMESPACE + "g"):
             for child in node:

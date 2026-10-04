@@ -24,7 +24,7 @@ bunx playwright install chromium
 bun run build
 ```
 
-`bun ci` installs the exact versions in `bun.lock`. The second command downloads the Chromium build that the browser tests use. To use your own Chrome instead, set `CHROME_BIN` to its path.
+`bun ci` installs the exact versions in `bun.lock`. The second command downloads the Chromium build that the browser tests use. To use another browser, set `CHROME_BIN` to a Chromium or Chrome for Testing executable. Google Chrome ignores `--load-extension`, so the tests cannot load the extension there. CI clears `CHROME_BIN` because GitHub's Ubuntu runners set it to Google Chrome.
 
 ## Load the extension in Chrome
 

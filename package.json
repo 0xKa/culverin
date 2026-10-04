@@ -21,7 +21,7 @@
     "bench:archive": "bun run build && bun tests/archive-benchmark.ts",
     "package": "bun run build && bun scripts/package.ts",
     "test:package": "bun run package && bun scripts/test-package.ts",
-    "verify": "bun run icons:check && bun run notices:check && bun run lint && bun run typecheck && bun run test && bun run test:browser",
+    "verify": "bun run icons:check && bun run notices:check && bun run lint && bun run build:wasm && bun run typecheck && bun run test && bun run test:browser",
     "build:test-extension": "bun run build:wasm && bun run --cwd extension build:test"
   },
   "devDependencies": {

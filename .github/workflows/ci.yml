@@ -82,4 +82,6 @@ jobs:
         run: bunx playwright install-deps chromium
 
       - name: Verify
+        env:
+          CHROME_BIN: ""
         run: bun run verify

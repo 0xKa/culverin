@@ -9,6 +9,7 @@ OUTPUT = Path("extension/public/icons")
 SIZES = (16, 32, 48, 128)
 GRID = 128 // 16
 NAMESPACE = "{http://www.w3.org/2000/svg}"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def color(value):
@@ -47,6 +48,32 @@ def chunk(kind, body):
     return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
 
 
+def decoded(data):
+    if not data.startswith(PNG_SIGNATURE):
+        return None
+    chunks = []
+    image = bytearray()
+    offset = len(PNG_SIGNATURE)
+    try:
+        while offset < len(data):
+            (length,) = struct.unpack_from(">I", data, offset)
+            kind = data[offset + 4 : offset + 8]
+            body = data[offset + 8 : offset + 8 + length]
+            (crc,) = struct.unpack_from(">I", data, offset + 8 + length)
+            if len(body) != length or crc != zlib.crc32(kind + body):
+                return None
+            if kind == b"IDAT":
+                image.extend(body)
+                if not chunks or chunks[-1] != (b"IDAT", b""):
+                    chunks.append((b"IDAT", b""))
+            else:
+                chunks.append((kind, body))
+            offset += 12 + length
+        return chunks, zlib.decompress(bytes(image))
+    except (struct.error, zlib.error):
+        return None
+
+
 def png(size, layers):
     rows = bytearray()
     for y in range(size):
@@ -60,7 +87,7 @@ def png(size, layers):
                     pixel = fill
             rows.extend(pixel)
     header = struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b"")
+    return PNG_SIGNATURE + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b"")
 
 
 def main():
@@ -76,7 +103,7 @@ def main():
         path = args.output_dir / f"icon-{size}.png"
         expected = png(size, layers)
         if args.check:
-            if not path.exists() or path.read_bytes() != expected:
+            if not path.exists() or decoded(path.read_bytes()) != decoded(expected):
                 raise SystemExit(f"Icon is out of date: {path}")
         else:
             path.write_bytes(expected)

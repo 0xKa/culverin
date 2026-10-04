@@ -1,26 +1,72 @@
 # Contributing
 
-Culverin is in early development. Please discuss larger behavior changes in an issue before implementing them, and include checks that exercise new behavior.
+Open an issue before you start a large change. Every change needs tests that cover the new behavior.
 
-## Toolchain
+## Requirements
 
-- Bun **1.4.2** (root `package.json`); use `bun ci` and commit `bun.lock`.
-- Rust **1.98.1**, including `wasm32-unknown-unknown`, rustfmt, and Clippy (`rust-toolchain.toml`).
-- `wasm-bindgen-cli` **0.2.128**, matching the exact Rust crate version. Install with `cargo install wasm-bindgen-cli --version 0.2.128 --locked`.
-- Node **24.18.0** was used locally for Vite and Playwright. Vite 8 requires Node 20.19+ or 22.12+. The prepared CI workflow is currently disabled; local checks remain available through `bun run verify`.
-- The popup and settings page use Preact **10.29.8** and Tailwind CSS **4.3.3** through the Vite build. Install their pinned dependencies with `bun ci`.
-- Playwright's Chromium: `bunx playwright install chromium`, or point `CHROME_BIN` at a compatible Chrome executable.
+- Bun 1.4.2
+- Node 20.19 or newer, because Vite runs on Node. CI uses Node 24.18.0.
+- Rust 1.98.1. If you use rustup, it installs this version and the WebAssembly target automatically from `rust-toolchain.toml`.
+- wasm-bindgen CLI 0.2.128. The build fails with any other version.
+- Python 3, used to check the icons.
 
-The icon artwork lives in `assets/`. The PNGs in `extension/public/icons/` are committed because Chrome needs them in the loadable extension.
+Install wasm-bindgen with this command:
 
-Run `bun run bench:archive` for the synthetic browser archive benchmarks described in [archive scalability](docs/archive-performance.md). This separate workload measures larger snapshots without adding gigabyte fixtures to the ordinary test suite.
+```sh
+cargo install wasm-bindgen-cli --version 0.2.128 --locked
+```
 
-`bun run test:browser` builds and checks both the production extension in `extension/dist` and a separate diagnostic extension in `.bun/test-extension`. The latter is built by `bun run build:test-extension` and composes production logic with local test adapters; it is never packaged. See [browser checks](docs/browser-tests.md) for the scenario organization.
+## Setup
+
+```sh
+bun ci
+bunx playwright install chromium
+bun run build
+```
+
+`bun ci` installs the exact versions in `bun.lock`. The second command downloads the Chromium build that the browser tests use. To use your own Chrome instead, set `CHROME_BIN` to its path.
+
+## Load the extension in Chrome
+
+1. Run `bun run build`, or `bun run dev` to rebuild when files change.
+2. Open `chrome://extensions` and turn on Developer mode.
+3. Click Load unpacked and select `extension/dist`.
+
+After a rebuild, click the reload button on the extension card.
+
+## Commands
+
+| Command                 | What it does                                                       |
+| ----------------------- | ------------------------------------------------------------------ |
+| `bun run build`         | Builds the extension into `extension/dist`.                        |
+| `bun run dev`           | Builds the extension and rebuilds it when files change.            |
+| `bun run lint`          | Checks formatting and lint rules for TypeScript and Rust.          |
+| `bun run typecheck`     | Type-checks the extension and the tests.                           |
+| `bun run test`          | Runs the Rust tests, the unit tests, and the WebAssembly test.     |
+| `bun run test:browser`  | Runs the extension in headless Chromium against test scenarios.    |
+| `bun run verify`        | Runs the checks above plus icon and notice checks. CI runs it too. |
+| `bun run package`       | Writes a release ZIP and its checksum to `dist/`.                  |
+| `bun run test:package`  | Builds the ZIP, unpacks it, and runs the browser tests against it. |
+| `bun run bench:archive` | Measures archive processing speed on large generated archives.     |
+| `bun run icons:build`   | Regenerates the PNG icons from `assets/original/`.                 |
+| `bun run notices:build` | Regenerates `extension/public/THIRD_PARTY_NOTICES.txt`.            |
+
+## Before you open a pull request
+
+Run `bun run verify` and make sure it passes. It takes about three minutes.
+
+If you changed a dependency, run `bun run notices:build` and commit the updated notices file. If you changed the icon artwork, run `bun run icons:build` and commit the new PNGs. `bun run verify` fails when either one is out of date.
 
 ## Release package
 
-`bun run package` builds the extension, checks the build, and writes `dist/culverin-<version>.zip` with a SHA-256 checksum file. The check fails if the manifest keys, permissions, host permissions, or content security policy change, if an unexpected file or source map is present, or if bundled code contains a local path, a development host, or a URL outside the allowed origins. ZIP entries are sorted and use fixed timestamps and file modes, so the same build output always produces the same checksum. The command prints the source commit and notes uncommitted changes.
+`bun run package` fails if the build contains anything unexpected. That includes a changed permission or content security policy, a source map, a local path, or a URL outside the allowed origins. The same source always produces the same ZIP checksum.
 
-`bun run test:package` rebuilds the package, confirms the ZIP matches its checksum, extracts it, and runs the product browser scenarios against the extracted files. Set `CULVERIN_LIVE_PUBLIC=1` to include the live public GitHub check.
+`bun run test:package` skips the check against live GitHub by default. Set `CULVERIN_LIVE_PUBLIC=1` to include it.
 
-`extension/public/THIRD_PARTY_NOTICES.txt` lists the licenses of the Rust crates linked into the WebAssembly counter and the bundled Preact and Tailwind CSS packages. It is shipped in the package. Regenerate it with `bun run notices:build` after dependency changes; `bun run verify` fails when it is out of date.
+## More documentation
+
+- [Architecture](docs/architecture.md)
+- [Result semantics](docs/result-semantics.md)
+- [Browser tests](docs/browser-tests.md)
+- [Archive performance](docs/archive-performance.md)
+- [Privacy](docs/privacy.md)

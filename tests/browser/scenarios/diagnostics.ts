@@ -814,6 +814,27 @@ export async function runDiagnostics(
 
   assert.equal(await probeHost(), false);
 
+  const archiveRestartStatus = await settingsPage.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "analysis.status",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+          },
+          resolve,
+        ),
+      ),
+  );
+
+  assert.equal(
+    archiveRestartStatus.state,
+    "idle",
+    JSON.stringify(archiveRestartStatus),
+  );
+
   const afterArchiveRestart = await harness.evaluate(
     (bytes) =>
       new Promise<Record<string, unknown>>((resolve) =>

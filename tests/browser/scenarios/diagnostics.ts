@@ -104,7 +104,7 @@ export async function runDiagnostics(
     archiveFixture,
   );
 
-  assert.equal(archived.state, "analyzed");
+  assert.equal(archived.state, "analyzed", JSON.stringify(archived));
 
   const archivedResult = archived.result as {
     totals: { files: number; lines: number; code: number };
@@ -178,11 +178,23 @@ export async function runDiagnostics(
     return { canceled, outcome: await pending };
   }, archiveFixture);
 
-  assert.equal(archiveCancellation.canceled.state, "canceled");
+  assert.equal(
+    archiveCancellation.canceled.state,
+    "canceled",
+    JSON.stringify(archiveCancellation.canceled),
+  );
 
-  assert.equal(archiveCancellation.outcome.state, "failed");
+  assert.equal(
+    archiveCancellation.outcome.state,
+    "failed",
+    JSON.stringify(archiveCancellation.outcome),
+  );
 
-  assert.equal(archiveCancellation.outcome.code, "analysis_canceled");
+  assert.equal(
+    archiveCancellation.outcome.code,
+    "analysis_canceled",
+    JSON.stringify(archiveCancellation.outcome),
+  );
 
   const afterArchiveCancel = await harness.evaluate(
     (bytes) =>
@@ -195,13 +207,18 @@ export async function runDiagnostics(
     archiveFixture,
   );
 
-  assert.equal(afterArchiveCancel.state, "analyzed");
+  assert.equal(
+    afterArchiveCancel.state,
+    "analyzed",
+    JSON.stringify(afterArchiveCancel),
+  );
 
   const largeArchive = [...readFileSync("tests/fixtures/archive-large.tar.gz")];
 
   const largeRuns = await harness.evaluate(async (bytes) => {
     const measurements: {
       state: unknown;
+      response: Record<string, unknown>;
       files: unknown;
       lines: unknown;
       wasmBytes: unknown;
@@ -222,6 +239,7 @@ export async function runDiagnostics(
       const transport = outcome.transport as { wasmBytes?: unknown };
       measurements.push({
         state: outcome.state,
+        response: outcome,
         files: result?.totals?.files,
         lines: result?.totals?.lines,
         wasmBytes: transport?.wasmBytes,
@@ -233,7 +251,7 @@ export async function runDiagnostics(
   }, largeArchive);
 
   for (const run of largeRuns) {
-    assert.equal(run.state, "analyzed");
+    assert.equal(run.state, "analyzed", JSON.stringify(run.response));
     assert.equal(run.files, 1);
     assert.equal(run.lines, 800_000);
     assert.equal(run.wasmBytes, 8_000_000);
@@ -266,11 +284,16 @@ export async function runDiagnostics(
     return {
       state: outcome.state,
       result: outcome.result,
+      response: outcome,
       elapsedMs: performance.now() - started,
     };
   }, largeArchive);
 
-  assert.equal(slowArchive.state, "analyzed");
+  assert.equal(
+    slowArchive.state,
+    "analyzed",
+    JSON.stringify(slowArchive.response),
+  );
 
   assert.ok(slowArchive.elapsedMs > 25_000);
 
@@ -333,11 +356,23 @@ export async function runDiagnostics(
     };
   }, largeArchive);
 
-  assert.equal(archiveCountCancellation.canceled.state, "canceled");
+  assert.equal(
+    archiveCountCancellation.canceled.state,
+    "canceled",
+    JSON.stringify(archiveCountCancellation.canceled),
+  );
 
-  assert.equal(archiveCountCancellation.outcome.state, "failed");
+  assert.equal(
+    archiveCountCancellation.outcome.state,
+    "failed",
+    JSON.stringify(archiveCountCancellation.outcome),
+  );
 
-  assert.equal(archiveCountCancellation.outcome.code, "analysis_canceled");
+  assert.equal(
+    archiveCountCancellation.outcome.code,
+    "analysis_canceled",
+    JSON.stringify(archiveCountCancellation.outcome),
+  );
 
   assert.ok(archiveCountCancellation.cancelMs < 1_000);
 
@@ -473,28 +508,64 @@ export async function runDiagnostics(
     };
   });
 
-  assert.equal(feasibility.baseline.state, "completed");
+  assert.equal(
+    feasibility.baseline.state,
+    "completed",
+    JSON.stringify(feasibility.baseline),
+  );
 
-  assert.equal(feasibility.canceled.state, "canceled");
+  assert.equal(
+    feasibility.canceled.state,
+    "canceled",
+    JSON.stringify(feasibility.canceled),
+  );
 
   assert.ok(
     feasibility.cancelMs < 1_000,
     `Cancellation took ${feasibility.cancelMs} ms`,
   );
 
-  assert.equal(feasibility.next.state, "completed");
+  assert.equal(
+    feasibility.next.state,
+    "completed",
+    JSON.stringify(feasibility.next),
+  );
 
-  assert.equal(feasibility.canceledDelayed.state, "canceled");
+  assert.equal(
+    feasibility.canceledDelayed.state,
+    "canceled",
+    JSON.stringify(feasibility.canceledDelayed),
+  );
 
-  assert.equal(feasibility.unrelatedCancel.state, "idle");
+  assert.equal(
+    feasibility.unrelatedCancel.state,
+    "idle",
+    JSON.stringify(feasibility.unrelatedCancel),
+  );
 
-  assert.equal(feasibility.delayedOriginal.state, "canceled");
+  assert.equal(
+    feasibility.delayedOriginal.state,
+    "canceled",
+    JSON.stringify(feasibility.delayedOriginal),
+  );
 
-  assert.equal(feasibility.afterDelay.state, "completed");
+  assert.equal(
+    feasibility.afterDelay.state,
+    "completed",
+    JSON.stringify(feasibility.afterDelay),
+  );
 
-  assert.equal(feasibility.statusAfterDelay.state, "completed");
+  assert.equal(
+    feasibility.statusAfterDelay.state,
+    "completed",
+    JSON.stringify(feasibility.statusAfterDelay),
+  );
 
-  assert.equal(feasibility.unrelatedStatus.state, "idle");
+  assert.equal(
+    feasibility.unrelatedStatus.state,
+    "idle",
+    JSON.stringify(feasibility.unrelatedStatus),
+  );
 
   console.log(
     `Slow real counter call ${feasibility.slowMs.toFixed(2)} ms; cancellation ${feasibility.cancelMs.toFixed(2)} ms; next job completed`,
@@ -636,7 +707,11 @@ export async function runDiagnostics(
     acquisitionNavigationId,
   );
 
-  assert.equal(acquisitionStatus.state, "interrupted");
+  assert.equal(
+    acquisitionStatus.state,
+    "interrupted",
+    JSON.stringify(acquisitionStatus),
+  );
 
   assert.deepEqual(
     await settingsPage.evaluate(() => chrome.storage.session.get("github.job")),
@@ -658,7 +733,11 @@ export async function runDiagnostics(
       ),
   );
 
-  assert.equal(recoveredStatus.state, "interrupted");
+  assert.equal(
+    recoveredStatus.state,
+    "interrupted",
+    JSON.stringify(recoveredStatus),
+  );
 
   assert.deepEqual(
     await harness.evaluate(() =>
@@ -691,7 +770,7 @@ export async function runDiagnostics(
       ),
   );
 
-  assert.equal(afterRestart.state, "completed");
+  assert.equal(afterRestart.state, "completed", JSON.stringify(afterRestart));
 
   await harness.waitForFunction(
     async () =>
@@ -746,7 +825,11 @@ export async function runDiagnostics(
     archiveFixture,
   );
 
-  assert.equal(afterArchiveRestart.state, "analyzed");
+  assert.equal(
+    afterArchiveRestart.state,
+    "analyzed",
+    JSON.stringify(afterArchiveRestart),
+  );
 
   await cdp.detach();
 

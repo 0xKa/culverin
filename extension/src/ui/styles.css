@@ -20,7 +20,7 @@
   --color-accent-text: oklch(0.46 0.13 255);
   --color-accent-soft: oklch(0.93 0.03 255);
   --color-ok: oklch(0.55 0.14 150);
-  --color-warning: oklch(0.68 0.15 70);
+  --color-warning: oklch(0.6 0.14 65);
   --color-warning-text: oklch(0.5 0.11 65);
   --color-warning-soft: oklch(0.96 0.04 85);
   --color-error: oklch(0.53 0.19 25);
@@ -250,9 +250,12 @@
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after,
-  ::details-content {
+  *::after {
     animation: none !important;
+    transition: none !important;
+  }
+
+  ::details-content {
     transition: none !important;
   }
 }

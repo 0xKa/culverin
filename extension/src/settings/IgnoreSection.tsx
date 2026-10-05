@@ -8,6 +8,7 @@ import {
 import { readIgnore, writeIgnore } from "../ignore/settings";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
+import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
 
 const savedMessage =
@@ -55,134 +56,154 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="ignore-heading" hidden={hidden}>
-      <h2 id="ignore-heading" className="mb-4 text-[1.5em] font-bold">
-        Culverin ignore
-      </h2>
-      <p>
+      <SectionHeader id="ignore-heading" title="Culverin ignore">
         Files that match these rules are skipped when counting lines. They still
         count toward the "Files at …" size.
-      </p>
-      <fieldset id="groups" className="mb-3 border-0 p-0">
-        <legend className="mt-3 mb-1.5 font-semibold">Built-in rules</legend>
-        {ignoreGroups.map((group) => {
-          const list = entries(group);
-          return (
-            <label
-              key={group.id}
-              className="my-1 grid grid-cols-[auto_12rem_1fr] items-baseline gap-2"
-            >
-              <input
-                type="checkbox"
-                value={group.id}
-                checked={!settings.disabledGroups.includes(group.id)}
-                onChange={(event) =>
-                  changeGroup(group.id, event.currentTarget.checked)
-                }
-              />
-              <span>{group.label}</span>
-              <span className="text-muted">
-                {list.slice(0, 4).join(", ")}
-                {list.length > 4 ? ", …" : ""}
-              </span>
-            </label>
-          );
-        })}
-      </fieldset>
-      <details className="my-2">
-        <summary>Show full list</summary>
-        <div id="built-in-content">
-          <dl className="my-2 grid grid-cols-[12rem_1fr] gap-x-2 gap-y-1">
-            {ignoreGroups.map((group) => (
-              <>
-                <dt key={group.id + "-label"}>{group.label}</dt>
-                <dd
-                  key={group.id + "-entries"}
-                  className="m-0 break-words font-mono"
-                >
-                  {entries(group).join(", ")}
-                </dd>
-              </>
+      </SectionHeader>
+      <div className="grid gap-5">
+        <Panel>
+          <fieldset id="groups" className="m-0 border-0 p-0">
+            <legend className="text-md mb-3 p-0 font-semibold">
+              Built-in rules
+            </legend>
+            <div className="border-divider divide-divider divide-y rounded-lg border">
+              {ignoreGroups.map((group) => {
+                const list = entries(group);
+                return (
+                  <label
+                    key={group.id}
+                    className="hover:bg-surface grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 px-3.5 py-2.5 transition-colors duration-150 first:rounded-t-lg last:rounded-b-lg sm:grid-cols-[auto_12rem_1fr]"
+                  >
+                    <input
+                      type="checkbox"
+                      value={group.id}
+                      className="size-4 translate-y-0.5"
+                      checked={!settings.disabledGroups.includes(group.id)}
+                      onChange={(event) =>
+                        changeGroup(group.id, event.currentTarget.checked)
+                      }
+                    />
+                    <span className="font-medium">{group.label}</span>
+                    <span className="text-muted col-start-2 truncate font-mono text-xs sm:col-start-3">
+                      {list.slice(0, 4).join(", ")}
+                      {list.length > 4 ? ", …" : ""}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <details className="disclosure mt-4">
+            <summary className="text-sm">Show full list</summary>
+            <div id="built-in-content">
+              <dl className="mt-3 mb-0 grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[12rem_1fr]">
+                {ignoreGroups.map((group) => (
+                  <>
+                    <dt key={group.id + "-label"} className="font-medium">
+                      {group.label}
+                    </dt>
+                    <dd
+                      key={group.id + "-entries"}
+                      className="text-muted m-0 mb-2 font-mono text-xs break-words sm:mb-0"
+                    >
+                      {entries(group).join(", ")}
+                    </dd>
+                  </>
+                ))}
+              </dl>
+            </div>
+          </details>
+        </Panel>
+        <Panel>
+          <label for="rules" className="text-md mb-2 block font-semibold">
+            Your rules
+          </label>
+          <textarea
+            id="rules"
+            rows={6}
+            spellcheck={false}
+            autocomplete="off"
+            placeholder={"vendor/\n*.min.js"}
+            aria-describedby="rules-help rules-usage rules-errors"
+            aria-invalid={parsed.errors.length > 0}
+            className={`${inputClass} block w-full resize-y font-mono text-sm aria-[invalid=true]:border-error`}
+            value={rulesText}
+            onInput={(event) => {
+              setRulesText(event.currentTarget.value);
+              setIgnoreStatus("");
+            }}
+          />
+          <p id="rules-usage" className="text-muted m-0 mt-2 text-sm">
+            {parsed.usage}
+          </p>
+          <ul
+            id="rules-errors"
+            className="border-error/40 bg-error-soft m-0 mt-3 list-disc rounded-lg border py-2 pr-3 pl-8 text-sm empty:hidden"
+          >
+            {parsed.errors.map((error) => (
+              <li key={error}>{error}</li>
             ))}
+          </ul>
+          <dl
+            id="rules-help"
+            className="bg-surface m-0 mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 rounded-lg p-3.5 text-sm"
+          >
+            <dt className="font-mono text-xs leading-5">folder/</dt>
+            <dd className="text-muted m-0">
+              a folder with this name, anywhere
+            </dd>
+            <dt className="font-mono text-xs leading-5">*.ext</dt>
+            <dd className="text-muted m-0">files ending in .ext</dd>
+            <dt className="font-mono text-xs leading-5">name.ext</dt>
+            <dd className="text-muted m-0">
+              files or folders with this exact name, anywhere
+            </dd>
+            <dt className="font-mono text-xs leading-5">path/to/x</dt>
+            <dd className="text-muted m-0">
+              this exact path from the repository root and everything under it
+            </dd>
           </dl>
-        </div>
-      </details>
-      <label for="rules" className="mt-3 mb-1.5 block font-semibold">
-        Your rules
-      </label>
-      <textarea
-        id="rules"
-        rows={6}
-        spellcheck={false}
-        autocomplete="off"
-        aria-describedby="rules-help rules-usage rules-errors"
-        aria-invalid={parsed.errors.length > 0}
-        className="border-ink bg-canvas text-ink w-full border p-0.5 font-mono text-[0.95rem]"
-        value={rulesText}
-        onInput={(event) => {
-          setRulesText(event.currentTarget.value);
-          setIgnoreStatus("");
-        }}
-      />
-      <dl
-        id="rules-help"
-        className="my-2 grid grid-cols-[9rem_1fr] gap-x-3 gap-y-0.5"
-      >
-        <dt className="font-mono">folder/</dt>
-        <dd className="m-0">a folder with this name, anywhere</dd>
-        <dt className="font-mono">*.ext</dt>
-        <dd className="m-0">files ending in .ext</dd>
-        <dt className="font-mono">name.ext</dt>
-        <dd className="m-0">files or folders with this exact name, anywhere</dd>
-        <dt className="font-mono">path/to/x</dt>
-        <dd className="m-0">
-          this exact path from the repository root and everything under it
-        </dd>
-      </dl>
-      <p id="rules-usage" className="text-muted">
-        {parsed.usage}
-      </p>
-      <ul
-        id="rules-errors"
-        className="border-error empty:hidden list-disc border-l-[3px] pl-6"
-      >
-        {parsed.errors.map((error) => (
-          <li key={error}>{error}</li>
-        ))}
-      </ul>
-      <div className="my-3 flex gap-2">
-        <Button
-          id="save-rules"
-          type="button"
-
-          disabled={parsed.errors.length > 0}
-          onClick={() =>
-            void save({
-              disabledGroups: settings.disabledGroups,
-              exclusions: parsed.rules,
-            })
-          }
-        >
-          Save
-        </Button>
-        <Button
-          id="reset-rules"
-          type="button"
-
-          onClick={() => {
-            if (
-              confirm(
-                "Reset Culverin ignore? All built-in rules are turned back on and your rules are removed.",
-              )
-            )
-              void save(defaultIgnore);
-          }}
-        >
-          Reset to defaults
-        </Button>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button
+              id="save-rules"
+              type="button"
+              size="md"
+              variant="primary"
+              disabled={parsed.errors.length > 0}
+              onClick={() =>
+                void save({
+                  disabledGroups: settings.disabledGroups,
+                  exclusions: parsed.rules,
+                })
+              }
+            >
+              Save
+            </Button>
+            <Button
+              id="reset-rules"
+              type="button"
+              size="md"
+              variant="ghost"
+              onClick={() => {
+                if (
+                  confirm(
+                    "Reset Culverin ignore? All built-in rules are turned back on and your rules are removed.",
+                  )
+                )
+                  void save(defaultIgnore);
+              }}
+            >
+              Reset to defaults
+            </Button>
+          </div>
+          <Status
+            id="ignore-status"
+            className="text-muted m-0 text-sm whitespace-pre-wrap not-empty:mt-2"
+          >
+            {ignoreStatus}
+          </Status>
+        </Panel>
       </div>
-      <Status id="ignore-status" className="min-h-[1.5em] whitespace-pre-wrap">
-        {ignoreStatus}
-      </Status>
     </section>
   );
 }

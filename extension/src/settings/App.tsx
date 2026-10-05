@@ -45,22 +45,12 @@ export function App() {
 
   return (
     <div className="mx-auto max-w-[1040px] px-6 pt-10 pb-16 text-base">
-      <header className="mb-10 flex items-start gap-4">
-        <picture className="mt-0.5 shrink-0">
+      <header className="mb-10 flex items-center gap-3">
+        <picture className="shrink-0">
           <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
-          <img src={lightIcon} alt="" className="block size-10" />
+          <img src={lightIcon} alt="" className="block size-9" />
         </picture>
-        <div>
-          <h1 className="m-0 text-2xl font-semibold tracking-tight">
-            Culverin
-          </h1>
-          <p className="text-muted m-0 mt-1 max-w-[72ch]">
-            Repository source is downloaded directly from GitHub and analyzed in
-            your browser when you select Analyze, or when you open a repository
-            page if you turn that on under Counting. Public repositories work
-            without an account; connect GitHub to count private ones.
-          </p>
-        </div>
+        <h1 className="m-0 text-2xl font-semibold tracking-tight">Culverin</h1>
       </header>
       <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
         <nav

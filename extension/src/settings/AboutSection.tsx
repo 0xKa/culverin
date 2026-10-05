@@ -47,7 +47,13 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
   return (
     <section aria-labelledby="about-heading" hidden={hidden}>
       <SectionHeader id="about-heading" title="About">
-        {manifest.description}
+        <p className="m-0">{manifest.description}</p>
+        <p className="m-0 mt-2">
+          Repository source is downloaded directly from GitHub and analyzed in
+          your browser when you select Analyze, or when you open a repository
+          page if you turn that on under Counting. Public repositories work
+          without an account; connect GitHub to count private ones.
+        </p>
       </SectionHeader>
       <div className="grid gap-5">
         <Panel

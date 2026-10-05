@@ -219,11 +219,11 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             </details>
           </Panel>
         )}
-        <div className="px-1">
+        <div>
           <h3 className="text-md m-0 font-semibold">
             Where your connection is kept
           </h3>
-          <p className="text-muted m-0 mt-1.5 max-w-[72ch] text-sm">
+          <p className="text-muted m-0 mt-1.5 text-sm">
             The token is saved in this browser's extension storage so you don't
             need to connect again after a restart. Only Culverin's own pages and
             background worker can read it, and it's sent only to GitHub. Counts

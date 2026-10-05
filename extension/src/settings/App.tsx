@@ -22,7 +22,7 @@ export function App() {
 
   useEffect(() => {
     rememberSection(active);
-    if (location.hash !== `#${active}`)
+    if (!parseSection(location.hash))
       history.replaceState(null, "", `#${active}`);
   }, [active]);
 
@@ -33,7 +33,10 @@ export function App() {
     };
     const fromStorage = (event: StorageEvent) => {
       const next = event.key === SECTION_KEY && parseSection(event.newValue);
-      if (next) setActive(next);
+      if (!next) return;
+      if (location.hash !== `#${next}`)
+        history.replaceState(null, "", `#${next}`);
+      setActive(next);
     };
     addEventListener("hashchange", fromHash);
     addEventListener("storage", fromStorage);

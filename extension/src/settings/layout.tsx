@@ -14,9 +14,7 @@ export function SectionHeader({
       <h2 id={id} className="m-0 text-xl font-semibold tracking-tight">
         {title}
       </h2>
-      {children && (
-        <div className="text-muted mt-1.5 max-w-[68ch]">{children}</div>
-      )}
+      {children && <div className="text-muted mt-1.5">{children}</div>}
     </div>
   );
 }

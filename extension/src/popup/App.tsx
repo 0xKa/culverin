@@ -1,157 +1,157 @@
 import { useEffect, useMemo, useReducer } from "preact/hooks";
+import darkIcon from "../../../assets/dark/culverin-dark-stats.svg";
+import lightIcon from "../../../assets/light/culverin-light-stats.svg";
 import { Button } from "../ui/Button";
+import { Callout } from "../ui/Callout";
+import { ExternalLink } from "../ui/ExternalLink";
+import { IconButton } from "../ui/IconButton";
+import { GearIcon } from "../ui/icons";
 import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { createPopupController, openSettings } from "./controller";
+import { ResultSection } from "./ResultSection";
 import { initialView, reduce, type PopupView } from "./state";
 import type { ResultView } from "./view";
-import { ResultSection } from "./ResultSection";
-import { ExternalLink } from "../ui/ExternalLink";
 
 function Header({ view }: { view: PopupView }) {
   return (
-    <>
-      <header className="flex items-center justify-between gap-2">
-        <h1 className="m-0 text-[1.2rem] font-bold">Culverin</h1>
-        <div className="flex items-center gap-2">
-          <span
-            id="api-limit"
-            hidden={!view.apiLimit}
-            title={view.apiLimit?.title}
-            className="text-muted flex flex-col items-end text-sm leading-tight tabular-nums"
-          >
-            <span className="flex items-center gap-1.5">
-              {view.apiLimit && (
-                <UsageMeter
-                  id="api-limit-meter"
-                  value={view.apiLimit.value}
-                  now={view.apiLimit.now}
-                />
-              )}
-              {view.apiLimit?.text}
-            </span>
-            {view.apiLimit?.reset && (
-              <span id="api-limit-reset" className="text-xs">
-                {view.apiLimit.reset}
-              </span>
+    <header className="border-divider flex items-center gap-2 border-b px-4 py-2.5">
+      <picture className="shrink-0">
+        <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
+        <img src={lightIcon} alt="" className="block size-5" />
+      </picture>
+      <h1 className="text-md m-0 font-semibold tracking-tight">Culverin</h1>
+      <div className="ml-auto flex items-center gap-1">
+        <span
+          id="api-limit"
+          hidden={!view.apiLimit}
+          title={view.apiLimit?.title}
+          className="text-muted tabular flex flex-col items-end px-1 text-2xs"
+        >
+          <span className="text-ink flex items-center gap-1.5 text-xs font-medium">
+            {view.apiLimit && (
+              <UsageMeter
+                id="api-limit-meter"
+                value={view.apiLimit.value}
+                now={view.apiLimit.now}
+              />
             )}
+            {view.apiLimit?.text}
           </span>
-          <Button
-            id="settings"
-            type="button"
-            size="popup"
-            onClick={() => openSettings()}
-          >
-            Settings
-          </Button>
-        </div>
-      </header>
-      <p
-        id="repository"
-        hidden={!view.repository}
-        className="break-words font-semibold"
-      >
-        {view.repository}
-      </p>
-      <Status id="status" className="my-3 min-h-[1.45em]">
-        {view.cancelVisible && !view.reanalyze && <Spinner />}
-        {view.status}
-      </Status>
-    </>
+          {view.apiLimit?.reset && (
+            <span id="api-limit-reset">{view.apiLimit.reset}</span>
+          )}
+        </span>
+        <IconButton
+          id="settings"
+          type="button"
+          label="Settings"
+          onClick={() => openSettings()}
+        >
+          <GearIcon />
+        </IconButton>
+      </div>
+    </header>
   );
 }
 
-function Totals({ view }: { view: PopupView }) {
+function Totals({ result }: { result: ResultView }) {
   return (
-    <>
-      <p id="code-lines" className="m-0 text-[1.4rem] font-bold">
-        {view.result?.codeLines}
-      </p>
-      <p
-        id="text-lines"
-        title="Non-blank prose lines in Markdown, MDX, Djot, and plain text files"
-        className="mt-0.5 mb-0 text-base font-semibold"
-      >
-        {view.result?.textLines}
-      </p>
-      <p id="metrics" className="my-1.5">
-        {view.result?.metrics}
-      </p>
-      <p
-        id="ignore-summary"
-        hidden={!view.ignoreSummary}
-        className="border-subtle mt-2 flex items-center justify-between gap-2 border-l-[3px] pl-2"
-      >
-        <span id="ignore-text">{view.ignoreSummary}</span>
-        <Button
-          id="ignore-edit"
-          type="button"
-          size="compact"
-          onClick={() => openSettings("ignore")}
+    <div className="rise-in border-divider bg-raised shadow-card mt-3 rounded-xl border p-4">
+      <div className="flex items-end justify-between gap-3">
+        <p id="code-lines" className="m-0 flex min-w-0 flex-col">
+          <span className="text-display tabular font-semibold">
+            {result.codeTotal}
+          </span>{" "}
+          <span className="text-muted text-xs">code lines</span>
+        </p>
+        <p
+          id="text-lines"
+          title="Non-blank prose lines in Markdown, MDX, Djot, and plain text files"
+          className="text-muted tabular m-0 pb-px text-right text-xs"
         >
-          Edit
-        </Button>
-      </p>
-      <dl id="sizes" hidden={!view.sizes} className="mt-2.5 grid gap-0.5">
-        <div className="flex justify-between gap-3">
-          <dt className="break-words">Repository size (incl. history)</dt>
-          <dd
-            id="repository-size"
-            title="Reported by GitHub; includes the full Git history"
-            className="m-0 whitespace-nowrap font-semibold tabular-nums"
-          >
-            {view.sizes?.repositorySize}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt id="snapshot-label" className="break-words">
-            {view.sizes?.snapshotLabel ?? "Files at commit"}
-          </dt>
-          <dd
-            id="snapshot-size"
-            className="m-0 whitespace-nowrap font-semibold tabular-nums"
-          >
-            {view.snapshotSize}
-          </dd>
-        </div>
+          {result.textLines}
+        </p>
+      </div>
+      <dl
+        id="metrics"
+        className="border-divider mt-3.5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3.5"
+      >
+        {result.stats.map((stat) => (
+          <div key={stat.label} className="flex flex-col">
+            <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
+            <dd className="tabular m-0 text-sm font-semibold">{stat.value}</dd>
+          </div>
+        ))}
       </dl>
-    </>
+    </div>
+  );
+}
+
+function Sizes({ view }: { view: PopupView }) {
+  return (
+    <dl id="sizes" hidden={!view.sizes} className="mt-3 grid gap-1 text-xs">
+      <div className="flex justify-between gap-3">
+        <dt className="text-muted break-words">
+          Repository size (incl. history)
+        </dt>
+        <dd
+          id="repository-size"
+          title="Reported by GitHub; includes the full Git history"
+          className="tabular m-0 font-medium whitespace-nowrap"
+        >
+          {view.sizes?.repositorySize}
+        </dd>
+      </div>
+      <div className="flex justify-between gap-3">
+        <dt id="snapshot-label" className="text-muted break-words">
+          {view.sizes?.snapshotLabel ?? "Files at commit"}
+        </dt>
+        <dd
+          id="snapshot-size"
+          className="tabular m-0 font-medium whitespace-nowrap"
+        >
+          {view.snapshotSize}
+        </dd>
+      </div>
+    </dl>
   );
 }
 
 function OversizedFiles({ result }: { result: ResultView }) {
   const list = (
-    <ul
-      aria-label="Files too large to count"
-      className="my-1.5 list-disc pl-[22px]"
-    >
+    <ul aria-label="Files too large to count" className="mt-1.5 grid gap-1">
       {result.oversizedFiles.map((file) => (
-        <li key={file.path} className="my-1">
-          <ExternalLink href={file.url} className="wrap-anywhere underline">
+        <li key={file.path} className="flex items-baseline gap-2 text-xs">
+          <ExternalLink
+            href={file.url}
+            className="min-w-0 font-mono wrap-anywhere underline"
+          >
             {file.path}
           </ExternalLink>{" "}
-          <span className="whitespace-nowrap">{file.size}</span>
+          <span className="text-muted tabular ml-auto whitespace-nowrap">
+            {file.size}
+          </span>
         </li>
       ))}
     </ul>
   );
   return (
-    <div
-      id="oversized-files"
-      className="border-warning my-1.5 border-l-[3px] pl-2"
-    >
-      <p className="my-1.5">{result.warning}</p>
-      <p className="my-1.5">{result.fileLimit}</p>
+    <Callout tone="warning" id="oversized-files" className="mt-3">
+      <p className="m-0 font-medium">{result.warning}</p>
+      <p className="text-muted m-0 mt-0.5 text-xs">{result.fileLimit}</p>
       {result.oversizedFiles.length === 1 && list}
       {result.oversizedFiles.length > 1 && (
-        <details id="oversized-file-list">
-          <summary>Show files</summary>
+        <details id="oversized-file-list" className="disclosure mt-1.5">
+          <summary className="text-xs">Show files</summary>
           {list}
         </details>
       )}
-      {result.oversizedNote && <p className="my-1.5">{result.oversizedNote}</p>}
-    </div>
+      {result.oversizedNote && (
+        <p className="text-muted m-0 mt-1.5 text-xs">{result.oversizedNote}</p>
+      )}
+    </Callout>
   );
 }
 
@@ -168,13 +168,13 @@ function Details({
       id="details"
       hidden={!result}
       open={view.detailsOpen}
-      className="mt-3"
+      className="disclosure border-divider mt-4 border-t pt-3"
       onToggle={(event) => onToggle(event.currentTarget.open)}
     >
-      <summary>Analysis details</summary>
-      <div id="detail-content">
+      <summary className="text-sm">Analysis details</summary>
+      <div id="detail-content" className="pt-1">
         {result?.intro.map((line) => (
-          <p key={line} className="my-1.5">
+          <p key={line} className="text-muted m-0 mt-1.5 text-xs">
             {line}
           </p>
         ))}
@@ -209,16 +209,22 @@ function Details({
             label="Other files by lines"
             moreLabel="More other files by lines"
             id="more-other-files"
+            muted
           >
-            <p className="my-1.5">
+            <p className="text-muted m-0 mt-1 text-xs">
               Not recognized as a programming or text language. Their lines are
               not included in code or text lines.
             </p>
           </ResultSection>
         )}
-        {result?.noLanguages && <p className="my-1.5">{result.noLanguages}</p>}
-        {result && <p className="my-1.5">{result.coverage}</p>}
-        {result?.warning && <OversizedFiles result={result} />}
+        {result?.noLanguages && (
+          <p className="text-muted m-0 mt-3 text-xs">{result.noLanguages}</p>
+        )}
+        {result && (
+          <p className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs">
+            {result.coverage}
+          </p>
+        )}
       </div>
     </details>
   );
@@ -233,51 +239,83 @@ export function App() {
     return controller.dispose;
   }, [controller]);
 
+  const result = view.result;
   return (
-    <main className="p-4">
+    <main>
       <Header view={view} />
-      <section
-        id="analysis"
-        hidden={!view.analysisVisible}
-        className="border-divider border-t pt-3"
-      >
-        <Totals view={view} />
-        <div className="my-3 flex items-center justify-start gap-2">
-          <Button
-            id="analyze"
-            type="button"
-            size="popup"
-            disabled={view.analyzeDisabled}
-            aria-busy={view.cancelVisible}
-            onClick={() => void controller.analyze(view.reanalyze)}
+      <div className="px-4 pt-3 pb-4">
+        <p
+          id="repository"
+          hidden={!view.repository}
+          className="m-0 text-base font-semibold break-words"
+        >
+          {view.repository}
+        </p>
+        <Status id="status" className="text-muted m-0 mt-0.5 min-h-5 text-xs">
+          {view.cancelVisible && !view.reanalyze && <Spinner />}
+          {view.status}
+        </Status>
+        <section id="analysis" hidden={!view.analysisVisible}>
+          {result && <Totals key={view.sizes?.snapshotLabel} result={result} />}
+          {result?.warning && <OversizedFiles result={result} />}
+          <Sizes view={view} />
+          <Callout
+            id="ignore-summary"
+            hidden={!view.ignoreSummary}
+            className="mt-3 text-xs"
           >
-            {view.reanalyze ? "Reanalyze" : "Analyze repository"}
-          </Button>
-          {view.cancelVisible && view.reanalyze && <Spinner />}
-          <Button
-            id="cancel"
-            type="button"
-            size="popup"
-            hidden={!view.cancelVisible}
-            onClick={() => void controller.cancel()}
-          >
-            Cancel analysis
-          </Button>
-          <Button
-            id="connect"
-            type="button"
-            size="popup"
-            hidden={!view.connect}
-            onClick={() => openSettings("github")}
-          >
-            {view.connect}
-          </Button>
-        </div>
-        <Details
-          view={view}
-          onToggle={(open) => dispatch({ type: "details", open })}
-        />
-      </section>
+            <div className="flex items-center justify-between gap-2">
+              <span id="ignore-text">{view.ignoreSummary}</span>
+              <Button
+                id="ignore-edit"
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="-my-1 -mr-1.5"
+                onClick={() => openSettings("ignore")}
+              >
+                Edit
+              </Button>
+            </div>
+          </Callout>
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              id="analyze"
+              type="button"
+              variant={view.reanalyze ? "secondary" : "primary"}
+              className="flex-1"
+              disabled={view.analyzeDisabled}
+              aria-busy={view.cancelVisible}
+              onClick={() => void controller.analyze(view.reanalyze)}
+            >
+              {view.reanalyze ? "Reanalyze" : "Analyze repository"}
+            </Button>
+            {view.cancelVisible && view.reanalyze && <Spinner />}
+            <Button
+              id="cancel"
+              type="button"
+              variant="ghost"
+              hidden={!view.cancelVisible}
+              onClick={() => void controller.cancel()}
+            >
+              Cancel analysis
+            </Button>
+            <Button
+              id="connect"
+              type="button"
+              variant="primary"
+              hidden={!view.connect}
+              onClick={() => openSettings("github")}
+            >
+              {view.connect}
+            </Button>
+          </div>
+          <Details
+            view={view}
+            onToggle={(open) => dispatch({ type: "details", open })}
+          />
+        </section>
+      </div>
     </main>
   );
 }

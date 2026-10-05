@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import type { BreakdownRow } from "./view";
 import { ResultRows } from "./ResultRows";
 
 export function ResultSection({
@@ -6,25 +7,29 @@ export function ResultSection({
   summary,
   summaryId,
   children,
+  muted,
   ...rows
 }: {
   title: string;
   summary: string;
   summaryId: string;
-  rows: string[];
+  rows: BreakdownRow[];
   label: string;
   moreLabel: string;
   id: string;
+  muted?: boolean;
   children?: ComponentChildren;
 }) {
   return (
-    <>
-      <h2 className="mt-3 text-[0.95rem] font-bold">{title}</h2>
-      <p id={summaryId} className="my-1 font-semibold">
-        {summary}
-      </p>
+    <section className="mt-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="m-0 text-sm font-semibold">{title}</h2>
+        <p id={summaryId} className="text-muted tabular m-0 text-2xs">
+          {summary}
+        </p>
+      </div>
       {children}
-      <ResultRows {...rows} />
-    </>
+      <ResultRows {...rows} muted={muted} />
+    </section>
   );
 }

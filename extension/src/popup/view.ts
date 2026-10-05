@@ -18,18 +18,31 @@ export type ApiLimitView = {
   now: number;
 };
 
+export type BreakdownRow = {
+  label: string;
+  name: string;
+  value: string;
+  share: number;
+  files: string;
+};
+
+export type StatView = {
+  label: string;
+  value: string;
+};
+
 export type ResultView = {
-  codeLines: string;
+  codeTotal: string;
   textLines: string;
-  metrics: string;
+  stats: StatView[];
   snapshotSize: string;
   intro: string[];
   codeSummary: string;
-  codeRows: string[];
+  codeRows: BreakdownRow[];
   textSummary: string;
-  textRows: string[];
+  textRows: BreakdownRow[];
   otherSummary: string;
-  otherRows: string[];
+  otherRows: BreakdownRow[];
   noLanguages?: string;
   coverage: string;
   warning?: string;
@@ -57,6 +70,12 @@ export function sizesView(resolution: ResolutionEnvelope): SizesView {
   };
 }
 
+const fileCount = (files: number) =>
+  `${files.toLocaleString()} ${files === 1 ? "file" : "files"}`;
+
+const share = (part: number, whole: number) =>
+  whole === 0 ? 0 : (part / whole) * 100;
+
 export function resultView(
   result: AnalysisResultV2,
   resolution: ResolutionEnvelope,
@@ -71,18 +90,36 @@ export function resultView(
   const textLanguages = result.languages
     .filter((row) => isTextLanguage(row.language))
     .sort(bySize((row) => row.comments));
-  const codeRows = codeLanguages.map((row) => {
-    const percent = totals.code === 0 ? 0 : (row.code / totals.code) * 100;
-    return `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
+  const codeRows = codeLanguages.map((row): BreakdownRow => {
+    const percent = share(row.code, totals.code);
+    return {
+      label: `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`,
+      name: row.language,
+      value: row.code.toLocaleString(),
+      share: percent,
+      files: fileCount(row.files),
+    };
   });
-  const textRows = textLanguages.map((row) => {
-    const percent = text === 0 ? 0 : (row.comments / text) * 100;
-    return `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
+  const textRows = textLanguages.map((row): BreakdownRow => {
+    const percent = share(row.comments, text);
+    return {
+      label: `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`,
+      name: row.language,
+      value: row.comments.toLocaleString(),
+      share: percent,
+      files: fileCount(row.files),
+    };
   });
   const other = result.otherFiles;
-  const otherRows = other.extensions.map(
-    (row) =>
-      `${row.extension || "No extension"}: ${row.lines.toLocaleString()} lines, ${row.files.toLocaleString()} files`,
+  const otherRow = (name: string, lines: number, files: number) => ({
+    label: `${name}: ${lines.toLocaleString()} lines, ${files.toLocaleString()} files`,
+    name,
+    value: lines.toLocaleString(),
+    share: share(lines, other.lines),
+    files: fileCount(files),
+  });
+  const otherRows = other.extensions.map((row) =>
+    otherRow(row.extension || "No extension", row.lines, row.files),
   );
   const restFiles =
     other.files - other.extensions.reduce((sum, row) => sum + row.files, 0);
@@ -90,7 +127,11 @@ export function resultView(
     other.lines - other.extensions.reduce((sum, row) => sum + row.lines, 0);
   if (other.moreExtensions > 0)
     otherRows.push(
-      `${other.moreExtensions.toLocaleString()} more ${other.moreExtensions === 1 ? "extension" : "extensions"}: ${restLines.toLocaleString()} lines, ${restFiles.toLocaleString()} files`,
+      otherRow(
+        `${other.moreExtensions.toLocaleString()} more ${other.moreExtensions === 1 ? "extension" : "extensions"}`,
+        restLines,
+        restFiles,
+      ),
     );
   const skipped = coverage.skippedByReason;
   const oversizedFiles = (coverage.oversizedFiles ?? []).map((file) => ({
@@ -100,9 +141,14 @@ export function resultView(
   }));
   const unlisted = skipped.oversized_source - oversizedFiles.length;
   return {
-    codeLines: `${totals.code.toLocaleString()} code lines`,
+    codeTotal: totals.code.toLocaleString(),
     textLines: `${text.toLocaleString()} text lines`,
-    metrics: `${totals.files.toLocaleString()} files · ${totals.lines.toLocaleString()} physical lines · ${totals.comments.toLocaleString()} comments · ${totals.blanks.toLocaleString()} blanks`,
+    stats: [
+      { label: "Files", value: totals.files.toLocaleString() },
+      { label: "Physical lines", value: totals.lines.toLocaleString() },
+      { label: "Comments", value: totals.comments.toLocaleString() },
+      { label: "Blanks", value: totals.blanks.toLocaleString() },
+    ],
     snapshotSize: formatBytes(coverage.totalBytes),
     intro: [
       `Default branch ${resolution.defaultBranch} · commit ${resolution.sha.slice(0, 12)}`,

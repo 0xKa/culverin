@@ -61,7 +61,7 @@ export function resultView(
   result: AnalysisResultV2,
   resolution: ResolutionEnvelope,
 ): ResultView {
-  const { totals, coverage, engine } = result;
+  const { totals, coverage } = result;
   const text = textLines(result.languages);
   const files = (rows: { files: number }[]) =>
     rows.reduce((sum, row) => sum + row.files, 0).toLocaleString();
@@ -106,7 +106,6 @@ export function resultView(
     snapshotSize: formatBytes(coverage.totalBytes),
     intro: [
       `Default branch ${resolution.defaultBranch} · commit ${resolution.sha.slice(0, 12)}`,
-      `${engine.name} ${engine.version} · ${engine.rulesProfile} profile, rules ${engine.rulesVersion} · wrapper ${engine.wrapperVersion}`,
       "Repository source was downloaded directly from GitHub and analyzed in your browser.",
     ],
     codeSummary: `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines · ${files(codeLanguages)} files`,

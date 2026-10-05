@@ -32,8 +32,8 @@ function Rows({
             </div>
             <div className="bg-track mt-1 h-1 overflow-hidden rounded-full forced-colors:border forced-colors:border-[CanvasText]">
               <div
-                className={`bar-fill h-full rounded-full forced-colors:bg-[CanvasText] ${muted ? "bg-control" : "bg-accent"}`}
-                style={{ width: `${Math.max(row.share, 0.75)}%` }}
+                className={`bar-fill h-full rounded-full forced-colors:bg-[CanvasText] ${row.share > 0 ? "min-w-0.5" : ""} ${muted ? "bg-control" : "bg-accent"}`}
+                style={{ width: `${row.share}%` }}
               />
             </div>
           </div>

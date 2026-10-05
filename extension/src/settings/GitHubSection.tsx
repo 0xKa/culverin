@@ -181,13 +181,16 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   want to count, then paste it here.
                 </p>
                 <form
-                  className="mt-3 flex flex-wrap items-center gap-2"
+                  className="mt-3 flex flex-wrap items-end gap-2"
                   onSubmit={(event) => {
                     event.preventDefault();
                     void controller.saveToken(token);
                   }}
                 >
-                  <label htmlFor="github-token" className="sr-only">
+                  <label
+                    htmlFor="github-token"
+                    className="w-full text-sm font-medium"
+                  >
                     Token
                   </label>
                   <input

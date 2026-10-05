@@ -26,7 +26,7 @@ function buttonClass(
   size: keyof typeof sizes,
   variant: keyof typeof variants,
 ): string {
-  return `inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-[background-color,color,transform,opacity] duration-100 ease-out active:not-disabled:scale-[0.97] disabled:opacity-50 ${sizes[size]} ${variants[variant]}`;
+  return `inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-[background-color,color,scale,opacity] duration-100 ease-out active:not-disabled:scale-[0.97] disabled:opacity-50 ${sizes[size]} ${variants[variant]}`;
 }
 
 export function Button({

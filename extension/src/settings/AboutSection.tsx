@@ -98,12 +98,12 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
           </Status>
         </Panel>
         <Panel title="Links">
-          <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
+          <ul className="divide-divider m-0 -my-1 list-none divide-y p-0">
             {links.map(([label, url]) => (
               <li key={label}>
                 <ExternalLink
                   href={url}
-                  className="border-divider text-ink hover:bg-surface flex items-center justify-between rounded-lg border px-3.5 py-2.5 no-underline transition-colors duration-150"
+                  className="text-ink hover:text-accent-text -mx-2 flex items-center justify-between rounded-md px-2 py-2.5 no-underline transition-colors duration-150"
                 >
                   {label}
                   <ExternalIcon className="text-muted" />

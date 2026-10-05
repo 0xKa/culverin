@@ -57,14 +57,6 @@ export function WarningIcon(props: IconProps) {
   );
 }
 
-export function CheckIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="m3.5 8.25 2.75 2.75 6.25-6.25" />
-    </Icon>
-  );
-}
-
 export function ExternalIcon(props: IconProps) {
   return (
     <Icon {...props}>

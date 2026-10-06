@@ -47,8 +47,8 @@ test("offers explicit analysis and cancellation actions", () => {
   });
   expect(rowView({ kind: "running", phase: "downloading" })).toEqual({
     label: "Downloading source…",
-    title: "Click to cancel",
-    action: "cancel",
+    title: "Open Culverin to follow progress or cancel",
+    action: "details",
   });
   expect(rowView(failureState("network_unavailable"))).toEqual({
     label: "Couldn't count lines · Retry",

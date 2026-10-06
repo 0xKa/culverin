@@ -10,6 +10,7 @@ export async function runPageCounting(
     publicSha,
     page,
     openPopup,
+    actionPopup,
     summary,
     settingsPage,
     worker,
@@ -206,11 +207,25 @@ export async function runPageCounting(
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
 
-  assert.equal(await rowTitle(), "Click to cancel");
+  assert.equal(await rowTitle(), "Open Culverin to follow progress or cancel");
 
   await running.click();
 
+  const runningPopup = await actionPopup();
+
+  await runningPopup.status(/^(Analysis in progress|Resolving|Queued)/);
+
+  assert.equal(await pageFetches(1), 1);
+
+  assert.equal(await rowSpinner.count(), 1);
+
+  await runningPopup.click("#cancel");
+
   await countButton.waitFor();
+
+  await runningPopup.status(/cancel/i);
+
+  await runningPopup.close();
 
   assert.equal(await rowSpinner.count(), 0);
 
@@ -259,7 +274,15 @@ export async function runPageCounting(
 
   await page.getByRole("button", { name: "Preparing to count lines…" }).click();
 
+  const retryPopup = await actionPopup();
+
+  await retryPopup.status(/^(Analysis in progress|Resolving|Queued)/);
+
+  await retryPopup.click("#cancel");
+
   await countButton.waitFor();
+
+  await retryPopup.close();
 
   assert.equal(await rowSpinner.count(), 0);
 

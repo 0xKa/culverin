@@ -86,15 +86,38 @@ export function createPublicTransport(
     }
     const key = portKey(tabId, documentId);
     const prefix = `p:${tabId}:${documentId}:`;
+    const owner = publicOwner(tabId, documentId, request.navigationId);
+    const tracked =
+      request.type === "analysis.request"
+        ? popup.trackPageJob(tabId, {
+            owner,
+            requestId: request.requestId,
+            repository,
+            cancel: () => {
+              resources.cancelRequest(owner, request.requestId);
+              respond(
+                publicReply(request, {
+                  type: "analysis.failed",
+                  code: "analysis_canceled",
+                }),
+              );
+            },
+          })
+        : undefined;
     analysis.run(request, {
       repository,
-      owner: publicOwner(tabId, documentId, request.navigationId),
+      owner,
       prefix,
       page: true,
       isAlive: () => publicPorts.has(key),
-      reply: (current, payload) => respond(publicReply(current, payload)),
-      progress: (current, phase, processedBytes) =>
-        publicProgress(tabId, documentId, current, phase, processedBytes),
+      reply: (current, payload) => {
+        tracked?.settle(payload);
+        respond(publicReply(current, payload));
+      },
+      progress: (current, phase, processedBytes) => {
+        tracked?.progress(phase, processedBytes);
+        publicProgress(tabId, documentId, current, phase, processedBytes);
+      },
     });
     return true;
   }
@@ -141,6 +164,11 @@ export function createPublicTransport(
       port.onDisconnect.addListener(() => {
         if (publicPorts.get(key) !== port) return;
         publicPorts.delete(key);
+        if (sender.tab?.id !== undefined)
+          popup.forgetPageJobs(
+            sender.tab.id,
+            `p:${sender.tab.id}:${sender.documentId}:`,
+          );
         coordinator.detachDocument(`p:${sender.tab?.id}:${sender.documentId}:`);
         detachPending(`p:${sender.tab?.id}:${sender.documentId}:`);
       });

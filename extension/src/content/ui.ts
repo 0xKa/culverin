@@ -8,7 +8,7 @@ export type AnalysisPhase = Extract<
   { type: "analysis.progress" }
 >["phase"];
 
-export type RowAction = "analyze" | "cancel" | "details" | "connect";
+export type RowAction = "analyze" | "details" | "connect";
 
 export type RowState =
   | { kind: "hidden" }
@@ -128,8 +128,8 @@ export function rowView(state: VisibleRowState): RowView {
   if (state.kind === "running")
     return {
       label: progressText[state.phase],
-      title: "Click to cancel",
-      action: "cancel",
+      title: "Open Culverin to follow progress or cancel",
+      action: "details",
     };
   if (state.kind === "complete") {
     const label = state.total === 1 ? "line of code" : "lines of code";

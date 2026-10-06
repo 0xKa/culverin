@@ -191,19 +191,9 @@ async function analyze(current: View): Promise<void> {
   }
 }
 
-function cancel(current: View): void {
-  const requestId = current.analysisRequestId;
-  if (!requestId || !stopAnalysis(current, requestId)) return;
-  setState(current, { kind: "idle" });
-  void send(current, "analysis.cancel", {
-    targetRequestId: requestId,
-  }).response.catch(() => undefined);
-}
-
 function activate(current: View, action: RowAction): void {
   if (!currentView(current)) return;
-  if (action === "cancel") cancel(current);
-  else if (action === "details")
+  if (action === "details")
     void send(current, "popup.open").response.catch(() => undefined);
   else if (action === "connect")
     void send(current, "settings.open").response.catch(() => undefined);

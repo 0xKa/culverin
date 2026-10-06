@@ -28,6 +28,53 @@ export function createPopupJobs(
     viewer?: PopupViewer;
   };
   const popupJobs = new Map<number, PopupJob>();
+  type PageJob = {
+    owner: string;
+    requestId: string;
+    repository: { owner: string; name: string };
+    cancel: () => void;
+    viewer?: PopupViewer;
+  };
+  const pageJobs = new Map<number, PageJob>();
+  function pageJobAlive(job: PageJob): boolean {
+    return (
+      pending.get(job.owner)?.requestId === job.requestId ||
+      coordinator.isSubscribed(job.owner, job.requestId)
+    );
+  }
+  function trackPageJob(
+    tabId: number,
+    job: Omit<PageJob, "viewer">,
+  ): {
+    progress: (
+      phase:
+        "resolving" | "queued" | "downloading" | "decompressing" | "counting",
+      processedBytes?: number,
+    ) => void;
+    settle: (payload: PublicPayload) => void;
+  } {
+    const entry: PageJob = { ...job };
+    pageJobs.set(tabId, entry);
+    return {
+      progress: (phase, processedBytes) => {
+        if (pageJobs.get(tabId) !== entry || !entry.viewer) return;
+        postToPopup(entry.viewer.port, entry.viewer.request, {
+          type: "analysis.progress",
+          phase,
+          ...(processedBytes === undefined ? {} : { processedBytes }),
+        });
+      },
+      settle: (payload) => {
+        if (pageJobs.get(tabId) !== entry) return;
+        pageJobs.delete(tabId);
+        if (entry.viewer)
+          postToPopup(entry.viewer.port, entry.viewer.request, payload);
+      },
+    };
+  }
+  function forgetPageJobs(tabId: number, prefix = ""): void {
+    if (pageJobs.get(tabId)?.owner.startsWith(prefix)) pageJobs.delete(tabId);
+  }
   async function updateSummary(
     tabId: number,
     repository: { owner: string; name: string },
@@ -90,6 +137,17 @@ export function createPopupJobs(
     if (publicRequest.type === "analysis.cancel") {
       const job = popupJobs.get(tabId);
       const targetRequestId = publicRequest.targetRequestId!;
+      const pageJob = pageJobs.get(tabId);
+      if (
+        !job &&
+        pageJob &&
+        targetRequestId === pageJob.viewer?.request.requestId
+      ) {
+        pageJobs.delete(tabId);
+        pageJob.cancel();
+        reply({ type: "analysis.canceled", targetRequestId });
+        return;
+      }
       if (
         !job ||
         (targetRequestId !== job.requestId &&
@@ -129,6 +187,23 @@ export function createPopupJobs(
       }
       if (publicRequest.type === "analysis.status") {
         const running = popupJobs.get(tabId);
+        const pageJob = pageJobs.get(tabId);
+        if (
+          !running &&
+          pageJob &&
+          sameRepository(repository, pageJob.repository) &&
+          pageJobAlive(pageJob)
+        ) {
+          pageJob.viewer = { port, request: publicRequest };
+          reply({
+            type: "analysis.status",
+            state:
+              coordinator.status(pageJob.owner) === "queued"
+                ? "queued"
+                : "running",
+          });
+          return;
+        }
         if (!running || !sameRepository(repository, running.repository)) {
           reply({ type: "analysis.status", state: "idle" });
           return;
@@ -197,14 +272,15 @@ export function createPopupJobs(
     );
     port.onDisconnect.addListener(() => {
       popupPorts.delete(port);
-      for (const job of popupJobs.values())
+      for (const job of [...popupJobs.values(), ...pageJobs.values()])
         if (job.viewer?.port === port) job.viewer = undefined;
     });
   }
   function initialize(): void {
-    chrome.tabs.onRemoved.addListener((tabId) =>
-      endPopupJob(tabId, "navigation"),
-    );
+    chrome.tabs.onRemoved.addListener((tabId) => {
+      endPopupJob(tabId, "navigation");
+      forgetPageJobs(tabId);
+    });
     chrome.tabs.onUpdated.addListener((tabId, _change, tab) => {
       const job = popupJobs.get(tabId);
       if (job && !sameRepository(pageRepository(tab.url ?? ""), job.repository))
@@ -212,5 +288,5 @@ export function createPopupJobs(
     });
   }
 
-  return { attach, initialize };
+  return { attach, initialize, trackPageJob, forgetPageJobs };
 }

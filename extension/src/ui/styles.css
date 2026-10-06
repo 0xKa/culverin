@@ -95,7 +95,6 @@
     accent-color: var(--color-accent);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    interpolate-size: allow-keywords;
   }
 
   ::selection {
@@ -170,21 +169,6 @@
     transform: rotate(45deg);
   }
 
-  .disclosure::details-content {
-    block-size: 0;
-    overflow-y: clip;
-    opacity: 0;
-    transition:
-      block-size 150ms var(--ease-out-quick),
-      opacity 150ms var(--ease-out-quick),
-      content-visibility 150ms allow-discrete;
-  }
-
-  .disclosure[open]::details-content {
-    block-size: auto;
-    opacity: 1;
-  }
-
   .tabular {
     font-variant-numeric: tabular-nums;
   }
@@ -234,10 +218,6 @@
   *::before,
   *::after {
     animation: none !important;
-    transition: none !important;
-  }
-
-  ::details-content {
     transition: none !important;
   }
 }

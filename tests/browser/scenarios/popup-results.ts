@@ -191,7 +191,7 @@ export async function runPopupResults(
 
   await resumedPopup.getByRole("button", { name: "Cancel analysis" }).waitFor();
 
-  await resumedPopup.locator("#status .culverin-spinner").waitFor();
+  await resumedPopup.locator("#analysis-loader .culverin-dots").waitFor();
 
   assert.equal(
     await resumedPopup
@@ -213,6 +213,8 @@ export async function runPopupResults(
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
 
   assert.equal(await resumedPopup.locator(".culverin-spinner").count(), 0);
+
+  assert.equal(await resumedPopup.locator("#analysis-loader").count(), 0);
 
   await resumedPopup
     .getByText(

@@ -329,25 +329,32 @@ export async function runPagePopupLifetimes(
 
   await started;
 
-  const analysisSpinner = cancelPopup.locator("#status .culverin-spinner");
+  const analysisLoader = cancelPopup.locator("#analysis-loader .culverin-dots");
 
-  await analysisSpinner.waitFor();
+  await analysisLoader.waitFor();
 
-  assert.equal(await analysisSpinner.getAttribute("aria-hidden"), "true");
+  assert.equal(await analysisLoader.getAttribute("aria-hidden"), "true");
+
+  assert.equal(
+    await cancelPopup.locator("#status .culverin-spinner").count(),
+    0,
+  );
 
   assert.equal(await cancelPopup.locator("#analyze").isDisabled(), true);
 
+  const analysisDot = analysisLoader.locator("span").first();
+
   assert.equal(
-    await analysisSpinner.evaluate(
+    await analysisDot.evaluate(
       (element) => getComputedStyle(element).animationName,
     ),
-    "culverin-spin",
+    "culverin-dot-wave",
   );
 
   await cancelPopup.emulateMedia({ reducedMotion: "reduce" });
 
   assert.equal(
-    await analysisSpinner.evaluate(
+    await analysisDot.evaluate(
       (element) => getComputedStyle(element).animationName,
     ),
     "none",
@@ -359,10 +366,10 @@ export async function runPagePopupLifetimes(
   });
 
   assert.equal(
-    await analysisSpinner.evaluate(
-      (element) => getComputedStyle(element).borderRightColor,
+    await analysisLoader.evaluate(
+      (element) => getComputedStyle(element).forcedColorAdjust,
     ),
-    "rgba(0, 0, 0, 0)",
+    "none",
   );
 
   await cancelPopup.emulateMedia({ forcedColors: "none" });
@@ -379,7 +386,7 @@ export async function runPagePopupLifetimes(
 
   await cancelPopup.getByText("Analysis canceled.").waitFor();
 
-  assert.equal(await analysisSpinner.count(), 0);
+  assert.equal(await analysisLoader.count(), 0);
 
   await page.waitForTimeout(1700);
 

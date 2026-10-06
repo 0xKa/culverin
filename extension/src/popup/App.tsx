@@ -3,6 +3,7 @@ import darkIcon from "../../../assets/dark/culverin-dark-stats.svg";
 import lightIcon from "../../../assets/light/culverin-light-stats.svg";
 import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
+import { DotLoader } from "../ui/DotLoader";
 import { ExternalLink } from "../ui/ExternalLink";
 import { IconButton } from "../ui/IconButton";
 import { GearIcon } from "../ui/icons";
@@ -252,10 +253,17 @@ export function App() {
           {view.repository}
         </p>
         <Status id="status" className="text-muted m-0 mt-0.5 min-h-5 text-xs">
-          {view.cancelVisible && !view.reanalyze && <Spinner />}
           {view.status}
         </Status>
         <section id="analysis" hidden={!view.analysisVisible}>
+          {view.cancelVisible && !view.reanalyze && (
+            <div
+              id="analysis-loader"
+              className="rise-in text-accent-text flex justify-center py-5"
+            >
+              <DotLoader />
+            </div>
+          )}
           {result && <Totals key={view.sizes?.snapshotLabel} result={result} />}
           {result?.warning && <OversizedFiles result={result} />}
           <Sizes view={view} />

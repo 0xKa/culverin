@@ -1,0 +1,39 @@
+.culverin-dots {
+  display: inline-grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  width: 32px;
+  height: 32px;
+  forced-color-adjust: none;
+}
+
+.culverin-dots > span {
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.18;
+  scale: 0.7;
+  animation: culverin-dot-wave 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--step) * 90ms);
+}
+
+@keyframes culverin-dot-wave {
+  0%,
+  55%,
+  100% {
+    opacity: 0.18;
+    scale: 0.7;
+  }
+
+  20% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .culverin-dots > span {
+    animation: none;
+    opacity: 0.45;
+    scale: 1;
+  }
+}

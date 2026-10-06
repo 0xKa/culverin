@@ -177,6 +177,8 @@ export async function runAcquisitionLifetimes(
 
   assert.equal(await interruptedPopup.locator(".culverin-spinner").count(), 0);
 
+  assert.equal(await interruptedPopup.locator("#analysis-loader").count(), 0);
+
   await page.waitForTimeout(1700);
 
   assert.equal(fixtures.archiveRequests, 6);

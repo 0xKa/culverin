@@ -49,7 +49,7 @@ All code, including the WebAssembly counter, is packaged with the extension. No 
 
 ## Removing data
 
-The Storage section of the extension's settings page offers **Clear public results**, **Clear private results**, and **Clear all results** to delete the corresponding saved results while keeping your settings and GitHub connection. Use **Reset to defaults** under Culverin ignore to delete your ignore settings, and **Disconnect** in the GitHub section to delete your saved token and private results. Disconnecting does not revoke the token on GitHub: to do that, remove the Culverin app's authorization in your GitHub settings under Applications, or delete the personal access token. Removing the extension deletes all of its stored data.
+The Storage section of the extension's settings page offers **Clear public results**, **Clear private results**, and **Clear all results** to delete the corresponding saved results while keeping your settings and GitHub connection. Each listed result also has its own delete button. Use **Reset to defaults** under Culverin ignore to delete your ignore settings, and **Disconnect** in the GitHub section to delete your saved token and private results. Disconnecting does not revoke the token on GitHub: to do that, remove the Culverin app's authorization in your GitHub settings under Applications, or delete the personal access token. Removing the extension deletes all of its stored data.
 
 The extension cannot control how GitHub handles requests or how long the browser keeps data in network and process memory. The `no-store` setting asks the browser not to use its HTTP cache for these requests.
 

@@ -12,6 +12,8 @@ import {
 import { formatBytes } from "../ui/format";
 import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
+import { TrashIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
 import { Panel, SectionHeader } from "./layout";
@@ -42,7 +44,17 @@ const clearActions = {
 
 type ClearScope = keyof typeof clearActions;
 
-function CacheList({ id, options }: { id: string; options: CacheOptions }) {
+function CacheList({
+  id,
+  options,
+  busy,
+  onDelete,
+}: {
+  id: string;
+  options: CacheOptions;
+  busy: boolean;
+  onDelete: (entry: CachedResultSummary) => void;
+}) {
   const [entries, setEntries] = useState<CachedResultSummary[]>();
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
@@ -106,6 +118,9 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                 <th className="py-2 pr-4 text-right font-medium">Files</th>
                 <th className="py-2 pr-4 font-medium">Counted</th>
                 <th className="py-2 pr-4 font-medium">Last viewed</th>
+                <th className="py-2 pr-2">
+                  <span className="sr-only">Delete</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -155,6 +170,17 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                   >
                     {relativeTime(entry.lastAccess, now)}
                   </td>
+                  <td className="py-1.5 pr-2 text-right align-top">
+                    <IconButton
+                      type="button"
+                      label={`Delete result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
+                      className="disabled:pointer-events-none disabled:opacity-50"
+                      disabled={busy}
+                      onClick={() => onDelete(entry)}
+                    >
+                      <TrashIcon />
+                    </IconButton>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -171,6 +197,28 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
     scope: ClearScope;
     message: string;
   }>();
+
+  function remove(
+    scope: "public" | "private",
+    entry: CachedResultSummary,
+  ): void {
+    setBusy(true);
+    setStatus(undefined);
+    void sendSettings({
+      type: "cache.delete",
+      scope,
+      identity: entry.identity,
+    }).then((reply) => {
+      setBusy(false);
+      setStatus({
+        scope,
+        message:
+          reply?.state === "result-deleted"
+            ? `Deleted the result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}.`
+            : "Couldn't delete the result. Try again.",
+      });
+    });
+  }
 
   function clear(scope: ClearScope): void {
     const action = clearActions[scope];
@@ -216,7 +264,12 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
           <Status id="status" className="m-0 text-sm not-empty:mt-2">
             {status?.scope === "public" && status.message}
           </Status>
-          <CacheList id="cache" options={publicCache} />
+          <CacheList
+            id="cache"
+            options={publicCache}
+            busy={busy}
+            onDelete={(entry) => remove("public", entry)}
+          />
         </Panel>
         <Panel
           title="Private results"
@@ -241,7 +294,12 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
           <Status id="private-status" className="m-0 text-sm not-empty:mt-2">
             {status?.scope === "private" && status.message}
           </Status>
-          <CacheList id="private" options={privateCache} />
+          <CacheList
+            id="private"
+            options={privateCache}
+            busy={busy}
+            onDelete={(entry) => remove("private", entry)}
+          />
         </Panel>
         <div className="border-error/30 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-dashed p-4">
           <div>

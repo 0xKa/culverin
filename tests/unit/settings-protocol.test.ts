@@ -32,6 +32,8 @@ const commands: SettingsCommand[] = [
   { type: "repository.lookup", owner: "culverin", name: "sample" },
   { type: "analysis.request", owner: "culverin", name: "sample" },
   { type: "analysis.cancel", targetRequestId: "d".repeat(36) },
+  { type: "cache.delete", scope: "public", identity: '["1","a"]' },
+  { type: "cache.delete", scope: "private", identity: '["1","a"]' },
 ];
 
 test("trusted command contracts are closed and preserve existing ID acceptance", () => {
@@ -47,6 +49,11 @@ test("trusted command contracts are closed and preserve existing ID acceptance",
     { type: "analysis.cancel" },
     { type: "analysis.request", owner: "../bad", name: "sample" },
     { type: "repository.lookup", owner: "culverin" },
+    { type: "cache.delete", scope: "public" },
+    { type: "cache.delete", scope: "all", identity: "x" },
+    { type: "cache.delete", scope: "public", identity: "" },
+    { type: "cache.delete", scope: "public", identity: "x".repeat(1025) },
+    { type: "cache.delete", scope: "public", identity: 1 },
     { type: "unknown" },
   ])
     expect(validSettingsRequest({ ...envelope, ...request })).toBe(false);
@@ -84,6 +91,7 @@ test("replies validate status, polling, generation, safe failure, and correlatio
       "stale",
       "public-cache-cleared",
       "all-results-cleared",
+      "result-deleted",
       "canceled",
       "idle",
       "queued",

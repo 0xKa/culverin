@@ -403,6 +403,21 @@ export class ResultCache {
     });
   }
 
+  async delete(identity: string): Promise<void> {
+    return this.serial(async () => {
+      const snapshot = await this.load();
+      const kept = snapshot.entries.filter(
+        (entry) => entry.identity !== identity,
+      );
+      if (kept.length === snapshot.entries.length) return;
+      snapshot.entries = kept;
+      if (!(await this.persist(snapshot))) {
+        await this.storage.remove(this.options.key);
+        this.snapshot = { version: 1, entries: [] };
+      }
+    });
+  }
+
   async purgeName(repository: { owner: string; name: string }): Promise<void> {
     const owner = repository.owner.toLowerCase();
     const name = repository.name.toLowerCase();

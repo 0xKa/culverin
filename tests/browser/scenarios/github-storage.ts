@@ -378,6 +378,44 @@ export async function runGithubStorage(
 
   assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
 
+  const untrustedDelete = await harness.evaluate(
+    () =>
+      new Promise<string>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            protocolVersion: 1,
+            type: "cache.delete",
+            scope: "private",
+            identity: "x",
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+          },
+          () => resolve(chrome.runtime.lastError ? "rejected" : "handled"),
+        ),
+      ),
+  );
+
+  assert.equal(untrustedDelete, "rejected");
+
+  await settingsPage
+    .locator("#private-list")
+    .getByRole("button", {
+      name: /^Delete result for .+ at [0-9a-f]{7}$/,
+    })
+    .click();
+
+  await settingsPage
+    .locator("#private-status", { hasText: /^Deleted the result for / })
+    .waitFor();
+
+  await settingsPage
+    .locator("#private-summary", { hasText: "No saved results." })
+    .waitFor();
+
+  assert.deepEqual(await privateStorage(), { private: 0, public: 1 });
+
+  await restoreResults();
+
   await settingsPage
     .getByRole("button", { name: "Clear public results" })
     .click();

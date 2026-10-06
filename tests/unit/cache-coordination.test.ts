@@ -7,6 +7,7 @@ import {
   PRIVATE_CACHE_KEY,
   PrivateResultCache,
   privateCache,
+  publicCache,
   PublicResultCache,
   PUBLIC_RESOLUTION_TTL,
   ResolutionCache,
@@ -163,6 +164,41 @@ describe("private result cache", () => {
     ).toBeDefined();
   });
 });
+
+test.each(["public", "private"] as const)(
+  "deletes one %s result by identity and still accepts it again",
+  async (visibility) => {
+    const storage = new MemoryStorage();
+    const cache =
+      visibility === "public"
+        ? new PublicResultCache(storage)
+        : new PrivateResultCache(storage);
+    const options = visibility === "public" ? publicCache : privateCache;
+    const key = visibility === "public" ? PUBLIC_CACHE_KEY : PRIVATE_CACHE_KEY;
+    const envelope = (id: string, name: string): ResolutionEnvelope => ({
+      ...resolution(id, name),
+      visibility,
+    });
+    const hash = (await result()).engine.rulesHash;
+    await cache.put(envelope("42", "repo"), await result("42"));
+    await cache.put(envelope("43", "other"), await result("43"));
+    const target = cachedResultSummaries(storage.values[key], options).find(
+      (entry) => entry.name === "repo",
+    )!;
+    await cache.delete("unknown");
+    expect(cachedResultSummaries(storage.values[key], options)).toHaveLength(2);
+    await cache.delete(target.identity);
+    expect(
+      cachedResultSummaries(storage.values[key], options).map(
+        (entry) => entry.name,
+      ),
+    ).toEqual(["other"]);
+    expect(await cache.get(envelope("42", "repo"), hash)).toBeUndefined();
+    expect(await cache.get(envelope("43", "other"), hash)).toBeDefined();
+    await cache.put(envelope("42", "repo"), await result("42"));
+    expect(await cache.get(envelope("42", "repo"), hash)).toBeDefined();
+  },
+);
 
 describe("public result cache", () => {
   test("lists valid stored results for display, most recently viewed first", async () => {

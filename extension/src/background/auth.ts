@@ -352,6 +352,13 @@ export function createAuthService(resources: BackgroundResources) {
       reply({ state: "disconnected", generation });
       return true;
     }
+    if (request.type === "cache.delete") {
+      await (request.scope === "public" ? cache : privateResults).delete(
+        request.identity,
+      );
+      reply({ state: "result-deleted" });
+      return true;
+    }
     if (request.type === "auth.clear-private-session") {
       const { previous, generation } = await connection.rotate();
       await connectionChanged(previous, {

@@ -34,7 +34,8 @@ export type SettingsCommand =
       owner: string;
       name: string;
     }
-  | { type: "analysis.cancel"; targetRequestId: string };
+  | { type: "analysis.cancel"; targetRequestId: string }
+  | { type: "cache.delete"; scope: "public" | "private"; identity: string };
 export type SettingsRequest = SettingsEnvelope & SettingsCommand;
 export type DeviceView = {
   userCode: string;
@@ -55,6 +56,7 @@ export type SettingsPayload =
         | "stale"
         | "public-cache-cleared"
         | "all-results-cleared"
+        | "result-deleted"
         | "canceled"
         | "idle"
         | "queued"
@@ -113,6 +115,14 @@ export function validSettingsRequest(value: unknown): value is SettingsRequest {
       return (
         exact(value, [...fields, "targetRequestId"]) &&
         validSettingsId(value.targetRequestId)
+      );
+    case "cache.delete":
+      return (
+        exact(value, [...fields, "scope", "identity"]) &&
+        (value.scope === "public" || value.scope === "private") &&
+        typeof value.identity === "string" &&
+        value.identity.length > 0 &&
+        value.identity.length <= 1024
       );
     case "auth.status":
     case "auth.device.start":
@@ -244,6 +254,7 @@ export function validSettingsReply(
     case "stale":
     case "public-cache-cleared":
     case "all-results-cleared":
+    case "result-deleted":
     case "canceled":
     case "idle":
     case "queued":

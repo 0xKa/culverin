@@ -2,6 +2,20 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.0 - 2026-10-06
+
+- Redesigns the popup and the Settings page. Results show in cards with breakdown bars, and Settings sections have clearer headers and panels.
+- Counts larger repositories. Culverin now accepts downloads up to 256 MiB, up to 2 GiB unpacked, and up to 200,000 files. A count that is still making progress runs for up to five minutes before it stops.
+- Lists the source files too large to count in the popup's analysis details, largest first, with a link to each file at the counted commit. One file shows directly and several sit behind Show files. Results counted before 0.1.0 keep their count-only note until you press Reanalyze, which downloads the repository again to fill in the list.
+- Keeps the count in the About row when Chrome stops Culverin's background worker while the tab sits idle. Before, the count disappeared after a longer absence and Retry did nothing until you reloaded the page.
+- Keeps showing the current result while Reanalyze runs instead of clearing it.
+- Shows a spinner while Culverin connects to GitHub or counts a repository.
+- Groups the Storage controls: Clear public results and Clear private results sit beside their headings, with Clear all results below. Clearing results keeps your ignore and Counting settings and your GitHub connection.
+- Shows 10 rows in each popup section, with the rest behind Show more.
+- Shows when the GitHub API limit resets and explains that the anonymous limit is shared. The remaining requests stay visible while you sign in.
+- Redraws the toolbar icon with three lines on a 16 pixel grid and shows a larger, theme-matched icon on the Settings page.
+- Keeps using results saved by 0.0.5.
+
 ## 0.0.5 - 2026-10-01
 
 - Adds an Other files section to the popup details. It lists files Culverin does not recognize as a language, such as test data, certificates, and `go.mod`, grouped by extension with their line counts. The first 10 show and Show more reveals the rest. Their lines are not added to code or text lines.

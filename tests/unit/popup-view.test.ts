@@ -79,9 +79,16 @@ test("formats repository and result details", () => {
   });
   const view = resultView(result, resolution);
   expect(view.codeTotal).toBe("3");
-  expect(view.textLines).toBe("4 text lines");
+  expect(view.fileTotal).toBe("2");
+  expect(view.fileLabel).toBe("files");
   expect(view.stats).toEqual([
-    { label: "Files", value: "2" },
+    {
+      label: "Text lines",
+      value: "4",
+      title:
+        "Non-blank prose lines in Markdown, MDX, Djot, and plain text files",
+      id: "text-lines",
+    },
     {
       label: "Physical lines",
       value: "8",

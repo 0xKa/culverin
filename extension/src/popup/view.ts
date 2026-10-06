@@ -30,11 +30,13 @@ export type StatView = {
   label: string;
   value: string;
   title?: string;
+  id?: string;
 };
 
 export type ResultView = {
   codeTotal: string;
-  textLines: string;
+  fileTotal: string;
+  fileLabel: string;
   stats: StatView[];
   snapshotSize: string;
   intro: string[][];
@@ -143,9 +145,16 @@ export function resultView(
   const unlisted = skipped.oversized_source - oversizedFiles.length;
   return {
     codeTotal: totals.code.toLocaleString(),
-    textLines: `${text.toLocaleString()} text lines`,
+    fileTotal: totals.files.toLocaleString(),
+    fileLabel: totals.files === 1 ? "file" : "files",
     stats: [
-      { label: "Files", value: totals.files.toLocaleString() },
+      {
+        label: "Text lines",
+        value: text.toLocaleString(),
+        title:
+          "Non-blank prose lines in Markdown, MDX, Djot, and plain text files",
+        id: "text-lines",
+      },
       {
         label: "Physical lines",
         value: totals.lines.toLocaleString(),

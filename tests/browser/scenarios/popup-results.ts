@@ -225,9 +225,11 @@ export async function runPopupResults(
     "47 B",
   );
 
-  assert.equal(
-    await resumedPopup.locator("#text-lines").textContent(),
-    "1 text lines",
+  assert.equal(await resumedPopup.locator("#text-lines").textContent(), "1");
+
+  assert.match(
+    (await resumedPopup.locator("#file-count").textContent()) ?? "",
+    /^\d[\d,]* files?$/,
   );
 
   assert.deepEqual(
@@ -437,6 +439,7 @@ export async function runPopupResults(
     restartPopup.evaluate(() => ({
       totals: [
         "code-lines",
+        "file-count",
         "text-lines",
         "metrics",
         "snapshot-size",

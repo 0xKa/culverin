@@ -14,7 +14,8 @@ test("tracks repository, busy state, sizes, result and details", () => {
   const ready = reduce(busy, { type: "sizes", value: sizes });
   const result = {
     codeTotal: "1",
-    textLines: "0 text lines",
+    fileTotal: "1",
+    fileLabel: "file",
     stats: [],
     snapshotSize: "20 B",
     intro: [],

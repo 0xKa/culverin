@@ -7,21 +7,22 @@ import type { ResultView, SizesView } from "./view";
 export function Totals({ result }: { result: ResultView }) {
   return (
     <div className="rise-in border-divider bg-raised mt-3 rounded-xl border p-4">
-      <div className="flex items-end justify-between gap-3">
-        <p id="code-lines" className="m-0 flex min-w-0 flex-col">
-          <span className="text-display font-mono font-semibold">
-            {result.codeTotal}
-          </span>{" "}
-          <span className="text-muted text-xs">code lines</span>
-        </p>
-        <p
-          id="text-lines"
-          title="Non-blank prose lines in Markdown, MDX, Djot, and plain text files"
-          className="text-muted tabular m-0 pb-px text-right text-xs"
-        >
-          {result.textLines}
-        </p>
-      </div>
+      <p id="code-lines" className="m-0 flex flex-col">
+        <span className="text-display font-mono font-semibold">
+          {result.codeTotal}
+        </span>{" "}
+        <span className="text-muted text-xs">code lines</span>
+      </p>
+      <p
+        id="file-count"
+        title="Files counted as code or text. Other, binary, and ignored files are listed in Analysis details."
+        className="m-0 mt-2 flex flex-col"
+      >
+        <span className="font-mono text-3xl font-semibold tracking-tight">
+          {result.fileTotal}
+        </span>{" "}
+        <span className="text-muted text-xs">{result.fileLabel}</span>
+      </p>
       <dl
         id="metrics"
         className="border-divider mt-3.5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3.5"
@@ -29,7 +30,7 @@ export function Totals({ result }: { result: ResultView }) {
         {result.stats.map((stat) => (
           <div key={stat.label} title={stat.title} className="flex flex-col">
             <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
-            <dd className="m-0 font-mono text-sm font-semibold">
+            <dd id={stat.id} className="m-0 font-mono text-sm font-semibold">
               {stat.value}
             </dd>
           </div>

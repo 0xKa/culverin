@@ -87,10 +87,7 @@ export async function runIgnoreAccess(
     )
     .waitFor();
 
-  assert.equal(
-    await ignorePopup.locator("#text-lines").textContent(),
-    "0 text lines",
-  );
+  assert.equal(await ignorePopup.locator("#text-lines").textContent(), "0");
 
   assert.equal(
     await ignorePopup.locator("#snapshot-size").textContent(),
@@ -148,7 +145,7 @@ export async function runIgnoreAccess(
 
   assert.equal(await resetPopup.locator("#ignore-summary").isHidden(), true);
 
-  await resetPopup.getByText("1 text lines", { exact: true }).waitFor();
+  await resetPopup.locator("#text-lines", { hasText: /^1$/ }).waitFor();
 
   await resetPopup.close();
 

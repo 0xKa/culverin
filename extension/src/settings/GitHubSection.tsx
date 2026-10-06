@@ -6,6 +6,7 @@ import { DotLoader } from "../ui/DotLoader";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { inputClass, Panel, SectionHeader } from "./layout";
+import { RequestsPanel } from "./RequestsPanel";
 import { createGitHubController, type GitHubBusy } from "./github-controller";
 
 export function GitHubSection({ hidden }: { hidden: boolean }) {
@@ -219,6 +220,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             </details>
           </Panel>
         )}
+        <RequestsPanel idPrefix="github-" />
         <div>
           <h3 className="text-md m-0 font-semibold">
             Where your connection is kept

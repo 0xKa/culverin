@@ -1,0 +1,74 @@
+import { useEffect, useState } from "preact/hooks";
+import { currentRemaining } from "../github/rate-limit";
+import {
+  subscribeRateLimit,
+  type RateLimitSnapshot,
+} from "../github/rate-limit-observer";
+import { formatClockTime } from "../ui/format";
+import { UsageMeter } from "../ui/UsageMeter";
+import { Panel } from "./layout";
+
+export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
+  const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({
+    value: undefined,
+    now: Date.now(),
+  });
+  const { value: rateLimit, now } = snapshot;
+  const limit = rateLimit?.authenticated
+    ? rateLimit.limit.toLocaleString()
+    : "60";
+
+  useEffect(() => subscribeRateLimit(setSnapshot), []);
+
+  return (
+    <Panel title="GitHub requests" titleId={`${idPrefix}requests-heading`}>
+      <div
+        id={`${idPrefix}api-usage`}
+        className="bg-surface mb-4 rounded-lg p-4"
+      >
+        <p className="text-muted m-0 text-sm">GitHub API usage</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {rateLimit ? (
+            <>
+              <span className="font-mono text-xl font-semibold">
+                {currentRemaining(rateLimit, now)}
+                <span className="text-muted text-base font-normal">
+                  /{rateLimit.limit}
+                </span>
+              </span>
+              <UsageMeter
+                id={`${idPrefix}api-usage-meter`}
+                value={rateLimit}
+                now={now}
+                className="h-2 w-32"
+              />
+              {now < rateLimit.reset && (
+                <span className="text-muted text-sm">
+                  resets at {formatClockTime(rateLimit.reset)}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted text-sm">
+              Not known yet. GitHub only reports it in reply to a request, and
+              Culverin doesn't send one just to check. It appears after Culverin
+              next contacts GitHub.
+            </span>
+          )}
+        </div>
+      </div>
+      <p className="m-0">
+        Checking a repository uses 2 of your {limit} GitHub requests per hour.
+        The toolbar popup shows how many are left.
+      </p>
+      <p
+        id={`${idPrefix}api-usage-shared`}
+        className="text-muted m-0 mt-2 text-sm"
+      >
+        {rateLimit?.authenticated
+          ? `GitHub counts every request made with your account toward the same ${limit}, including VS Code, GitHub Desktop, the gh command line, and other GitHub apps or tokens you use. The count can be below ${limit} before Culverin has used any.`
+          : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}
+      </p>
+    </Panel>
+  );
+}

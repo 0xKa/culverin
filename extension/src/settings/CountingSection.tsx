@@ -1,19 +1,13 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { currentRemaining } from "../github/rate-limit";
-import {
-  subscribeRateLimit,
-  type RateLimitSnapshot,
-} from "../github/rate-limit-observer";
 import {
   readCountTrigger,
   writeCountTrigger,
   type CountTrigger,
 } from "../counting/trigger";
-import { formatClockTime } from "../ui/format";
 import { Status } from "../ui/Status";
-import { UsageMeter } from "../ui/UsageMeter";
 import { Panel, SectionHeader } from "./layout";
+import { RequestsPanel } from "./RequestsPanel";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
@@ -48,18 +42,9 @@ function Question({
 export function CountingSection({ hidden }: { hidden: boolean }) {
   const [trigger, setTrigger] = useState<CountTrigger>();
   const [status, setStatus] = useState("");
-  const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({
-    value: undefined,
-    now: Date.now(),
-  });
-  const { value: rateLimit, now } = snapshot;
-  const limit = rateLimit?.authenticated
-    ? rateLimit.limit.toLocaleString()
-    : "60";
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
-    return subscribeRateLimit(setSnapshot);
   }, []);
 
   async function change(next: CountTrigger): Promise<void> {
@@ -110,49 +95,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
             {status}
           </Status>
         </Panel>
-        <Panel title="GitHub requests" titleId="requests-heading">
-          <div id="api-usage" className="bg-surface mb-4 rounded-lg p-4">
-            <p className="text-muted m-0 text-sm">GitHub API usage</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {rateLimit ? (
-                <>
-                  <span className="font-mono text-xl font-semibold">
-                    {currentRemaining(rateLimit, now)}
-                    <span className="text-muted text-base font-normal">
-                      /{rateLimit.limit}
-                    </span>
-                  </span>
-                  <UsageMeter
-                    id="api-usage-meter"
-                    value={rateLimit}
-                    now={now}
-                    className="h-2 w-32"
-                  />
-                  {now < rateLimit.reset && (
-                    <span className="text-muted text-sm">
-                      resets at {formatClockTime(rateLimit.reset)}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="text-muted text-sm">
-                  Not known yet. GitHub only reports it in reply to a request,
-                  and Culverin doesn't send one just to check. It appears after
-                  Culverin next contacts GitHub.
-                </span>
-              )}
-            </div>
-          </div>
-          <p className="m-0">
-            Checking a repository uses 2 of your {limit} GitHub requests per
-            hour. The toolbar popup shows how many are left.
-          </p>
-          <p id="api-usage-shared" className="text-muted m-0 mt-2 text-sm">
-            {rateLimit?.authenticated
-              ? `GitHub counts every request made with your account toward the same ${limit}, including VS Code, GitHub Desktop, the gh command line, and other GitHub apps or tokens you use. The count can be below ${limit} before Culverin has used any.`
-              : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}
-          </p>
-        </Panel>
+        <RequestsPanel />
         <Panel title="Common questions" titleId="questions-heading">
           <div className="divide-divider border-divider -mb-3 divide-y border-t">
             <Question summary="Why is there a limit?">

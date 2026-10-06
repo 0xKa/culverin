@@ -212,8 +212,6 @@ export async function runPopupResults(
 
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
 
-  assert.equal(await resumedPopup.locator(".culverin-spinner").count(), 0);
-
   assert.equal(await resumedPopup.locator("#analysis-loader").count(), 0);
 
   await resumedPopup
@@ -461,28 +459,21 @@ export async function runPopupResults(
 
   await restartPopup.getByText("Checking for updates…").waitFor();
 
-  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  await restartPopup.locator("#analysis-loader .culverin-dots").waitFor();
+
+  assert.equal(await restartPopup.locator("#analyze").isVisible(), false);
 
   assert.equal(
-    await restartPopup.locator("#status .culverin-spinner").count(),
-    0,
+    await restartPopup.locator("#analysis-loader #cancel").isVisible(),
+    true,
   );
 
   assert.equal(
-    await restartPopup.locator("#analyze").textContent(),
-    "Reanalyze",
-  );
-
-  assert.equal(await restartPopup.locator("#analyze").isDisabled(), true);
-
-  assert.equal(
-    await restartPopup.locator("#analyze").getAttribute("aria-busy"),
-    "true",
+    await restartPopup.evaluate(() => document.activeElement?.id),
+    "cancel",
   );
 
   assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
-
-  assert.equal(await restartPopup.locator("#cancel").isVisible(), true);
 
   fixtures.metadataGate = undefined;
 
@@ -496,7 +487,17 @@ export async function runPopupResults(
 
   await restartPopup.getByText("1 code lines", { exact: true }).waitFor();
 
-  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
+
+  assert.equal(
+    await restartPopup.locator("#analyze").textContent(),
+    "Reanalyze",
+  );
+
+  assert.equal(
+    await restartPopup.evaluate(() => document.activeElement?.id),
+    "analyze",
+  );
 
   assert.equal(fixtures.apiRequests, beforeReanalyzeApiRequests + 2);
 
@@ -510,13 +511,13 @@ export async function runPopupResults(
 
   await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
 
-  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  await restartPopup.locator("#analysis-loader .culverin-dots").waitFor();
 
   await restartPopup.getByRole("button", { name: "Cancel analysis" }).click();
 
   await restartPopup.getByText("Analysis canceled.").waitFor();
 
-  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
 
   assert.equal(await restartPopup.locator("#analyze").isEnabled(), true);
 
@@ -539,7 +540,7 @@ export async function runPopupResults(
     .getByText("GitHub could not be reached.", { exact: true })
     .waitFor();
 
-  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
 
   assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
 
@@ -586,7 +587,7 @@ export async function runPopupResults(
     .getByText("Downloading source snapshot from GitHub…")
     .waitFor();
 
-  await restartPopup.locator("#analyze + .culverin-spinner").waitFor();
+  await restartPopup.locator("#analysis-loader .culverin-dots").waitFor();
 
   assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
 
@@ -608,7 +609,7 @@ export async function runPopupResults(
     "Analyzed locally.",
   );
 
-  assert.equal(await restartPopup.locator(".culverin-spinner").count(), 0);
+  assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
 
   assert.equal(
     await restartPopup.locator("#snapshot-label").textContent(),

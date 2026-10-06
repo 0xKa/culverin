@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useReducer } from "preact/hooks";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from "preact/hooks";
 import darkIcon from "../../../assets/dark/culverin-dark-stats.svg";
 import lightIcon from "../../../assets/light/culverin-light-stats.svg";
 import { Button } from "../ui/Button";
@@ -7,7 +13,6 @@ import { DotLoader } from "../ui/DotLoader";
 import { ExternalLink } from "../ui/ExternalLink";
 import { IconButton } from "../ui/IconButton";
 import { GearIcon } from "../ui/icons";
-import { Spinner } from "../ui/Spinner";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { createPopupController, openSettings } from "./controller";
@@ -240,6 +245,16 @@ export function App() {
     return controller.dispose;
   }, [controller]);
 
+  const reanalyzing = view.cancelVisible && view.reanalyze;
+  const followFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!followFocus.current) return;
+    followFocus.current = reanalyzing;
+    const active = document.activeElement;
+    if (active !== document.body && active?.id !== "analyze") return;
+    document.getElementById(reanalyzing ? "cancel" : "analyze")?.focus();
+  }, [reanalyzing]);
+
   const result = view.result;
   return (
     <main>
@@ -286,28 +301,53 @@ export function App() {
               </Button>
             </div>
           </Callout>
-          <div className="mt-3 flex items-center gap-2">
+          {reanalyzing && (
+            <div
+              id="analysis-loader"
+              className="rise-in text-accent-text mt-3 flex flex-col items-center gap-2 pt-2"
+            >
+              <DotLoader />
+              <Button
+                id="cancel"
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => void controller.cancel()}
+              >
+                Cancel analysis
+              </Button>
+            </div>
+          )}
+          <div
+            className="mt-3 flex items-center gap-2"
+            hidden={reanalyzing && !view.connect}
+          >
             <Button
               id="analyze"
               type="button"
               variant={view.reanalyze ? "secondary" : "primary"}
               className="flex-1"
+              hidden={reanalyzing}
               disabled={view.analyzeDisabled}
               aria-busy={view.cancelVisible}
-              onClick={() => void controller.analyze(view.reanalyze)}
+              onClick={() => {
+                followFocus.current = view.reanalyze;
+                void controller.analyze(view.reanalyze);
+              }}
             >
               {view.reanalyze ? "Reanalyze" : "Analyze repository"}
             </Button>
-            {view.cancelVisible && view.reanalyze && <Spinner />}
-            <Button
-              id="cancel"
-              type="button"
-              variant="ghost"
-              hidden={!view.cancelVisible}
-              onClick={() => void controller.cancel()}
-            >
-              Cancel analysis
-            </Button>
+            {!reanalyzing && (
+              <Button
+                id="cancel"
+                type="button"
+                variant="ghost"
+                hidden={!view.cancelVisible}
+                onClick={() => void controller.cancel()}
+              >
+                Cancel analysis
+              </Button>
+            )}
             <Button
               id="connect"
               type="button"

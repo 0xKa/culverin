@@ -335,11 +335,6 @@ export async function runPagePopupLifetimes(
 
   assert.equal(await analysisLoader.getAttribute("aria-hidden"), "true");
 
-  assert.equal(
-    await cancelPopup.locator("#status .culverin-spinner").count(),
-    0,
-  );
-
   assert.equal(await cancelPopup.locator("#analyze").isDisabled(), true);
 
   const analysisDot = analysisLoader.locator("span").first();

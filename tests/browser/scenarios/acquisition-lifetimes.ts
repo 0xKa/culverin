@@ -175,8 +175,6 @@ export async function runAcquisitionLifetimes(
     .getByText(/Analysis was interrupted/)
     .waitFor({ timeout: 15_000 });
 
-  assert.equal(await interruptedPopup.locator(".culverin-spinner").count(), 0);
-
   assert.equal(await interruptedPopup.locator("#analysis-loader").count(), 0);
 
   await page.waitForTimeout(1700);

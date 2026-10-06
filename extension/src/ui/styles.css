@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "./spinner.css";
 @import "./dot-loader.css";
 
 @theme {

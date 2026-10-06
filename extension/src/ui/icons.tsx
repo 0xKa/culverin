@@ -64,3 +64,12 @@ export function ExternalIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.75 8A5.75 5.75 0 1 1 8 2.25c1.6 0 3.13.65 4.24 1.76l1.51 1.49" />
+      <path d="M13.75 2.25v3.25H10.5" />
+    </Icon>
+  );
+}

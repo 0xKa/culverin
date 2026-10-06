@@ -361,7 +361,7 @@ export async function runPageCounting(
   await refreshChecked;
 
   await countingSettings
-    .locator("#api-usage-check:not([disabled])", { hasText: "Refresh" })
+    .locator('#api-usage-check:not([disabled])[aria-label="Refresh"]')
     .waitFor();
 
   assert.equal(rateLimitChecks, 2);

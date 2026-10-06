@@ -7,6 +7,8 @@ import {
 import { Button } from "../ui/Button";
 import { DotLoader } from "../ui/DotLoader";
 import { formatClockTime } from "../ui/format";
+import { IconButton } from "../ui/IconButton";
+import { RefreshIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { sendSettings } from "./client";
@@ -43,21 +45,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
     );
   }
 
-  const checkButton = (label: string, variant: "secondary" | "ghost") => (
-    <Button
-      id={`${idPrefix}api-usage-check`}
-      type="button"
-      size="sm"
-      variant={variant}
-      title={FREE}
-      disabled={checking}
-      aria-busy={checking}
-      onClick={() => void check()}
-    >
-      {checking && <DotLoader size="sm" />}
-      {checking ? "Checking…" : label}
-    </Button>
-  );
+  const id = `${idPrefix}api-usage-check`;
 
   return (
     <Panel title="GitHub requests" titleId={`${idPrefix}requests-heading`}>
@@ -86,12 +74,33 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
                   resets at {formatClockTime(rateLimit.reset)}
                 </span>
               )}
-              <span className="ml-auto">{checkButton("Refresh", "ghost")}</span>
+              <IconButton
+                id={id}
+                type="button"
+                label={checking ? "Checking…" : "Refresh"}
+                className="ml-auto disabled:pointer-events-none"
+                disabled={checking}
+                aria-busy={checking}
+                onClick={() => void check()}
+              >
+                {checking ? <DotLoader size="sm" /> : <RefreshIcon />}
+              </IconButton>
             </>
           ) : (
             <>
               <span className="text-muted text-sm">Not known yet.</span>
-              {checkButton("Check now", "secondary")}
+              <Button
+                id={id}
+                type="button"
+                size="sm"
+                title={FREE}
+                disabled={checking}
+                aria-busy={checking}
+                onClick={() => void check()}
+              >
+                {checking && <DotLoader size="sm" />}
+                {checking ? "Checking…" : "Check now"}
+              </Button>
             </>
           )}
         </div>

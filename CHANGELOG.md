@@ -2,6 +2,14 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.1 - 2026-10-06
+
+- Adds Check now and Refresh to the GitHub requests panel in Settings. They ask GitHub for your current API limit, which does not use any of your requests, so you no longer have to count a repository to see it. The panel now also appears in the GitHub section. The privacy policy lists the new request.
+- Reports GitHub throttling a source download as "GitHub is busy preparing this repository's source snapshot. Try again in a minute." instead of a rate limit error, and no longer blocks other requests while you wait.
+- Replaces the spinner in the popup and Settings with a dot-grid loader. While an analysis runs, Analyze repository and Reanalyze give way to the loader with a small Cancel analysis button below it. The About row on GitHub keeps its spinner.
+- Restyles the popup and Settings with square corners, flat panels, monospace numbers, shorter animations, and a thin divider instead of a dot between details.
+- Keeps using results saved by 0.1.0.
+
 ## 0.1.0 - 2026-10-06
 
 - Redesigns the popup and the Settings page. Results show in cards with breakdown bars, and Settings sections have clearer headers and panels.

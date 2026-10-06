@@ -389,7 +389,10 @@ export async function runPageCounting(
 
   await aboutDetails.waitFor({ state: "visible" });
 
-  assert.match((await aboutDetails.textContent()) ?? "", /Version0\.0\.\d+/);
+  assert.match(
+    (await aboutDetails.textContent()) ?? "",
+    /Version\d+\.\d+\.\d+/,
+  );
 
   assert.match((await aboutDetails.textContent()) ?? "", /Tokei 15\.0\.0/);
 

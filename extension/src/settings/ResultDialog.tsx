@@ -32,7 +32,7 @@ export function ResultDialog({
       ref={dialog}
       id="result-dialog"
       aria-labelledby="result-dialog-title"
-      className="bg-canvas text-ink border-border m-auto max-h-[min(560px,90vh)] w-[360px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border p-0 text-sm shadow-xl backdrop:bg-black/40"
+      className="bg-canvas text-ink border-border m-auto max-h-[min(560px,90vh)] w-[360px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border p-0 text-sm shadow-xl [scrollbar-gutter:stable_both-edges] backdrop:bg-black/40"
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) event.currentTarget.close();

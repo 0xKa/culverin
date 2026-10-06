@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 afterEach(() => jest.useRealTimers());
 
-function pageHarness() {
+function pageHarness({ answerLookup = true } = {}) {
   jest.useFakeTimers();
   const states: RowState[] = [];
   let activate!: (action: RowAction) => void;
@@ -74,7 +74,7 @@ function pageHarness() {
           type: "analysis.failed",
           code: "analysis_interrupted",
         });
-      else if (request.type === "repository.lookup")
+      else if (answerLookup && request.type === "repository.lookup")
         callback({
           protocolVersion: 1,
           requestId: request.requestId,
@@ -250,4 +250,24 @@ test("an interrupted page analysis reconnects on Retry and ignores the old reply
   });
   await settle();
   expect(states.at(-1)).toMatchObject({ kind: "complete", total: 0 });
+});
+
+test("a disconnect during the page lookup shows the count action", async () => {
+  const { states, requests, callbacks, ports } = pageHarness({
+    answerLookup: false,
+  });
+  await settle();
+  const lookup = requests.at(-1)!;
+  expect(lookup.type).toBe("repository.lookup");
+  ports[0]!.disconnect();
+  expect(states.at(-1)).toEqual({ kind: "idle" });
+  callbacks.get(lookup.requestId as string)!({
+    protocolVersion: 1,
+    requestId: lookup.requestId,
+    navigationId: lookup.navigationId,
+    type: "analysis.failed",
+    code: "analysis_interrupted",
+  });
+  await settle();
+  expect(states.at(-1)).toEqual({ kind: "idle" });
 });

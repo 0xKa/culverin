@@ -231,10 +231,12 @@ function connect(current: View): void {
     current.port = undefined;
     if (!currentView(current)) return;
     const requestId = current.analysisRequestId;
+    const lookupPending = current.lookupRequestId !== undefined;
     current.lookupRequestId = undefined;
     clearTimeout(current.timer);
     if (requestId && stopAnalysis(current, requestId))
       setState(current, failureState("analysis_interrupted"));
+    else if (lookupPending) setState(current, { kind: "idle" });
   });
 }
 

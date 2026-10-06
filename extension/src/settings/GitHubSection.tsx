@@ -42,7 +42,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
         private repositories and to use your account's limit of 5,000 GitHub
         requests per hour instead of 60.
       </SectionHeader>
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <Panel>
           <div className="flex items-start gap-3">
             <span

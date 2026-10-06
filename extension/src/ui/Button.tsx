@@ -9,8 +9,7 @@ const sizes = {
 const variants = {
   primary:
     "border-transparent bg-accent text-accent-ink hover:not-disabled:bg-accent-hover",
-  secondary:
-    "border-border bg-raised text-ink shadow-card hover:not-disabled:bg-hover",
+  secondary: "border-border bg-raised text-ink hover:not-disabled:bg-hover",
   ghost:
     "border-transparent bg-transparent text-muted hover:not-disabled:bg-hover hover:not-disabled:text-ink",
   danger:
@@ -26,7 +25,7 @@ function buttonClass(
   size: keyof typeof sizes,
   variant: keyof typeof variants,
 ): string {
-  return `inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-[background-color,color,scale,opacity] duration-100 ease-out active:not-disabled:scale-[0.97] disabled:opacity-50 ${sizes[size]} ${variants[variant]}`;
+  return `inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-[background-color,color,translate,opacity] duration-100 ease-out active:not-disabled:translate-y-px disabled:opacity-50 ${sizes[size]} ${variants[variant]}`;
 }
 
 export function Button({

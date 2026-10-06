@@ -75,7 +75,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
   return (
     <section aria-labelledby="counting-heading" hidden={hidden}>
       <SectionHeader id="counting-heading" title="Counting" />
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <Panel>
           <fieldset className="m-0 border-0 p-0">
             <legend className="text-md mb-3 p-0 font-semibold">
@@ -116,7 +116,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
               {rateLimit ? (
                 <>
-                  <span className="tabular text-xl font-semibold">
+                  <span className="font-mono text-xl font-semibold">
                     {currentRemaining(rateLimit, now)}
                     <span className="text-muted text-base font-normal">
                       /{rateLimit.limit}

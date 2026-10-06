@@ -84,10 +84,10 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
       </div>
       <span
         aria-hidden="true"
-        className="bg-track mt-2 block h-1.5 overflow-hidden rounded-full forced-colors:border forced-colors:border-[CanvasText]"
+        className="bg-track mt-2 block h-1.5 overflow-hidden forced-colors:border forced-colors:border-[CanvasText]"
       >
         <span
-          className="bg-accent block h-full rounded-full transition-[width] duration-500 ease-(--ease-spring) forced-colors:bg-[CanvasText]"
+          className="bg-accent block h-full transition-[width] duration-200 ease-(--ease-out-quick) forced-colors:bg-[CanvasText]"
           style={{ width: `${Math.max(share, used > 0 ? 1 : 0)}%` }}
         />
       </span>
@@ -128,10 +128,10 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                         " · custom ignore"}
                     </div>
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right align-top">
+                  <td className="py-2.5 font-mono pr-4 text-right align-top">
                     {entry.codeLines.toLocaleString()}
                   </td>
-                  <td className="tabular py-2.5 pr-4 text-right align-top">
+                  <td className="py-2.5 font-mono pr-4 text-right align-top">
                     {entry.files.toLocaleString()}
                   </td>
                   <td
@@ -184,7 +184,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
       <SectionHeader id="storage-heading" title="Storage">
         Clearing saved results keeps your settings and GitHub connection.
       </SectionHeader>
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <Panel
           title="Public results"
           titleId="cache-heading"
@@ -234,7 +234,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
           </Status>
           <CacheList id="private" options={privateCache} />
         </Panel>
-        <div className="border-error/30 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-dashed p-5">
+        <div className="border-error/30 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-dashed p-4">
           <div>
             <p className="m-0 font-medium">Clear everything</p>
             <p className="text-muted m-0 mt-0.5 text-sm">

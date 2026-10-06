@@ -47,13 +47,13 @@ export function App() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1040px] px-6 pt-10 pb-16 text-base">
-      <header className="mb-10 flex items-center gap-3">
+    <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base">
+      <header className="mb-8 flex items-center gap-3">
         <picture className="shrink-0">
           <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
-          <img src={lightIcon} alt="" className="block size-9" />
+          <img src={lightIcon} alt="" className="block size-7" />
         </picture>
-        <h1 className="m-0 text-2xl font-semibold tracking-tight">Culverin</h1>
+        <h1 className="m-0 text-xl font-semibold tracking-tight">Culverin</h1>
       </header>
       <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
         <nav

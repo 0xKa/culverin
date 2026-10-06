@@ -64,10 +64,10 @@ function Header({ view }: { view: PopupView }) {
 
 function Totals({ result }: { result: ResultView }) {
   return (
-    <div className="rise-in border-divider bg-raised shadow-card mt-3 rounded-xl border p-4">
+    <div className="rise-in border-divider bg-raised mt-3 rounded-xl border p-4">
       <div className="flex items-end justify-between gap-3">
         <p id="code-lines" className="m-0 flex min-w-0 flex-col">
-          <span className="text-display tabular font-semibold">
+          <span className="text-display font-mono font-semibold">
             {result.codeTotal}
           </span>{" "}
           <span className="text-muted text-xs">code lines</span>
@@ -87,7 +87,9 @@ function Totals({ result }: { result: ResultView }) {
         {result.stats.map((stat) => (
           <div key={stat.label} className="flex flex-col">
             <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
-            <dd className="tabular m-0 text-sm font-semibold">{stat.value}</dd>
+            <dd className="m-0 font-mono text-sm font-semibold">
+              {stat.value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -105,7 +107,7 @@ function Sizes({ view }: { view: PopupView }) {
         <dd
           id="repository-size"
           title="Reported by GitHub; includes the full Git history"
-          className="tabular m-0 font-medium whitespace-nowrap"
+          className="m-0 font-mono font-medium whitespace-nowrap"
         >
           {view.sizes?.repositorySize}
         </dd>
@@ -116,7 +118,7 @@ function Sizes({ view }: { view: PopupView }) {
         </dt>
         <dd
           id="snapshot-size"
-          className="tabular m-0 font-medium whitespace-nowrap"
+          className="m-0 font-mono font-medium whitespace-nowrap"
         >
           {view.snapshotSize}
         </dd>
@@ -136,7 +138,7 @@ function OversizedFiles({ result }: { result: ResultView }) {
           >
             {file.path}
           </ExternalLink>{" "}
-          <span className="text-muted tabular ml-auto whitespace-nowrap">
+          <span className="text-muted ml-auto font-mono whitespace-nowrap">
             {file.size}
           </span>
         </li>

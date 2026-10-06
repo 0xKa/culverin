@@ -34,7 +34,7 @@ export function Panel({
 }) {
   return (
     <div
-      className={`border-divider bg-raised shadow-card rounded-xl border p-5 ${className ?? ""}`.trim()}
+      className={`border-divider bg-raised rounded-xl border p-4 ${className ?? ""}`.trim()}
     >
       {(title || actions) && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -52,4 +52,4 @@ export function Panel({
 }
 
 export const inputClass =
-  "border-control bg-canvas text-ink placeholder:text-muted rounded-md border px-2.5 py-1.5 transition-[border-color,box-shadow] duration-150 focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--color-accent-soft)] disabled:opacity-60";
+  "border-control bg-canvas text-ink placeholder:text-muted rounded-md border px-2.5 py-1.5 transition-[border-color] duration-150 focus-visible:border-accent disabled:opacity-60";

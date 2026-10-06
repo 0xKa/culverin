@@ -25,7 +25,7 @@ export function Callout({
     <div
       id={id}
       hidden={hidden}
-      className={`grid grid-cols-[auto_1fr] gap-x-2.5 rounded-lg border px-3 py-2.5 ${tones[tone]} ${className ?? ""}`.trim()}
+      className={`grid grid-cols-[auto_1fr] gap-x-2.5 rounded-lg border px-3 py-2 ${tones[tone]} ${className ?? ""}`.trim()}
     >
       {tone === "info" ? (
         <InfoIcon className="mt-0.5" />

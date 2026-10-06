@@ -60,7 +60,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
         Files that match these rules are skipped when counting lines. They still
         count toward the "Files at …" size.
       </SectionHeader>
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <Panel>
           <fieldset id="groups" className="m-0 border-0 p-0">
             <legend className="text-md mb-3 p-0 font-semibold">

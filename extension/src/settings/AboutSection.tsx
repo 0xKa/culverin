@@ -55,7 +55,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
           without an account; connect GitHub to count private ones.
         </p>
       </SectionHeader>
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <Panel
           actions={
             <Button

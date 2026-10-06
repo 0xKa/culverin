@@ -23,16 +23,16 @@ function Rows({
                 {row.name}
               </span>
               <span className="text-muted shrink-0 text-2xs">{row.files}</span>
-              <span className="tabular ml-auto shrink-0 font-medium">
+              <span className="ml-auto shrink-0 font-mono font-medium">
                 {row.value}
               </span>
-              <span className="text-muted tabular w-11 shrink-0 text-right text-2xs">
+              <span className="text-muted w-11 shrink-0 text-right font-mono text-2xs">
                 {row.share.toFixed(1)}%
               </span>
             </div>
-            <div className="bg-track mt-1 h-1 overflow-hidden rounded-full forced-colors:border forced-colors:border-[CanvasText]">
+            <div className="bg-track mt-1 h-1 overflow-hidden forced-colors:border forced-colors:border-[CanvasText]">
               <div
-                className={`bar-fill h-full rounded-full forced-colors:bg-[CanvasText] ${row.share > 0 ? "min-w-0.5" : ""} ${muted ? "bg-control" : "bg-accent"}`}
+                className={`bar-fill h-full forced-colors:bg-[CanvasText] ${row.share > 0 ? "min-w-0.5" : ""} ${muted ? "bg-control" : "bg-accent"}`}
                 style={{ width: `${row.share}%` }}
               />
             </div>
@@ -69,7 +69,7 @@ export function ResultRows({
             <ChevronIcon
               width="12"
               height="12"
-              className="transition-transform duration-300 ease-(--ease-spring) group-open:rotate-180"
+              className="transition-transform duration-150 ease-(--ease-out-quick) group-open:rotate-180"
             />
           </summary>
           <Rows rows={more} label={moreLabel} muted={muted} />

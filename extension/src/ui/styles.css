@@ -52,38 +52,11 @@
   --text-display--line-height: 2.5rem;
   --text-display--letter-spacing: -0.03em;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-sm: 0;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 4px;
 
-  --shadow-card:
-    0 1px 2px oklch(0.25 0.035 255 / 0.05),
-    0 1px 1px oklch(0.25 0.035 255 / 0.03);
-
-  --ease-spring: linear(
-    0,
-    0.089,
-    0.28,
-    0.492,
-    0.681,
-    0.827,
-    0.928,
-    0.991,
-    1.024,
-    1.037,
-    1.038,
-    1.032,
-    1.024,
-    1.016,
-    1.009,
-    1.005,
-    1.001,
-    1,
-    0.999,
-    0.999,
-    1
-  );
   --ease-out-quick: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -110,7 +83,6 @@
     --color-error: oklch(0.71 0.16 25);
     --color-error-soft: oklch(0.27 0.05 25);
     --color-track: oklch(0.32 0.02 255);
-    --shadow-card: 0 0 0 transparent;
   }
 }
 
@@ -191,7 +163,7 @@
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(-45deg);
-    transition: transform 280ms var(--ease-spring);
+    transition: transform 150ms var(--ease-out-quick);
   }
 
   .disclosure[open] > summary::before {
@@ -203,9 +175,9 @@
     overflow-y: clip;
     opacity: 0;
     transition:
-      block-size 320ms var(--ease-spring),
-      opacity 200ms var(--ease-out-quick),
-      content-visibility 320ms allow-discrete;
+      block-size 150ms var(--ease-out-quick),
+      opacity 150ms var(--ease-out-quick),
+      content-visibility 150ms allow-discrete;
   }
 
   .disclosure[open]::details-content {
@@ -219,18 +191,18 @@
 
   .rise-in {
     transition:
-      opacity 260ms var(--ease-out-quick),
-      translate 420ms var(--ease-spring);
+      opacity 150ms var(--ease-out-quick),
+      translate 150ms var(--ease-out-quick);
 
     @starting-style {
       opacity: 0;
-      translate: 0 6px;
+      translate: 0 4px;
     }
   }
 
   .bar-fill {
     transform-origin: left;
-    transition: scale 520ms var(--ease-spring);
+    transition: scale 200ms var(--ease-out-quick);
 
     @starting-style {
       scale: 0 1;

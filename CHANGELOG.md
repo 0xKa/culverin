@@ -2,6 +2,16 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.2 - 2026-10-06
+
+- Fixes the API count staying at 5000/5000 after Check now or Refresh. For a connected account, GitHub's free limit endpoint reports an unused window, which hid every later request. Check now and Refresh now spend one request when you are connected to read your real count, and stay free without a connection. A count from a real request replaces an outdated one. The privacy policy describes the one request.
+- Shows the popup's status as a small badge beside the repository name instead of a line of text under it. Labels such as Not counted, Checking, Counting, Fresh, Up to date, Cached, Partial, Rate limited, and Failed come with a small animated mark, and hovering or focusing the badge shows the full message. A rate limit still shows when you can try again, below the analysis button.
+- Explains Physical lines in the popup: hover it to see that it equals code, comments, and blanks together.
+- Turns Refresh in the GitHub requests panel into an icon button, with the loader replacing the icon while it checks.
+- Opens and closes expandable sections without animating their content. The chevron still turns.
+- Gives the popup and Settings a thin square scrollbar.
+- Keeps using results saved by 0.1.1.
+
 ## 0.1.1 - 2026-10-06
 
 - Adds Check now and Refresh to the GitHub requests panel in Settings. They ask GitHub for your current API limit, which does not use any of your requests, so you no longer have to count a repository to see it. The panel now also appears in the GitHub section. The privacy policy lists the new request.

@@ -28,6 +28,8 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   repository_empty: "This repository has no default-branch commit to analyze.",
   repository_forbidden: "Repository unavailable or access is restricted.",
   rate_limited: "GitHub rate limit reached.",
+  archive_throttled:
+    "GitHub is busy preparing this repository's source snapshot. Try again in a minute.",
   authentication_required:
     "This repository is private or doesn't exist. Connect GitHub in Culverin's settings to count private repositories.",
   authentication_invalid:

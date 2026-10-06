@@ -24,6 +24,7 @@ export type AcquisitionErrorCode =
   | "authentication_invalid"
   | "repository_forbidden"
   | "rate_limited"
+  | "archive_throttled"
   | "network_unavailable"
   | "download_failed"
   | "compressed_limit_exceeded"
@@ -67,7 +68,7 @@ function apiFailure(response: Response): AcquisitionError {
     const retryAt =
       Number.isFinite(retryAfter) && retryAfter > 0
         ? Date.now() + retryAfter * 1000
-        : Number.isFinite(reset) && reset > 0
+        : remaining === "0" && Number.isFinite(reset) && reset > 0
           ? reset * 1000
           : undefined;
     return new AcquisitionError("rate_limited", retryAt);
@@ -253,7 +254,13 @@ export async function openArchive(
   if (!response.ok) {
     if (response.status === 404)
       throw new AcquisitionError("repository_unavailable");
-    throw apiFailure(response);
+    const failure = apiFailure(response);
+    if (
+      failure.code === "rate_limited" &&
+      trustedOrigin(response, "https://codeload.github.com")
+    )
+      throw new AcquisitionError("archive_throttled", failure.retryAt);
+    throw failure;
   }
   if (!trustedOrigin(response, "https://codeload.github.com")) {
     await response.body?.cancel().catch(() => undefined);

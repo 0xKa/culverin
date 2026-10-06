@@ -44,7 +44,16 @@ export async function runAcquisitionLifetimes(
         singleChunkOriginalFetch?: typeof fetch;
       };
       scope.singleChunkOriginalFetch = fetch;
+      let throttle = true;
       globalThis.fetch = (async (input, init) => {
+        if (String(input).endsWith(`/tarball/${sha}`) && throttle) {
+          throttle = false;
+          const response = new Response("", { status: 429 });
+          Object.defineProperty(response, "url", {
+            value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+          });
+          return response;
+        }
         if (String(input).endsWith(`/tarball/${sha}`)) {
           const body = Uint8Array.from(bytes);
           const response = new Response(
@@ -74,6 +83,21 @@ export async function runAcquisitionLifetimes(
   const singleChunkPopup = await openPopup(page);
 
   await singleChunkPopup.getByText(uncheckedStatus).waitFor();
+
+  await singleChunkPopup
+    .getByRole("button", { name: "Analyze repository" })
+    .click();
+
+  await singleChunkPopup
+    .getByText(
+      "GitHub is busy preparing this repository's source snapshot. Try again in a minute.",
+    )
+    .waitFor({ timeout: 15_000 });
+
+  assert.equal(
+    await singleChunkPopup.getByText(/GitHub rate limit/).count(),
+    0,
+  );
 
   await singleChunkPopup
     .getByRole("button", { name: "Analyze repository" })

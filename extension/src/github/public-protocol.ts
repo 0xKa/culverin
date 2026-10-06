@@ -43,6 +43,7 @@ export type PublicErrorCode =
   | "repository_empty"
   | "repository_forbidden"
   | "rate_limited"
+  | "archive_throttled"
   | "authentication_required"
   | "authentication_invalid"
   | "access_not_granted"
@@ -257,6 +258,7 @@ const codes: PublicErrorCode[] = [
   "repository_empty",
   "repository_forbidden",
   "rate_limited",
+  "archive_throttled",
   "authentication_required",
   "authentication_invalid",
   "access_not_granted",

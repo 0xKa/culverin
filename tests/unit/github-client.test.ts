@@ -157,6 +157,99 @@ test("classifies empty repository and rejects malformed commit", async () => {
   ).rejects.toMatchObject({ code: "network_unavailable" });
 });
 
+test("waits for the quota reset only when the core limit is used up", async () => {
+  const reset = String(Math.floor(Date.now() / 1000) + 3600);
+  const secondary = (async () =>
+    response("", "https://api.github.com/repos/owner/repo", 429, {
+      "x-ratelimit-remaining": "4963",
+      "x-ratelimit-reset": reset,
+    })) as Fetcher;
+  const secondaryFailure = await resolveRepository(
+    secondary,
+    "owner",
+    "repo",
+    "test",
+    controller.signal,
+  ).catch((error: unknown) => error);
+  expect(secondaryFailure).toMatchObject({ code: "rate_limited" });
+  expect((secondaryFailure as AcquisitionError).retryAt).toBeUndefined();
+  const before = Date.now();
+  const retryAfter = (async () =>
+    response("", "https://api.github.com/repos/owner/repo", 403, {
+      "x-ratelimit-remaining": "4963",
+      "x-ratelimit-reset": reset,
+      "retry-after": "30",
+    })) as Fetcher;
+  const retryFailure = (await resolveRepository(
+    retryAfter,
+    "owner",
+    "repo",
+    "test",
+    controller.signal,
+  ).catch((error: unknown) => error)) as AcquisitionError;
+  expect(retryFailure.code).toBe("rate_limited");
+  expect(retryFailure.retryAt).toBeGreaterThanOrEqual(before + 30_000);
+  expect(retryFailure.retryAt).toBeLessThan(before + 3_600_000);
+});
+
+test("reports a throttled archive separately from the API rate limit", async () => {
+  const resolution = {
+    repositoryId: "42",
+    owner: "owner",
+    name: "repo",
+    defaultBranch: "main",
+    visibility: "public" as const,
+    sha,
+    sizeKb: 1024,
+  };
+  const throttled = (async () =>
+    response(
+      "",
+      "https://codeload.github.com/owner/repo/legacy.tar.gz/x",
+      429,
+    )) as Fetcher;
+  const throttledFailure = (await downloadArchive(
+    throttled,
+    resolution,
+    undefined,
+    controller.signal,
+  ).catch((error: unknown) => error)) as AcquisitionError;
+  expect(throttledFailure.code).toBe("archive_throttled");
+  expect(throttledFailure.retryAt).toBeUndefined();
+  const before = Date.now();
+  const delayed = (async () =>
+    response(
+      "",
+      "https://codeload.github.com/owner/repo/legacy.tar.gz/x",
+      429,
+      {
+        "retry-after": "20",
+      },
+    )) as Fetcher;
+  const delayedFailure = (await downloadArchive(
+    delayed,
+    resolution,
+    undefined,
+    controller.signal,
+  ).catch((error: unknown) => error)) as AcquisitionError;
+  expect(delayedFailure.code).toBe("archive_throttled");
+  expect(delayedFailure.retryAt).toBeGreaterThanOrEqual(before + 20_000);
+  const api = (async () =>
+    response(
+      "",
+      `https://api.github.com/repos/owner/repo/tarball/${sha}`,
+      429,
+      {
+        "x-ratelimit-remaining": "10",
+      },
+    )) as Fetcher;
+  expect(
+    await downloadArchive(api, resolution, undefined, controller.signal).catch(
+      (error: unknown) => error,
+    ),
+  ).toMatchObject({ code: "rate_limited" });
+});
+
 test("rejects wrong archive origin before reading and checks content length", async () => {
   const resolution = {
     repositoryId: "42",

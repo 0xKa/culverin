@@ -86,6 +86,12 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   expect(limited.label).toBe("GitHub rate limit, try later");
   expect(limited.title).toStartWith("GitHub rate limit reached. Retry after ");
   expect(limited.action).toBeUndefined();
+  expect(rowView(failureState("archive_throttled"))).toMatchObject({
+    label: "Couldn't count lines · Retry",
+    title:
+      "GitHub is busy preparing this repository's source snapshot. Try again in a minute.",
+    action: "analyze",
+  });
   for (const code of [
     "invalid_repository",
     "unsupported_page",

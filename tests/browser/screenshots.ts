@@ -207,6 +207,39 @@ try {
   await settings.reload();
   await settings.waitForTimeout(400);
   await shoot(settings, "settings-storage-narrow");
+  await settings.goto(`${extensionUrl}/settings.html#github`);
+  await settings.reload();
+  await settings.waitForTimeout(400);
+  await shoot(settings, "settings-github-narrow");
+  await context.route("https://github.com/login/device/code", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        device_code: "screenshot-device",
+        user_code: "ABCD-1234",
+        verification_uri: "https://github.com/login/device",
+        expires_in: 900,
+        interval: 60,
+      }),
+    }),
+  );
+  await context.route("https://github.com/login/oauth/access_token", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "authorization_pending" }),
+    }),
+  );
+  await settings.setViewportSize({ width: 1100, height: 800 });
+  await settings.goto(`${extensionUrl}/settings.html#github`);
+  await settings.reload();
+  await settings.locator("#github-connect").click();
+  await settings.locator("#github-device-copy").click();
+  await settings.locator("#github-copy-status").getByText(/./).waitFor();
+  await shoot(settings, "settings-github-device");
+  await settings.locator("#github-device-cancel").click();
+  await settings.locator("#github-connect").waitFor();
   await settings.setViewportSize({ width: 1100, height: 800 });
   await worker.evaluate(() =>
     chrome.storage.session.remove("github.rateLimit"),

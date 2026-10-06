@@ -44,11 +44,18 @@ export async function runGithubStorage(
     });
   });
 
+  let approveDevice!: () => void;
+
+  const approvalGate = new Promise<void>((resolve) => {
+    approveDevice = resolve;
+  });
+
   await context.route(
     "https://github.com/login/oauth/access_token",
-    (route) => {
+    async (route) => {
       deviceBodies.push(route.request().postData() ?? "");
       devicePolls++;
+      if (devicePolls > 1) await approvalGate;
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -120,6 +127,19 @@ export async function runGithubStorage(
 
   assert.equal(await githubSection.locator(".culverin-dots").count(), 0);
 
+  assert.equal(await settingsPage.locator("#github-token").isDisabled(), true);
+
+  await settingsPage.locator("#github-device-copy").click();
+
+  await settingsPage
+    .locator("#github-copy-status")
+    .getByText(/^(Code copied\.|Couldn't copy\. Type the code instead\.)$/)
+    .waitFor();
+
+  assert.equal(await settingsPage.locator("#github-status").textContent(), "");
+
+  approveDevice();
+
   await githubSection.getByText(/Waiting for approval on GitHub/).waitFor();
 
   assert.equal(
@@ -184,8 +204,6 @@ export async function runGithubStorage(
       "Disconnected. The saved token and private results were deleted.",
     )
     .waitFor();
-
-  await githubSection.getByText("Use a personal access token instead").click();
 
   await settingsPage.locator("#github-token").fill("wrong-token");
 

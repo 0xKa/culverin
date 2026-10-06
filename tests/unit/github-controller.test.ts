@@ -46,6 +46,7 @@ const connected = () =>
 afterEach(() => jest.useRealTimers());
 function controller(
   send: (command: SettingsCommand) => Promise<SettingsReply | undefined>,
+  copy?: (value: string) => Promise<void>,
 ) {
   const events: unknown[] = [];
   const stored: Record<string, unknown>[] = [];
@@ -55,9 +56,11 @@ function controller(
       status: (value) => events.push(value),
       busy: (value) => events.push(value),
       tokenCleared: () => events.push("token cleared"),
+      copied: (ok) => events.push(ok ? "copied" : "copy failed"),
     },
     {
       send,
+      copy,
       storage: {
         set: async (value: Record<string, unknown>) => {
           stored.push(value);
@@ -160,4 +163,31 @@ test("polling retries network failures, reports expiry, and token submission car
   expect(ui.events).toContain("token cleared");
   ui.current.dispose();
   expect(jest.getTimerCount()).toBe(0);
+});
+
+test("copying the code reports its own result without changing the connection status", async () => {
+  const copiedValues: string[] = [];
+  const ui = controller(
+    async () => status(),
+    async (value) => {
+      copiedValues.push(value);
+    },
+  );
+  await ui.current.copy("ABCD-EFGH");
+  expect(copiedValues).toEqual(["ABCD-EFGH"]);
+  expect(ui.events).toEqual(["copied"]);
+  const failing = controller(
+    async () => status(),
+    () => Promise.reject(new Error("denied")),
+  );
+  await failing.current.copy("ABCD-EFGH");
+  expect(failing.events).toEqual(["copy failed"]);
+  const disposed = controller(
+    async () => status(),
+    async () => undefined,
+  );
+  const pending = disposed.current.copy("ABCD-EFGH");
+  disposed.current.dispose();
+  await pending;
+  expect(disposed.events).toEqual([]);
 });

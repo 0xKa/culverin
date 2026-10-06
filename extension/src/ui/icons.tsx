@@ -73,3 +73,20 @@ export function RefreshIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5.25" y="5.25" width="8.5" height="8.5" rx="1.5" />
+      <path d="M10.75 5.25v-1.5a1.5 1.5 0 0 0-1.5-1.5h-5.5a1.5 1.5 0 0 0-1.5 1.5v5.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
+    </Icon>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m3.25 8.5 3 3 6.5-7" />
+    </Icon>
+  );
+}

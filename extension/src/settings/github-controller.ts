@@ -9,6 +9,7 @@ type Update = {
   status: (value: string) => void;
   busy: (value: GitHubBusy) => void;
   tokenCleared: () => void;
+  copied: (ok: boolean) => void;
 };
 type Dependencies = {
   send?: typeof sendSettings;
@@ -115,10 +116,9 @@ export function createGitHubController(
       await (
         dependencies.copy ?? ((value) => navigator.clipboard.writeText(value))
       )(code);
-      if (current(id)) status("Code copied.");
+      if (current(id)) update.copied(true);
     } catch {
-      if (current(id))
-        status("Couldn't copy. Type the code shown above instead.");
+      if (current(id)) update.copied(false);
     }
   }
   async function saveToken(token: string): Promise<void> {

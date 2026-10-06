@@ -21,7 +21,7 @@ If you choose to count when a repository page opens, in the Counting section of 
 Connecting is optional and happens only when you choose it in the GitHub section of the settings page. You can connect in one of two ways:
 
 - **Connect with GitHub** uses the Culverin GitHub App. Culverin asks GitHub for a short code, you enter it at `https://github.com/login/device`, and you approve the app on GitHub, where you also choose which repositories it may read. The app can only read repository contents and metadata. GitHub then gives the extension a token for your account that expires after 8 hours, and a refresh token that the extension uses to get a new one.
-- **Personal access token** lets you paste a token you create on GitHub instead. A fine-grained token with read-only access to repository contents is enough.
+- **Personal access token** lets you paste a token you create on GitHub. A fine-grained token with read-only access to repository contents is enough.
 
 Either way, the extension asks GitHub for your username to show which account is connected. While connected, the token is sent to `api.github.com` with repository metadata requests and limit checks, so they count against your account's GitHub limit rather than the shared anonymous one, and with source archive requests for private repositories. Tokens are sent only to GitHub. They are never given to the script that runs on GitHub pages, to the toolbar popup, or to the analysis worker.
 

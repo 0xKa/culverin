@@ -10,7 +10,7 @@ export function Totals({ result }: { result: ResultView }) {
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <p id="code-lines" className="m-0 flex flex-col">
           <span
-            className={`font-mono leading-none font-semibold ${result.codeTotal.length > 7 ? "text-[2rem] tracking-tight" : "text-display"}`}
+            className={`text-accent-text font-mono leading-none font-semibold ${result.codeTotal.length > 7 ? "text-[2rem] tracking-tight" : "text-display"}`}
           >
             {result.codeTotal}
           </span>{" "}

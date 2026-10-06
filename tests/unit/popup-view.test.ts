@@ -86,9 +86,9 @@ test("formats repository and result details", () => {
     { label: "Comments", value: "4" },
     { label: "Blanks", value: "1" },
   ]);
-  expect(view.codeSummary).toBe("3 code lines · 1 files");
-  expect(view.textSummary).toBe("4 text lines · 1 files");
-  expect(view.otherSummary).toBe("38 lines · 2 files");
+  expect(view.codeSummary).toEqual(["3 code lines", "1 files"]);
+  expect(view.textSummary).toEqual(["4 text lines", "1 files"]);
+  expect(view.otherSummary).toEqual(["38 lines", "2 files"]);
   expect(view.codeRows).toEqual([
     {
       label: "TypeScript: 3 code lines (100.0% of code lines), 1 files",
@@ -199,9 +199,9 @@ test("orders languages by lines and retains all other file rows for display", ()
     },
     resolution,
   );
-  expect(view.codeSummary).toBe("170 code lines · 3 files");
-  expect(view.textSummary).toBe("10 text lines · 2 files");
-  expect(view.otherSummary).toBe("80 lines · 13 files");
+  expect(view.codeSummary).toEqual(["170 code lines", "3 files"]);
+  expect(view.textSummary).toEqual(["10 text lines", "2 files"]);
+  expect(view.otherSummary).toEqual(["80 lines", "13 files"]);
   expect(view.codeRows.map((row) => row.name)).toEqual(["Rust", "Go", "Shell"]);
   expect(view.textRows.map((row) => row.name)).toEqual([
     "Plain Text",
@@ -242,7 +242,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
   expect(view.noLanguages).toBe("No language totals.");
   expect(view.codeRows).toEqual([]);
   expect(view.textRows).toEqual([]);
-  expect(view.codeSummary).toBe("0 code lines · 0 files");
+  expect(view.codeSummary).toEqual(["0 code lines", "0 files"]);
   expect(view.warning).toBeUndefined();
   expect(view.oversizedNote).toBeUndefined();
   expect(JSON.stringify(view)).not.toMatch(/NaN|Infinity/);

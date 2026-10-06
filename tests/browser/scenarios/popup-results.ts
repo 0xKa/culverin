@@ -251,19 +251,19 @@ export async function runPopupResults(
     [
       [
         "Code",
-        "1 code lines · 1 files",
+        "1 code lines, 1 files",
         "Languages by code lines",
         ["Rust: 1 code lines (100.0% of code lines), 1 files"],
       ],
       [
         "Text",
-        "1 text lines · 1 files",
+        "1 text lines, 1 files",
         "Text formats by text lines",
         ["Plain Text: 1 text lines (100.0% of text lines), 1 files"],
       ],
       [
         "Other files",
-        "13 lines · 12 files",
+        "13 lines, 12 files",
         "Other files by lines",
         [
           ".golden: 2 lines, 1 files",

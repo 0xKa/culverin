@@ -7,6 +7,7 @@ import {
 } from "../counter/rules";
 import { readIgnore, writeIgnore } from "../ignore/settings";
 import { Button } from "../ui/Button";
+import { Joined } from "../ui/Separator";
 import { Status } from "../ui/Status";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
@@ -134,7 +135,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             }}
           />
           <p id="rules-usage" className="text-muted m-0 mt-2 text-sm">
-            {parsed.usage}
+            <Joined parts={parsed.usage} />
           </p>
           <ul
             id="rules-errors"

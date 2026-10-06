@@ -36,12 +36,12 @@ export type ResultView = {
   textLines: string;
   stats: StatView[];
   snapshotSize: string;
-  intro: string[];
-  codeSummary: string;
+  intro: string[][];
+  codeSummary: string[];
   codeRows: BreakdownRow[];
-  textSummary: string;
+  textSummary: string[];
   textRows: BreakdownRow[];
-  otherSummary: string;
+  otherSummary: string[];
   otherRows: BreakdownRow[];
   noLanguages?: string;
   coverage: string;
@@ -151,14 +151,28 @@ export function resultView(
     ],
     snapshotSize: formatBytes(coverage.totalBytes),
     intro: [
-      `Default branch ${resolution.defaultBranch} · commit ${resolution.sha.slice(0, 12)}`,
-      "Repository source was downloaded directly from GitHub and analyzed in your browser.",
+      [
+        `Default branch ${resolution.defaultBranch}`,
+        `commit ${resolution.sha.slice(0, 12)}`,
+      ],
+      [
+        "Repository source was downloaded directly from GitHub and analyzed in your browser.",
+      ],
     ],
-    codeSummary: `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines · ${files(codeLanguages)} files`,
+    codeSummary: [
+      `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines`,
+      `${files(codeLanguages)} files`,
+    ],
     codeRows,
-    textSummary: `${text.toLocaleString()} text lines · ${files(textLanguages)} files`,
+    textSummary: [
+      `${text.toLocaleString()} text lines`,
+      `${files(textLanguages)} files`,
+    ],
     textRows,
-    otherSummary: `${other.lines.toLocaleString()} lines · ${other.files.toLocaleString()} files`,
+    otherSummary: [
+      `${other.lines.toLocaleString()} lines`,
+      `${other.files.toLocaleString()} files`,
+    ],
     otherRows,
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,

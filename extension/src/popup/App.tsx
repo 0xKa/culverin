@@ -12,6 +12,7 @@ import { Callout } from "../ui/Callout";
 import { DotLoader } from "../ui/DotLoader";
 import { ExternalLink } from "../ui/ExternalLink";
 import { IconButton } from "../ui/IconButton";
+import { Joined } from "../ui/Separator";
 import { GearIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
@@ -182,8 +183,8 @@ function Details({
       <summary className="text-sm">Analysis details</summary>
       <div id="detail-content" className="pt-1">
         {result?.intro.map((line) => (
-          <p key={line} className="text-muted m-0 mt-1.5 text-xs">
-            {line}
+          <p key={line.join()} className="text-muted m-0 mt-1.5 text-xs">
+            <Joined parts={line} />
           </p>
         ))}
         {result && result.codeRows.length > 0 && (

@@ -10,6 +10,7 @@ import {
   type CachedResultSummary,
 } from "../github/cache";
 import { formatBytes } from "../ui/format";
+import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
@@ -122,10 +123,18 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                     </ExternalLink>
                     <div className="text-muted mt-0.5 text-xs">
                       <span className="font-mono">{entry.sha.slice(0, 7)}</span>
-                      {entry.topLanguage && ` · mostly ${entry.topLanguage}`}
-                      {defaultHash &&
-                        entry.rulesHash !== defaultHash &&
-                        " · custom ignore"}
+                      {entry.topLanguage && (
+                        <>
+                          <Separator />
+                          mostly {entry.topLanguage}
+                        </>
+                      )}
+                      {defaultHash && entry.rulesHash !== defaultHash && (
+                        <>
+                          <Separator />
+                          custom ignore
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="py-2.5 font-mono pr-4 text-right align-top">

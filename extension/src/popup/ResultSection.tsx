@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import type { BreakdownRow } from "./view";
+import { Joined } from "../ui/Separator";
 import { ResultRows } from "./ResultRows";
 
 export function ResultSection({
@@ -11,7 +12,7 @@ export function ResultSection({
   ...rows
 }: {
   title: string;
-  summary: string;
+  summary: string[];
   summaryId: string;
   rows: BreakdownRow[];
   label: string;
@@ -25,7 +26,7 @@ export function ResultSection({
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="m-0 text-sm font-semibold">{title}</h2>
         <p id={summaryId} className="text-muted tabular m-0 text-2xs">
-          {summary}
+          <Joined parts={summary} />
         </p>
       </div>
       {children}

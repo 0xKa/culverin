@@ -5,7 +5,7 @@ test("ignores blank lines, deduplicates rules, and reports exact usage", () => {
   expect(parseRules("\n README \n\nREADME\n *.md \n")).toEqual({
     rules: ["README", "*.md"],
     errors: [],
-    usage: "2 of 64 rules · 10 of 4,096 bytes",
+    usage: ["2 of 64 rules", "10 of 4,096 bytes"],
   });
 });
 

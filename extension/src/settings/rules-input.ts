@@ -18,7 +18,7 @@ export function entries(group: (typeof ignoreGroups)[number]): string[] {
 export function parseRules(text: string): {
   rules: string[];
   errors: string[];
-  usage: string;
+  usage: string[];
 } {
   const rules: string[] = [];
   const errors: string[] = [];
@@ -41,6 +41,9 @@ export function parseRules(text: string): {
   return {
     rules: uniqueRules,
     errors,
-    usage: `${uniqueRules.length} of ${MAX_RULES} rules · ${bytes.toLocaleString()} of ${MAX_RULES_BYTES.toLocaleString()} bytes`,
+    usage: [
+      `${uniqueRules.length} of ${MAX_RULES} rules`,
+      `${bytes.toLocaleString()} of ${MAX_RULES_BYTES.toLocaleString()} bytes`,
+    ],
   };
 }

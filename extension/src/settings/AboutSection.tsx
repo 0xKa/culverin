@@ -8,6 +8,7 @@ import {
 } from "../counter/rules";
 import { Button } from "../ui/Button";
 import { ExternalIcon } from "../ui/icons";
+import { Separator } from "../ui/Separator";
 import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
 import { aboutDetails, browserVersion, REPOSITORY_URL } from "./about";
@@ -85,7 +86,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
                 <ExternalLink href={`${REPOSITORY_URL}/blob/main/LICENSE`}>
                   Apache License 2.0
                 </ExternalLink>
-                {" · "}
+                <Separator />
                 <a
                   href="THIRD_PARTY_NOTICES.txt"
                   target="_blank"

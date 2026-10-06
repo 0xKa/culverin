@@ -7,25 +7,29 @@ import type { ResultView, SizesView } from "./view";
 export function Totals({ result }: { result: ResultView }) {
   return (
     <div className="rise-in border-divider bg-raised mt-3 rounded-xl border p-4">
-      <p id="code-lines" className="m-0 flex flex-col">
-        <span className="text-display font-mono font-semibold">
-          {result.codeTotal}
-        </span>{" "}
-        <span className="text-muted text-xs">code lines</span>
-      </p>
-      <p
-        id="file-count"
-        title="Files counted as code or text. Other, binary, and ignored files are listed in Analysis details."
-        className="m-0 mt-2 flex flex-col"
-      >
-        <span className="font-mono text-3xl font-semibold tracking-tight">
-          {result.fileTotal}
-        </span>{" "}
-        <span className="text-muted text-xs">{result.fileLabel}</span>
-      </p>
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+        <p id="code-lines" className="m-0 flex flex-col">
+          <span
+            className={`font-mono leading-none font-semibold ${result.codeTotal.length > 7 ? "text-[2rem] tracking-tight" : "text-display"}`}
+          >
+            {result.codeTotal}
+          </span>{" "}
+          <span className="text-muted mt-1 text-xs">code lines</span>
+        </p>
+        <p
+          id="file-count"
+          title="Files counted as code or text. Other, binary, and ignored files are listed in Analysis details."
+          className="m-0 ml-auto flex flex-col items-end"
+        >
+          <span className="font-mono text-2xl leading-none font-semibold tracking-tight">
+            {result.fileTotal}
+          </span>{" "}
+          <span className="text-muted mt-1 text-xs">{result.fileLabel}</span>
+        </p>
+      </div>
       <dl
         id="metrics"
-        className="border-divider mt-3.5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3.5"
+        className="border-divider mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3"
       >
         {result.stats.map((stat) => (
           <div key={stat.label} title={stat.title} className="flex flex-col">

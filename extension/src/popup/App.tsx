@@ -245,15 +245,15 @@ export function App() {
     return controller.dispose;
   }, [controller]);
 
-  const reanalyzing = view.cancelVisible && view.reanalyze;
+  const analyzing = view.cancelVisible;
   const followFocus = useRef(false);
   useLayoutEffect(() => {
     if (!followFocus.current) return;
-    followFocus.current = reanalyzing;
+    followFocus.current = analyzing;
     const active = document.activeElement;
     if (active !== document.body && active?.id !== "analyze") return;
-    document.getElementById(reanalyzing ? "cancel" : "analyze")?.focus();
-  }, [reanalyzing]);
+    document.getElementById(analyzing ? "cancel" : "analyze")?.focus();
+  }, [analyzing]);
 
   const result = view.result;
   return (
@@ -271,14 +271,6 @@ export function App() {
           {view.status}
         </Status>
         <section id="analysis" hidden={!view.analysisVisible}>
-          {view.cancelVisible && !view.reanalyze && (
-            <div
-              id="analysis-loader"
-              className="rise-in text-accent-text flex justify-center py-5"
-            >
-              <DotLoader />
-            </div>
-          )}
           {result && <Totals key={view.sizes?.snapshotLabel} result={result} />}
           {result?.warning && <OversizedFiles result={result} />}
           <Sizes view={view} />
@@ -301,7 +293,7 @@ export function App() {
               </Button>
             </div>
           </Callout>
-          {reanalyzing && (
+          {analyzing && (
             <div
               id="analysis-loader"
               className="rise-in text-accent-text mt-3 flex flex-col items-center gap-2 pt-2"
@@ -320,34 +312,22 @@ export function App() {
           )}
           <div
             className="mt-3 flex items-center gap-2"
-            hidden={reanalyzing && !view.connect}
+            hidden={analyzing && !view.connect}
           >
             <Button
               id="analyze"
               type="button"
               variant={view.reanalyze ? "secondary" : "primary"}
               className="flex-1"
-              hidden={reanalyzing}
+              hidden={analyzing}
               disabled={view.analyzeDisabled}
-              aria-busy={view.cancelVisible}
               onClick={() => {
-                followFocus.current = view.reanalyze;
+                followFocus.current = true;
                 void controller.analyze(view.reanalyze);
               }}
             >
               {view.reanalyze ? "Reanalyze" : "Analyze repository"}
             </Button>
-            {!reanalyzing && (
-              <Button
-                id="cancel"
-                type="button"
-                variant="ghost"
-                hidden={!view.cancelVisible}
-                onClick={() => void controller.cancel()}
-              >
-                Cancel analysis
-              </Button>
-            )}
             <Button
               id="connect"
               type="button"

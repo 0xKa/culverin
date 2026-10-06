@@ -193,12 +193,7 @@ export async function runPopupResults(
 
   await resumedPopup.locator("#analysis-loader .culverin-dots").waitFor();
 
-  assert.equal(
-    await resumedPopup
-      .getByRole("button", { name: "Analyze repository" })
-      .isDisabled(),
-    true,
-  );
+  assert.equal(await resumedPopup.locator("#analyze").isVisible(), false);
 
   await worker.evaluate(() =>
     (

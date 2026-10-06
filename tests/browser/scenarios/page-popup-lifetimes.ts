@@ -335,7 +335,12 @@ export async function runPagePopupLifetimes(
 
   assert.equal(await analysisLoader.getAttribute("aria-hidden"), "true");
 
-  assert.equal(await cancelPopup.locator("#analyze").isDisabled(), true);
+  assert.equal(await cancelPopup.locator("#analyze").isVisible(), false);
+
+  assert.equal(
+    await cancelPopup.locator("#analysis-loader #cancel").isVisible(),
+    true,
+  );
 
   const analysisDot = analysisLoader.locator("span").first();
 
@@ -382,6 +387,8 @@ export async function runPagePopupLifetimes(
   await cancelPopup.getByText("Analysis canceled.").waitFor();
 
   assert.equal(await analysisLoader.count(), 0);
+
+  assert.equal(await cancelPopup.locator("#analyze").isEnabled(), true);
 
   await page.waitForTimeout(1700);
 

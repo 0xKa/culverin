@@ -97,15 +97,15 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
         least recently are removed first.
       </p>
       {entries.length > 0 && (
-        <div className="border-divider -mx-5 mt-4 -mb-5 overflow-x-auto border-t">
+        <div className="border-divider -mx-4 mt-4 -mb-4 overflow-x-auto rounded-b-xl border-t">
           <table className="w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-divider text-muted border-b text-xs">
-                <th className="py-2 pr-4 pl-5 font-medium">Repository</th>
+                <th className="py-2 pr-4 pl-4 font-medium">Repository</th>
                 <th className="py-2 pr-4 text-right font-medium">Code lines</th>
                 <th className="py-2 pr-4 text-right font-medium">Files</th>
                 <th className="py-2 pr-4 font-medium">Counted</th>
-                <th className="py-2 pr-5 font-medium">Last viewed</th>
+                <th className="py-2 pr-4 font-medium">Last viewed</th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +114,7 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                   key={entry.identity}
                   className="border-divider hover:bg-surface border-b transition-colors duration-150 last:border-b-0"
                 >
-                  <td className="py-2.5 pr-4 pl-5 align-top">
+                  <td className="py-2.5 pr-4 pl-4 align-top">
                     <ExternalLink
                       href={`https://github.com/${entry.owner}/${entry.name}`}
                       className="font-medium no-underline hover:underline"
@@ -150,7 +150,7 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                     {relativeTime(entry.storedAt, now)}
                   </td>
                   <td
-                    className="py-2.5 pr-5 align-top whitespace-nowrap"
+                    className="py-2.5 pr-4 align-top whitespace-nowrap"
                     title={exact(entry.lastAccess)}
                   >
                     {relativeTime(entry.lastAccess, now)}

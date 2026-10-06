@@ -196,6 +196,28 @@ try {
 
   const settings = await context.newPage();
   await settings.setViewportSize({ width: 1100, height: 800 });
+  await settings.goto(`${extensionUrl}/settings.html#storage`);
+  await settings.evaluate(async () => {
+    const stored = await chrome.storage.local.get("culverin.public-results.v1");
+    const snapshot = stored["culverin.public-results.v1"] as {
+      entries: {
+        resolution: { owner: string; name: string; visibility: string };
+        bytes: number;
+      }[];
+    };
+    const entries = snapshot.entries.slice(0, 1).map((source) => {
+      const entry = structuredClone(source);
+      entry.resolution.owner = "culverin-labs";
+      entry.resolution.name = "a-much-longer-private-repository-name";
+      entry.resolution.visibility = "private";
+      entry.bytes = 0;
+      entry.bytes = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
+      return entry;
+    });
+    await chrome.storage.local.set({
+      "culverin.private-results.v1": { version: 1, entries },
+    });
+  });
   for (const section of ["storage", "ignore", "counting", "github", "about"]) {
     await settings.goto(`${extensionUrl}/settings.html#${section}`);
     await settings.reload();

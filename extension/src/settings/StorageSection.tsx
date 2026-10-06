@@ -112,7 +112,15 @@ function CacheList({
       </p>
       {entries.length > 0 && (
         <div className="border-divider -mx-4 mt-4 -mb-4 overflow-x-auto rounded-b-xl border-t">
-          <table className="w-full border-collapse text-left text-sm">
+          <table className="w-full min-w-[700px] table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col />
+              <col className="w-26" />
+              <col className="w-20" />
+              <col className="w-30" />
+              <col className="w-30" />
+              <col className="w-20" />
+            </colgroup>
             <thead>
               <tr className="border-divider text-muted border-b text-xs">
                 <th className="py-2 pr-4 pl-4 font-medium">Repository</th>
@@ -131,7 +139,7 @@ function CacheList({
                   key={entry.identity}
                   className="border-divider hover:bg-surface border-b transition-colors duration-150 last:border-b-0"
                 >
-                  <td className="py-2.5 pr-4 pl-4 align-top">
+                  <td className="py-2.5 pr-4 pl-4 align-top wrap-anywhere">
                     <ExternalLink
                       href={`https://github.com/${entry.owner}/${entry.name}`}
                       className="font-medium no-underline hover:underline"
@@ -261,6 +269,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
       <div className="grid gap-4">
         <Panel
           title="Public results"
+          className="min-w-0"
           titleId="cache-heading"
           actions={
             <Button
@@ -290,6 +299,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
         </Panel>
         <Panel
           title="Private results"
+          className="min-w-0"
           titleId="private-heading"
           actions={
             <Button

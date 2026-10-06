@@ -12,7 +12,7 @@ Requests are sent without your GitHub cookies, with `credentials: "omit"` and `c
 
 By default, opening or reloading a repository page sends no request to GitHub unless Culverin already has a completed result for that repository; it then requests metadata to check that the result is still current. It never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download. Opening the toolbar popup sends no request to GitHub; it shows only what Culverin already checked in the last 20 minutes.
 
-The settings page shows how many GitHub API requests you have left, using the counts GitHub returns with Culverin's other requests. When you select Check now or Refresh there, the extension asks `api.github.com` for your current limit. GitHub does not count that request against the limit.
+The settings page shows how many GitHub API requests you have left, using the counts GitHub returns with Culverin's other requests. When you select Check now or Refresh there, the extension asks `api.github.com` for your current limit. Without a GitHub connection, GitHub does not count that request against the limit. While connected, the check uses one request from your account's limit.
 
 If you choose to count when a repository page opens, in the Counting section of the settings page, opening a repository page always requests metadata and, when there is no current result, downloads that commit's source archive as if you had selected Analyze. Culverin tries this at most once per repository commit and settings in each browser session.
 

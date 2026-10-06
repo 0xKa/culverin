@@ -100,9 +100,21 @@ test("keeps the newest window and the lowest count within a window", () => {
     ...first,
     remaining: 38,
   });
-  expect(mergeRateLimit(first, { ...first, reset: 1000 })).toEqual(first);
+  expect(mergeRateLimit(first, { ...first, reset: 1000 }, 1500)).toEqual(first);
   const next = { limit: 60, remaining: 59, reset: 3000 };
   expect(mergeRateLimit(first, next)).toEqual(next);
+});
+
+test("replaces a stored window that a live response contradicts", () => {
+  const checked = {
+    limit: 5000,
+    remaining: 5000,
+    reset: 9000,
+    authenticated: true as const,
+  };
+  const live = { ...checked, remaining: 4956, reset: 6000 };
+  expect(mergeRateLimit(checked, live, 5000)).toEqual(live);
+  expect(mergeRateLimit(checked, live, 6000)).toEqual(checked);
 });
 
 test("tags signed-in limits and replaces a value from the other kind", () => {

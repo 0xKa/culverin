@@ -1,6 +1,6 @@
 import { validLogin, validRepository } from "./repository";
 import { ARCHIVE_LIMITS } from "../archive/limits";
-import { readRateLimitBody, type RateLimit } from "./rate-limit";
+import { readRateLimit, readRateLimitBody, type RateLimit } from "./rate-limit";
 
 export const API_VERSION = "2026-03-10";
 export const METADATA_LIMIT = 1024 * 1024;
@@ -130,12 +130,12 @@ export async function boundedJson(response: Response): Promise<unknown> {
   }
 }
 
-async function apiGet(
+async function apiResponse(
   fetcher: Fetcher,
   url: string,
   token: string | undefined,
   signal: AbortSignal,
-): Promise<unknown> {
+): Promise<Response> {
   const response = await fetcher(url, {
     method: "GET",
     headers: headers(token),
@@ -149,7 +149,16 @@ async function apiGet(
     throw new AcquisitionError("network_unavailable");
   }
   if (!response.ok) throw apiFailure(response);
-  return boundedJson(response);
+  return response;
+}
+
+async function apiGet(
+  fetcher: Fetcher,
+  url: string,
+  token: string | undefined,
+  signal: AbortSignal,
+): Promise<unknown> {
+  return boundedJson(await apiResponse(fetcher, url, token, signal));
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -176,10 +185,26 @@ export async function fetchRateLimit(
   token: string | undefined,
   signal: AbortSignal,
 ): Promise<RateLimit> {
-  const value = readRateLimitBody(
-    await apiGet(fetcher, "https://api.github.com/rate_limit", token, signal),
-    token !== undefined,
-  );
+  let value: RateLimit | undefined;
+  if (token === undefined)
+    value = readRateLimitBody(
+      await apiGet(
+        fetcher,
+        "https://api.github.com/rate_limit",
+        undefined,
+        signal,
+      ),
+    );
+  else {
+    const response = await apiResponse(
+      fetcher,
+      "https://api.github.com/user",
+      token,
+      signal,
+    );
+    await response.body?.cancel().catch(() => undefined);
+    value = readRateLimit(response.headers, true);
+  }
   if (!value) throw new AcquisitionError("network_unavailable");
   return value;
 }

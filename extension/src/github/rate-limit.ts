@@ -71,6 +71,7 @@ export function readRateLimitBody(
 export function mergeRateLimit(
   current: RateLimit | undefined,
   next: RateLimit,
+  now = Date.now(),
 ): RateLimit {
   if (
     !current ||
@@ -78,7 +79,7 @@ export function mergeRateLimit(
     next.reset > current.reset
   )
     return next;
-  if (next.reset < current.reset) return current;
+  if (next.reset < current.reset) return next.reset > now ? next : current;
   return { ...next, remaining: Math.min(current.remaining, next.remaining) };
 }
 

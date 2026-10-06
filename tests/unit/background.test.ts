@@ -82,8 +82,9 @@ function fixture() {
       return response;
     }
     if (url === "https://api.github.com/user") {
+      authorizations.push(new Headers(init?.headers).get("authorization"));
       const response = new Response(JSON.stringify({ login: "octo" }), {
-        status: 200,
+        status: rateLimitStatus,
         headers: {
           "x-ratelimit-limit": "5000",
           "x-ratelimit-remaining": "4963",
@@ -300,7 +301,7 @@ test("signing in keeps the rate limit GitHub reported for the new account", asyn
   });
 });
 
-test("settings can check the rate limit without spending a request", async () => {
+test("settings checks the rate limit for free without a connection and with one request when connected", async () => {
   const api = fixture();
   const gates = createSenderGates({
     id: "test",
@@ -344,10 +345,11 @@ test("settings can check the rate limit without spending a request", async () =>
     await api.resources.connection.generation(),
   );
   expect(await check()).toMatchObject({ state: "checked" });
+  expect(api.calls.at(-1)).toBe("https://api.github.com/user");
   expect(api.authorizations.at(-1)).toBe("Bearer fixture-token");
   expect(api.session.values["github.rateLimit"]).toEqual({
     limit: 5000,
-    remaining: 4993,
+    remaining: 4963,
     reset: 1_900_000_000_000,
     authenticated: true,
   });

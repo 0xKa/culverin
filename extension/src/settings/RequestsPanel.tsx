@@ -12,7 +12,8 @@ import { UsageMeter } from "../ui/UsageMeter";
 import { sendSettings } from "./client";
 import { Panel } from "./layout";
 
-const FREE = "Checking doesn't use any of your requests.";
+const FREE =
+  "Checking is free without a GitHub connection. While connected, it uses 1 of your requests.";
 
 export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
   const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({

@@ -86,6 +86,11 @@ export function createGitHubController(
       if (view?.device) schedule(view.device.interval * 1000, id);
     });
   }
+  function wake(): void {
+    if (disposed || timer === undefined) return;
+    stopPolling();
+    void check(generation);
+  }
   async function connect(): Promise<void> {
     if (disposed || busy) return;
     const id = ++generation;
@@ -175,5 +180,14 @@ export function createGitHubController(
     generation++;
     stopPolling();
   }
-  return { start, connect, cancel, copy, saveToken, disconnect, dispose };
+  return {
+    start,
+    wake,
+    connect,
+    cancel,
+    copy,
+    saveToken,
+    disconnect,
+    dispose,
+  };
 }

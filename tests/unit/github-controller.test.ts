@@ -191,3 +191,35 @@ test("copying the code reports its own result without changing the connection st
   await pending;
   expect(disposed.events).toEqual([]);
 });
+
+test("waking polls a pending code right away and does nothing otherwise", async () => {
+  jest.useFakeTimers();
+  const commands: string[] = [];
+  const ui = controller(async (command) => {
+    commands.push(command.type);
+    if (command.type === "auth.device.start") return device();
+    if (command.type === "auth.device.poll")
+      return reply({ state: "pending", retryIn: 5000 });
+    return status();
+  });
+  ui.current.wake();
+  expect(commands).toEqual([]);
+  await ui.current.connect();
+  ui.current.wake();
+  await settle();
+  expect(commands).toEqual(["auth.device.start", "auth.device.poll"]);
+  expect(jest.getTimerCount()).toBe(1);
+  ui.current.wake();
+  await settle();
+  expect(commands.filter((type) => type === "auth.device.poll")).toHaveLength(
+    2,
+  );
+  expect(jest.getTimerCount()).toBe(1);
+  await ui.current.cancel();
+  ui.current.wake();
+  await settle();
+  expect(commands.filter((type) => type === "auth.device.poll")).toHaveLength(
+    2,
+  );
+  ui.current.dispose();
+});

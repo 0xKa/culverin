@@ -125,7 +125,11 @@ export async function runGithubStorage(
 
   await settingsPage.locator("#github-device-code").waitFor();
 
-  assert.equal(await githubSection.locator(".culverin-dots").count(), 0);
+  assert.equal(await connectButton.count(), 0);
+
+  await settingsPage.locator("#github-device-waiting .culverin-dots").waitFor();
+
+  assert.equal(await githubSection.locator(".culverin-dots").count(), 1);
 
   assert.equal(await settingsPage.locator("#github-token").isDisabled(), true);
 

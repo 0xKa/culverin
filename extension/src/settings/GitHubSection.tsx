@@ -32,7 +32,16 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
   );
   useEffect(() => {
     controller.start();
-    return controller.dispose;
+    const wake = () => {
+      if (document.visibilityState === "visible") controller.wake();
+    };
+    document.addEventListener("visibilitychange", wake);
+    addEventListener("focus", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      removeEventListener("focus", wake);
+      controller.dispose();
+    };
   }, [controller]);
 
   const device = view?.device;
@@ -158,9 +167,17 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                       Cancel
                     </Button>
                   </div>
-                  <p className="text-muted m-0 mt-4 text-sm">
-                    Waiting for approval on GitHub. Only enter this code on
-                    github.com. Culverin never asks for your GitHub password.
+                  <p
+                    id="github-device-waiting"
+                    className="m-0 mt-4 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <DotLoader size="sm" />
+                    Waiting for approval on GitHub…
+                  </p>
+                  <p className="text-muted m-0 mt-1 text-sm">
+                    Culverin notices within a few seconds of approval. Only
+                    enter this code on github.com. Culverin never asks for your
+                    GitHub password.
                   </p>
                 </div>
               ) : (

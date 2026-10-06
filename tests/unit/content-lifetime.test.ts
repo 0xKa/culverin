@@ -31,18 +31,34 @@ beforeAll(async () => {
 });
 afterEach(() => jest.useRealTimers());
 
-test("page analysis allows sparse progress beyond one minute and ends on engine or transport failure", async () => {
+function pageHarness() {
   jest.useFakeTimers();
   const states: RowState[] = [];
   let activate!: (action: RowAction) => void;
   const requests: Record<string, unknown>[] = [];
   const callbacks = new Map<string, (value: unknown) => void>();
   const messages = event<(message: unknown, sender: unknown) => void>();
-  const disconnect = event<() => void>();
+  const ports: {
+    disconnect: ReturnType<typeof jest.fn>;
+    onDisconnect: ReturnType<typeof event<() => void>>;
+    connected: boolean;
+  }[] = [];
+  const lifecycle = new Map<string, () => void>();
   const runtime = {
     id: "test",
     getURL: (path: string) => `chrome-extension://test/${path}`,
-    connect: () => ({ disconnect: () => undefined, onDisconnect: disconnect }),
+    connect: jest.fn(() => {
+      const port = {
+        connected: true,
+        onDisconnect: event<() => void>(),
+        disconnect: jest.fn(() => {
+          port.connected = false;
+          port.onDisconnect.emit();
+        }),
+      };
+      ports.push(port);
+      return port;
+    }),
     onMessage: messages,
     sendMessage: (
       request: Record<string, unknown>,
@@ -50,7 +66,15 @@ test("page analysis allows sparse progress beyond one minute and ends on engine 
     ) => {
       requests.push(request);
       callbacks.set(request.requestId as string, callback);
-      if (request.type === "repository.lookup")
+      if (!ports.at(-1)?.connected)
+        callback({
+          protocolVersion: 1,
+          requestId: request.requestId,
+          navigationId: request.navigationId,
+          type: "analysis.failed",
+          code: "analysis_interrupted",
+        });
+      else if (request.type === "repository.lookup")
         callback({
           protocolVersion: 1,
           requestId: request.requestId,
@@ -65,7 +89,8 @@ test("page analysis allows sparse progress beyond one minute and ends on engine 
     querySelector: () => ({ getAttribute: () => "culverin/sample" }),
   };
   const window = {
-    addEventListener: () => undefined,
+    addEventListener: (type: string, listener: () => void) =>
+      lifecycle.set(type, listener),
     fixture: {
       create: (action: typeof activate) => {
         activate = action;
@@ -92,6 +117,21 @@ test("page analysis allows sparse progress beyond one minute and ends on engine 
       disconnect() {}
     },
   );
+  return {
+    states,
+    activate: (action: RowAction) => activate(action),
+    requests,
+    callbacks,
+    messages,
+    ports,
+    runtime,
+    lifecycle,
+  };
+}
+
+test("page analysis allows sparse progress beyond one minute and ends on engine or transport failure", async () => {
+  const { states, activate, requests, callbacks, messages, ports, runtime } =
+    pageHarness();
   await settle();
   activate("analyze");
   const request = requests.at(-1)!;
@@ -130,9 +170,84 @@ test("page analysis allows sparse progress beyond one minute and ends on engine 
     detail: expect.stringContaining("time"),
   });
   activate("analyze");
-  disconnect.emit();
+  ports.at(-1)!.disconnect();
   expect(states.at(-1)).toMatchObject({
     kind: "retry",
     detail: expect.stringContaining("interrupted"),
   });
+});
+
+test("completed page counts survive disconnect and reconnect only on the next action", async () => {
+  const { states, activate, requests, callbacks, ports, runtime, lifecycle } =
+    pageHarness();
+  await settle();
+  activate("analyze");
+  const request = requests.at(-1)!;
+  callbacks.get(request.requestId as string)!({
+    protocolVersion: 1,
+    requestId: request.requestId,
+    navigationId: request.navigationId,
+    ...(await completedResult()),
+  });
+  await settle();
+  const completed = states.at(-1);
+  expect(completed).toMatchObject({ kind: "complete", total: 0 });
+  const oldPort = ports[0]!;
+  oldPort.disconnect();
+  jest.advanceTimersByTime(60_000);
+  await settle();
+  expect(states.at(-1)).toEqual(completed);
+  expect(runtime.connect).toHaveBeenCalledTimes(1);
+  expect(requests).toHaveLength(2);
+  activate("analyze");
+  expect(runtime.connect).toHaveBeenCalledTimes(2);
+  expect(runtime.connect).toHaveBeenLastCalledWith({ name: "culverin.public" });
+  const retry = requests.at(-1)!;
+  expect(retry.type).toBe("analysis.request");
+  oldPort.onDisconnect.emit();
+  expect(states.at(-1)).toEqual({ kind: "running", phase: "resolving" });
+  callbacks.get(retry.requestId as string)!({
+    protocolVersion: 1,
+    requestId: retry.requestId,
+    navigationId: retry.navigationId,
+    ...(await completedResult()),
+  });
+  await settle();
+  expect(states.at(-1)).toEqual(completed);
+  lifecycle.get("pagehide")!();
+  expect(ports[1]!.disconnect).toHaveBeenCalledTimes(1);
+});
+
+test("an interrupted page analysis reconnects on Retry and ignores the old reply", async () => {
+  const { states, activate, requests, callbacks, ports, runtime } =
+    pageHarness();
+  await settle();
+  activate("analyze");
+  const interrupted = requests.at(-1)!;
+  ports[0]!.disconnect();
+  expect(states.at(-1)).toMatchObject({
+    kind: "retry",
+    detail: expect.stringContaining("interrupted"),
+  });
+  expect(runtime.connect).toHaveBeenCalledTimes(1);
+  activate("analyze");
+  expect(runtime.connect).toHaveBeenCalledTimes(2);
+  const retry = requests.at(-1)!;
+  callbacks.get(interrupted.requestId as string)!({
+    protocolVersion: 1,
+    requestId: interrupted.requestId,
+    navigationId: interrupted.navigationId,
+    type: "analysis.failed",
+    code: "analysis_interrupted",
+  });
+  await settle();
+  expect(states.at(-1)).toEqual({ kind: "running", phase: "resolving" });
+  callbacks.get(retry.requestId as string)!({
+    protocolVersion: 1,
+    requestId: retry.requestId,
+    navigationId: retry.navigationId,
+    ...(await completedResult()),
+  });
+  await settle();
+  expect(states.at(-1)).toMatchObject({ kind: "complete", total: 0 });
 });

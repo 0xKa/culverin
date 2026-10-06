@@ -358,6 +358,15 @@ export async function runPageCounting(
 
   await lookupRestart.detach();
 
+  await page.waitForTimeout(500);
+
+  assert.equal(
+    await page.getByText("0 lines of code", { exact: true }).count(),
+    1,
+  );
+
+  assert.equal(fixtures.apiRequests, beforeRestartedLookup);
+
   await page.reload();
 
   await page.getByText("0 lines of code", { exact: true }).waitFor();
@@ -404,6 +413,10 @@ export async function runPageCounting(
 
   await countingSettings.close();
 
+  const retainedCache = await settingsPage.evaluate(() =>
+    chrome.storage.local.get("culverin.public-results.v1"),
+  );
+
   await clearPublicCache();
 
   const beforeManualPage = fixtures.apiRequests;
@@ -413,6 +426,25 @@ export async function runPageCounting(
   await countButton.waitFor();
 
   assert.equal(fixtures.apiRequests, beforeManualPage);
+
+  await settingsPage.evaluate(
+    (cache) => chrome.storage.local.set(cache),
+    retainedCache,
+  );
+
+  const analysisRestart = await context.newCDPSession(page);
+
+  await analysisRestart.send("ServiceWorker.enable");
+
+  await analysisRestart.send("ServiceWorker.stopAllWorkers");
+
+  await analysisRestart.detach();
+
+  await page.waitForTimeout(500);
+
+  await countButton.click();
+
+  await page.getByText("0 lines of code", { exact: true }).waitFor();
 
   fixtures.mode = "rate";
 

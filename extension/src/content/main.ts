@@ -28,7 +28,7 @@ type View = {
   analysisRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
   retryTimer?: ReturnType<typeof setTimeout>;
-  port: chrome.runtime.Port;
+  port?: chrome.runtime.Port;
   messageListener: (
     message: unknown,
     sender: chrome.runtime.MessageSender,
@@ -54,6 +54,7 @@ function send(
   type: PublicRequest["type"],
   extra: Record<string, unknown> = {},
 ): { requestId: string; response: Promise<PublicReply> } {
+  connect(current);
   const requestId = crypto.randomUUID();
   const request = {
     protocolVersion: 1,
@@ -215,10 +216,26 @@ function detach(): void {
   clearTimeout(current.timer);
   clearTimeout(current.retryTimer);
   stopHydration();
-  current.port.disconnect();
+  current.port?.disconnect();
   chrome.runtime.onMessage.removeListener(current.messageListener);
   current.ui.host.remove();
   view = undefined;
+}
+
+function connect(current: View): void {
+  if (current.port) return;
+  const port = chrome.runtime.connect({ name: PUBLIC_PORT });
+  current.port = port;
+  port.onDisconnect.addListener(() => {
+    if (current.port !== port) return;
+    current.port = undefined;
+    if (!currentView(current)) return;
+    const requestId = current.analysisRequestId;
+    current.lookupRequestId = undefined;
+    clearTimeout(current.timer);
+    if (requestId && stopAnalysis(current, requestId))
+      setState(current, failureState("analysis_interrupted"));
+  });
 }
 
 function create(repository: PageRepository): View {
@@ -227,7 +244,6 @@ function create(repository: PageRepository): View {
     navigationId: crypto.randomUUID(),
     repository,
     ui: createSummaryUi((action) => activate(current, action)),
-    port: chrome.runtime.connect({ name: PUBLIC_PORT }),
     messageListener: () => undefined,
   };
   current.messageListener = (message, sender) => {
@@ -261,15 +277,6 @@ function create(repository: PageRepository): View {
       customIgnore: message.customIgnore,
     });
   };
-  current.port.onDisconnect.addListener(() => {
-    if (!currentView(current)) return;
-    const requestId = current.analysisRequestId;
-    current.lookupRequestId = undefined;
-    clearTimeout(current.timer);
-    if (requestId && stopAnalysis(current, requestId))
-      setState(current, failureState("analysis_interrupted"));
-    else setState(current, { kind: "idle" });
-  });
   chrome.runtime.onMessage.addListener(current.messageListener);
   return current;
 }

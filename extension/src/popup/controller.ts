@@ -19,12 +19,16 @@ import type { AnalysisResultV2 } from "../counter/result";
 import { subscribeRateLimit } from "../github/rate-limit-observer";
 import { apiLimitView, resultView, sizesView } from "./view";
 import type { PopupEvent } from "./state";
+import {
+  failureStatus,
+  progressStatuses,
+  readyStatus,
+  statuses,
+  type PopupStatus,
+} from "./status";
+import { formatClockTime } from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
 
-const cachedStatus =
-  "Cached local analysis, checked on GitHub in the last 20 minutes. Select Reanalyze to check for a newer commit.";
-const rulesChanged =
-  "Culverin ignore changed. Reopen the popup to see results for the current rules.";
 const errors: Record<PublicErrorCode, string> = {
   ...failureMessages,
   analysis_interrupted: "Analysis was interrupted. Click Analyze to try again.",
@@ -35,14 +39,6 @@ const connectLabels: Partial<Record<PublicErrorCode, string>> = {
   authentication_required: "Connect GitHub",
   authentication_invalid: "Connect GitHub",
   access_not_granted: "Check GitHub access",
-};
-
-const progressText = {
-  queued: "Queued for local analysis…",
-  resolving: "Resolving repository revision…",
-  downloading: "Downloading source snapshot from GitHub…",
-  decompressing: "Decompressing and validating source snapshot…",
-  counting: "Counting source files locally…",
 };
 
 export function createPopupController(
@@ -67,9 +63,15 @@ export function createPopupController(
   let reanalyzedSha: string | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let retryUntil = 0;
+  let shownStatus: PopupStatus | undefined;
 
-  function setStatus(value: string): void {
+  function setStatus(value: PopupStatus): void {
+    shownStatus = value;
     dispatch({ type: "status", value });
+  }
+
+  function fail(code: PublicErrorCode): void {
+    setStatus(failureStatus(code, errors[code]));
   }
 
   function setBusy(busy: boolean): void {
@@ -113,22 +115,39 @@ export function createPopupController(
   ): void {
     let message = errors[reply.code] + limitNote(reply.limit);
     dispatch({ type: "connect", label: connectLabels[reply.code] });
-    if (reply.code === "rate_limited") {
-      retryUntil =
-        reply.retryAt && reply.retryAt > Date.now()
-          ? reply.retryAt
-          : Date.now() + 60_000;
-      message += reply.retryAt
-        ? ` Retry after ${new Date(reply.retryAt).toLocaleString()}.`
-        : " Try again later.";
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(() => {
-        retryUntil = 0;
-        setBusy(Boolean(activeRequestId));
-      }, retryUntil - Date.now());
+    if (reply.code !== "rate_limited") {
+      retryUntil = 0;
+      setStatus(
+        failureStatus(
+          reply.code,
+          message,
+          reply.code === "archive_throttled"
+            ? "Try again in a minute"
+            : undefined,
+        ),
+      );
+      setBusy(Boolean(activeRequestId));
+      return;
     }
-    setStatus(message);
-    if (reply.code !== "rate_limited") retryUntil = 0;
+    retryUntil =
+      reply.retryAt && reply.retryAt > Date.now()
+        ? reply.retryAt
+        : Date.now() + 60_000;
+    message += reply.retryAt
+      ? ` Retry after ${new Date(reply.retryAt).toLocaleString()}.`
+      : " Try again later.";
+    const limited = failureStatus(
+      reply.code,
+      message,
+      `Available at ${formatClockTime(retryUntil)}`,
+    );
+    setStatus(limited);
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retryUntil = 0;
+      if (shownStatus === limited) setStatus({ ...limited, note: undefined });
+      setBusy(Boolean(activeRequestId));
+    }, retryUntil - Date.now());
     setBusy(Boolean(activeRequestId));
   }
 
@@ -146,8 +165,8 @@ export function createPopupController(
     if (value.type === "analysis.progress")
       setStatus(
         value.phase === "resolving" && reanalyzedSha
-          ? "Checking for updates…"
-          : progressText[value.phase],
+          ? statuses.checkingUpdates
+          : progressStatuses[value.phase],
       );
     else void finishAnalysis(requestId, value);
   }
@@ -165,7 +184,7 @@ export function createPopupController(
       waiting.clear();
       const requestId = activeRequestId;
       if (requestId) {
-        setStatus(errors.analysis_interrupted);
+        fail("analysis_interrupted");
         stopWatching(requestId);
       }
     });
@@ -206,12 +225,12 @@ export function createPopupController(
     if (!pending) return;
     lookupRequestId = pending.requestId;
     dispatch({ type: "lookup" });
-    setStatus("Checking saved results…");
+    setStatus(statuses.lookup);
     const lookupTimer = setTimeout(() => {
       if (lookupRequestId === pending.requestId) {
         lookupRequestId = undefined;
         setBusy(false);
-        setStatus("GitHub did not respond in time. Reopen the popup to retry.");
+        setStatus(statuses.lookupTimeout);
       }
     }, 12_000);
     try {
@@ -221,16 +240,14 @@ export function createPopupController(
         clearResult();
         await currentRulesHash();
         if (lookupRequestId !== pending.requestId) return;
-        setStatus("Analyze checks GitHub and counts the source locally.");
+        setStatus(statuses.notCounted);
         void resume();
       } else if (reply.type === "repository.cache_miss") {
         clearResult();
         showSizes(reply.resolution);
         await currentRulesHash();
         if (lookupRequestId !== pending.requestId) return;
-        setStatus(
-          `Ready to analyze ${reply.resolution.defaultBranch} at ${reply.resolution.sha.slice(0, 12)}. ${reply.rulesChanged ? "Culverin ignore changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`,
-        );
+        setStatus(readyStatus(reply.resolution, reply.rulesChanged === true));
         void resume();
       } else if (reply.type === "repository.cache_hit") {
         const hash = await currentRulesHash();
@@ -238,16 +255,16 @@ export function createPopupController(
         if (reply.result.engine.rulesHash !== hash) {
           clearResult();
           showSizes(reply.resolution);
-          setStatus(rulesChanged);
+          setStatus(statuses.rulesChanged);
         } else {
           showResult(reply.result, reply.resolution);
-          setStatus(cachedStatus);
+          setStatus(statuses.cached);
         }
       } else if (reply.type === "analysis.failed") handleFailure(reply);
-      else setStatus(errors.internal_error);
+      else fail("internal_error");
     } catch {
       if (lookupRequestId === pending.requestId)
-        setStatus("Extension unavailable. Reopen the popup to retry.");
+        setStatus(statuses.extensionUnavailable);
     } finally {
       clearTimeout(lookupTimer);
       if (lookupRequestId === pending.requestId) {
@@ -276,21 +293,21 @@ export function createPopupController(
       const hash = await currentRulesHash();
       if (activeRequestId !== requestId) return;
       if (reply.result.engine.rulesHash !== hash) {
-        setStatus(rulesChanged);
+        setStatus(statuses.rulesChanged);
       } else {
         showResult(reply.result, reply.resolution);
         setStatus(
           reply.fromCache && reply.resolution.sha === reanalyzedSha
-            ? "No new commit since the last analysis. Showing the cached result."
+            ? statuses.upToDate
             : reply.fromCache
-              ? cachedStatus
+              ? statuses.cached
               : reply.result.coverage.complete
-                ? "Analyzed locally."
-                : "Partial local analysis.",
+                ? statuses.fresh
+                : statuses.partial,
         );
       }
     } else if (reply.type === "analysis.failed") handleFailure(reply);
-    else setStatus(errors.internal_error);
+    else fail("internal_error");
     stopWatching(requestId);
   }
 
@@ -306,14 +323,11 @@ export function createPopupController(
     setBusy(true);
     if (!reanalyze) clearResult();
     dispatch({ type: "connect" });
-    setStatus(
-      reanalyze ? "Checking for updates…" : "Resolving default branch…",
-    );
+    setStatus(reanalyze ? statuses.checkingUpdates : statuses.resolving);
     try {
       await finishAnalysis(pending.requestId, await pending.response);
     } catch {
-      if (activeRequestId === pending.requestId)
-        setStatus(errors.analysis_interrupted);
+      if (activeRequestId === pending.requestId) fail("analysis_interrupted");
       stopWatching(pending.requestId);
     }
   }
@@ -333,9 +347,7 @@ export function createPopupController(
       setBusy(true);
       clearResult();
       setStatus(
-        reply.state === "queued"
-          ? progressText.queued
-          : "Analysis in progress. Closing the popup does not stop it.",
+        reply.state === "queued" ? progressStatuses.queued : statuses.running,
       );
       return;
     }
@@ -347,7 +359,7 @@ export function createPopupController(
     if (!requestId) return;
     activeRequestId = undefined;
     setBusy(false);
-    setStatus(errors.analysis_canceled);
+    fail("analysis_canceled");
     const pending = send("analysis.cancel", { targetRequestId: requestId });
     void pending?.response.catch(() => undefined);
   }
@@ -414,12 +426,12 @@ export function createPopupController(
       });
       if (disposed) return;
       if (tab?.id === undefined || !tab.url) {
-        setStatus("Open a GitHub repository overview to analyze it.");
+        setStatus(statuses.notRepository);
         return;
       }
       const repository = pageRepository(tab.url);
       if (!repository) {
-        setStatus("Open a GitHub repository overview to analyze it.");
+        setStatus(statuses.notRepository);
         return;
       }
       target = { tabId: tab.id, repository };
@@ -429,7 +441,7 @@ export function createPopupController(
       });
       await lookup();
     } catch {
-      setStatus("Unable to read the active tab. Open a GitHub repository.");
+      setStatus(statuses.tabUnreadable);
     }
   }
 

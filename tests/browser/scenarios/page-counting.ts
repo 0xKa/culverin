@@ -529,6 +529,16 @@ export async function runPageCounting(
     .getByText(/GitHub rate limit reached. Retry after/)
     .waitFor();
 
+  assert.equal(
+    await limitedPopup.locator("#status-badge").getAttribute("aria-label"),
+    "Rate limited",
+  );
+
+  assert.match(
+    (await limitedPopup.locator("#status-note").textContent()) ?? "",
+    /^Available at /,
+  );
+
   const limitedRequests = fixtures.apiRequests;
 
   await limitedPopup.close();

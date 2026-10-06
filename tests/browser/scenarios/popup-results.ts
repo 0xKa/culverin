@@ -330,6 +330,26 @@ export async function runPopupResults(
     "Analyzed locally.",
   );
 
+  const badge = resumedPopup.getByRole("img", { name: "Fresh" });
+
+  assert.equal(await badge.getAttribute("aria-describedby"), "status");
+
+  await badge.hover();
+
+  assert.equal(
+    await badge.evaluate(
+      (element) => getComputedStyle(element, "::after").content,
+    ),
+    '"Analyzed locally."',
+  );
+
+  assert.equal(
+    await badge.evaluate(
+      (element) => getComputedStyle(element, "::after").visibility,
+    ),
+    "visible",
+  );
+
   const accessibility = await context.newCDPSession(resumedPopup);
 
   const tree = await accessibility.send("Accessibility.getFullAXTree");

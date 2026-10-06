@@ -1,8 +1,9 @@
+import { statuses, type PopupStatus } from "./status";
 import type { ApiLimitView, ResultView, SizesView } from "./view";
 
 export type PopupView = {
   repository?: string;
-  status: string;
+  status: PopupStatus;
   analysisVisible: boolean;
   analyzeDisabled: boolean;
   cancelVisible: boolean;
@@ -17,7 +18,7 @@ export type PopupView = {
 };
 
 export const initialView: PopupView = {
-  status: "Open a GitHub repository overview to analyze it.",
+  status: statuses.notRepository,
   analysisVisible: false,
   analyzeDisabled: true,
   cancelVisible: false,
@@ -27,7 +28,7 @@ export const initialView: PopupView = {
 };
 
 export type PopupEvent =
-  | { type: "status"; value: string }
+  | { type: "status"; value: PopupStatus }
   | { type: "busy"; busy: boolean; disabled: boolean }
   | { type: "lookup" }
   | { type: "clearResult" }
@@ -78,7 +79,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
     case "left":
       return {
         ...initialView,
-        status: "The active tab changed. Reopen the popup to analyze it.",
+        status: statuses.tabChanged,
         apiLimit: view.apiLimit,
       };
     case "repository":

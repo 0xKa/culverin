@@ -15,6 +15,7 @@ import { IconButton } from "../ui/IconButton";
 import { Joined } from "../ui/Separator";
 import { GearIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
+import { StatusBadge } from "../ui/StatusBadge";
 import { UsageMeter } from "../ui/UsageMeter";
 import { createPopupController, openSettings } from "./controller";
 import { ResultSection } from "./ResultSection";
@@ -263,15 +264,34 @@ export function App() {
     <main>
       <Header view={view} />
       <div className="px-4 pt-3 pb-4">
-        <p
-          id="repository"
-          hidden={!view.repository}
-          className="m-0 text-base font-semibold break-words"
-        >
-          {view.repository}
-        </p>
-        <Status id="status" className="text-muted m-0 mt-0.5 min-h-5 text-xs">
-          {view.status}
+        <div className="flex items-start justify-between gap-3">
+          {view.repository ? (
+            <p
+              id="repository"
+              className="m-0 min-w-0 text-base font-semibold break-words"
+            >
+              {view.repository}
+            </p>
+          ) : (
+            <p
+              id="no-repository"
+              className="text-muted m-0 min-w-0 text-base font-semibold"
+            >
+              No repository
+            </p>
+          )}
+          <StatusBadge
+            id="status-badge"
+            tone={view.status.tone}
+            mark={view.status.mark}
+            label={view.status.label}
+            detail={view.status.detail}
+            aria-describedby="status"
+            className="mt-px"
+          />
+        </div>
+        <Status id="status" className="sr-only">
+          {view.status.detail}
         </Status>
         <section id="analysis" hidden={!view.analysisVisible}>
           {result && <Totals key={view.sizes?.snapshotLabel} result={result} />}
@@ -341,6 +361,14 @@ export function App() {
               {view.connect}
             </Button>
           </div>
+          {view.status.note && (
+            <p
+              id="status-note"
+              className="text-muted m-0 mt-1.5 text-center text-xs"
+            >
+              {view.status.note}
+            </p>
+          )}
           <Details
             view={view}
             onToggle={(open) => dispatch({ type: "details", open })}

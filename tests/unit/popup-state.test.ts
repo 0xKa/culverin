@@ -74,7 +74,12 @@ test("leaving a repository resets every repository-specific field", () => {
   };
   expect(reduce(active, { type: "left" })).toEqual({
     ...initialView,
-    status: "The active tab changed. Reopen the popup to analyze it.",
+    status: {
+      label: "Tab changed",
+      tone: "neutral",
+      mark: "idle",
+      detail: "The active tab changed. Reopen the popup to analyze it.",
+    },
   });
 });
 

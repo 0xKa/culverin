@@ -102,7 +102,12 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
   );
   expect(ui.events.at(-1)).toEqual({
     type: "status",
-    value: "Counting source files locally…",
+    value: {
+      label: "Counting",
+      tone: "accent",
+      mark: "busy",
+      detail: "Counting source files locally…",
+    },
   });
   ui.reply(request, await completedResult());
   await pending;
@@ -116,12 +121,13 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
   await timedOut;
   expect(
     ui.events.some(
-      (item) => item.type === "status" && item.value.includes("interrupted"),
+      (item) =>
+        item.type === "status" && item.value.detail.includes("interrupted"),
     ),
   ).toBe(false);
   expect(
     ui.events.some(
-      (item) => item.type === "status" && item.value.includes("time"),
+      (item) => item.type === "status" && item.value.detail.includes("time"),
     ),
   ).toBe(true);
   const canceled = ui.controller.analyze();
@@ -163,11 +169,81 @@ test("port interruption settles the active request and disposal sends no cancel"
   await pending;
   expect(
     ui.events.filter(
-      (event) => event.type === "status" && event.value.includes("interrupted"),
+      (event) =>
+        event.type === "status" && event.value.detail.includes("interrupted"),
     ),
   ).toHaveLength(1);
   ui.controller.dispose();
   expect(
     ui.requests.some((request) => request.type === "analysis.cancel"),
   ).toBe(false);
+});
+
+function lastStatus(events: PopupEvent[]) {
+  const statuses = events.flatMap((item) =>
+    item.type === "status" ? [item.value] : [],
+  );
+  return statuses.at(-1);
+}
+
+test("badges summarize outcomes and only waiting failures keep a visible note", async () => {
+  jest.useFakeTimers();
+  const ui = popup();
+  await settle();
+  const first = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, await completedResult());
+  await first;
+  expect(lastStatus(ui.events)).toMatchObject({ label: "Fresh", tone: "ok" });
+
+  const again = ui.controller.analyze(true);
+  ui.reply(ui.requests.at(-1)!, {
+    ...(await completedResult()),
+    fromCache: true,
+  });
+  await again;
+  expect(lastStatus(ui.events)).toMatchObject({
+    label: "Up to date",
+    mark: "done",
+  });
+
+  const throttled = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "archive_throttled",
+  });
+  await throttled;
+  expect(lastStatus(ui.events)).toMatchObject({
+    label: "GitHub busy",
+    note: "Try again in a minute",
+  });
+
+  const failed = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "download_failed",
+  });
+  await failed;
+  expect(lastStatus(ui.events)).toEqual({
+    label: "Failed",
+    tone: "error",
+    mark: "failed",
+    detail: "The source snapshot could not be downloaded.",
+  });
+
+  const limited = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "rate_limited",
+    retryAt: Date.now() + 120_000,
+  });
+  await limited;
+  expect(lastStatus(ui.events)).toMatchObject({
+    label: "Rate limited",
+    tone: "error",
+    detail: expect.stringMatching(/^GitHub rate limit reached\. Retry after /),
+    note: expect.stringMatching(/^Available at /),
+  });
+  jest.advanceTimersByTime(121_000);
+  expect(lastStatus(ui.events)).toMatchObject({ label: "Rate limited" });
+  expect(lastStatus(ui.events)?.note).toBeUndefined();
 });

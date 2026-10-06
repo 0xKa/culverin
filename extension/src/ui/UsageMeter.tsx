@@ -23,10 +23,10 @@ export function UsageMeter({
       id={id}
       aria-hidden="true"
       data-level={level}
-      className={`bg-divider inline-block shrink-0 overflow-hidden rounded-full align-middle ${className}`}
+      className={`bg-track inline-block shrink-0 overflow-hidden rounded-full align-middle forced-colors:border forced-colors:border-[CanvasText] ${className}`}
     >
       <span
-        className={`block h-full ${fill[level]}`}
+        className={`block h-full rounded-full transition-[width] duration-500 ease-(--ease-spring) forced-colors:bg-[CanvasText] ${fill[level]}`}
         style={{ width: `${remainingPercent(value, now)}%` }}
       />
     </span>

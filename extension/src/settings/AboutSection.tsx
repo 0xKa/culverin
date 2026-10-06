@@ -7,7 +7,9 @@ import {
   wrapperVersion,
 } from "../counter/rules";
 import { Button } from "../ui/Button";
+import { ExternalIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
+import { Panel, SectionHeader } from "./layout";
 import { aboutDetails, browserVersion, REPOSITORY_URL } from "./about";
 
 const links: [string, string][] = [
@@ -44,63 +46,79 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="about-heading" hidden={hidden}>
-      <h2 id="about-heading" className="mb-4 text-[1.5em] font-bold">
-        About
-      </h2>
-      <p>{manifest.description}</p>
-      <dl
-        id="about-details"
-        className="my-4 grid grid-cols-[10rem_1fr] gap-x-3 gap-y-1"
-      >
-        {rows.map(([label, value]) => (
-          <>
-            <dt key={`${label}-label`} className="text-muted">
-              {label}
-            </dt>
-            <dd key={`${label}-value`} className="m-0 break-words">
-              {value}
-            </dd>
-          </>
-        ))}
-        <dt className="text-muted">License</dt>
-        <dd className="m-0">
-          <ExternalLink
-            href={`${REPOSITORY_URL}/blob/main/LICENSE`}
-            className="underline"
+      <SectionHeader id="about-heading" title="About">
+        <p className="m-0">{manifest.description}</p>
+        <p className="m-0 mt-2">
+          Repository source is downloaded directly from GitHub and analyzed in
+          your browser when you select Analyze, or when you open a repository
+          page if you turn that on under Counting. Public repositories work
+          without an account; connect GitHub to count private ones.
+        </p>
+      </SectionHeader>
+      <div className="grid gap-5">
+        <Panel
+          actions={
+            <Button
+              id="copy-details"
+              type="button"
+              size="md"
+              onClick={() => void copy()}
+            >
+              Copy details
+            </Button>
+          }
+          title="Details"
+        >
+          <dl id="about-details" className="m-0 text-sm">
+            {rows.map(([label, value]) => (
+              <div
+                key={label}
+                className="border-divider grid gap-x-4 border-t py-2.5 first:border-t-0 first:pt-0 sm:grid-cols-[11rem_1fr]"
+              >
+                <dt className="text-muted">{label}</dt>
+                <dd className="m-0 break-words">{value}</dd>
+              </div>
+            ))}
+            <div className="border-divider grid gap-x-4 border-t pt-2.5 sm:grid-cols-[11rem_1fr]">
+              <dt className="text-muted">License</dt>
+              <dd className="m-0">
+                <ExternalLink href={`${REPOSITORY_URL}/blob/main/LICENSE`}>
+                  Apache License 2.0
+                </ExternalLink>
+                {" · "}
+                <a
+                  href="THIRD_PARTY_NOTICES.txt"
+                  target="_blank"
+                  className="underline"
+                >
+                  Third-party notices
+                </a>
+              </dd>
+            </div>
+          </dl>
+          <Status
+            id="about-status"
+            className="text-muted m-0 text-sm not-empty:mt-2"
           >
-            Apache License 2.0
-          </ExternalLink>
-          {" · "}
-          <a
-            href="THIRD_PARTY_NOTICES.txt"
-            target="_blank"
-            className="underline"
-          >
-            Third-party notices
-          </a>
-        </dd>
-      </dl>
-      <Button
-        id="copy-details"
-        type="button"
-
-        onClick={() => void copy()}
-      >
-        Copy details
-      </Button>
-      <Status id="about-status" className="mt-2 min-h-[1.5em]">
-        {copyStatus}
-      </Status>
-      <h3 className="mt-4 mb-2 text-[1.17em] font-bold">Links</h3>
-      <ul className="list-disc pl-5">
-        {links.map(([label, url]) => (
-          <li key={label}>
-            <ExternalLink href={url} className="underline">
-              {label}
-            </ExternalLink>
-          </li>
-        ))}
-      </ul>
+            {copyStatus}
+          </Status>
+        </Panel>
+        <Panel title="Links">
+          <ul className="divide-divider m-0 -my-1 list-none divide-y p-0">
+            {links.map(([label, url]) => (
+              <li key={label}>
+                <ExternalLink
+                  href={url}
+                  className="text-ink hover:text-accent-text -mx-2 flex items-center justify-between rounded-md px-2 py-2.5 no-underline transition-colors duration-150"
+                >
+                  {label}
+                  <ExternalIcon className="text-muted" />
+                </ExternalLink>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
     </section>
   );
 }

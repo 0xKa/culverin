@@ -360,7 +360,9 @@ export async function runPartialResults(
 
   await oversizedDisclosure.getByText("Show files", { exact: true }).click();
 
-  assert.equal(await oversizedDisclosure.locator("ul").isVisible(), false);
+  await oversizedDisclosure
+    .locator("ul")
+    .waitFor({ state: "hidden", timeout: 2000 });
 
   await multiplePartialPopup.close();
 

@@ -78,26 +78,45 @@ test("formats repository and result details", () => {
     snapshotLabel: "Files at aaaaaaaaaaaa",
   });
   const view = resultView(result, resolution);
-  expect(view.codeLines).toBe("3 code lines");
+  expect(view.codeTotal).toBe("3");
   expect(view.textLines).toBe("4 text lines");
-  expect(view.metrics).toBe(
-    "2 files · 8 physical lines · 4 comments · 1 blanks",
-  );
+  expect(view.stats).toEqual([
+    { label: "Files", value: "2" },
+    { label: "Physical lines", value: "8" },
+    { label: "Comments", value: "4" },
+    { label: "Blanks", value: "1" },
+  ]);
   expect(view.codeSummary).toBe("3 code lines · 1 files");
   expect(view.textSummary).toBe("4 text lines · 1 files");
   expect(view.otherSummary).toBe("38 lines · 2 files");
   expect(view.codeRows).toEqual([
-    "TypeScript: 3 code lines (100.0% of code lines), 1 files",
+    {
+      label: "TypeScript: 3 code lines (100.0% of code lines), 1 files",
+      name: "TypeScript",
+      value: "3",
+      share: 100,
+      files: "1 file",
+    },
   ]);
   expect(view.textRows).toEqual([
-    "Markdown: 4 text lines (100.0% of text lines), 1 files",
+    {
+      label: "Markdown: 4 text lines (100.0% of text lines), 1 files",
+      name: "Markdown",
+      value: "4",
+      share: 100,
+      files: "1 file",
+    },
   ]);
   expect(view.coverage).toContain(
     "3 skipped (0 excluded by Culverin ignore, 2 other files, 0 binary",
   );
-  expect(view.otherRows).toEqual([
+  expect(view.otherRows.map((row) => row.label)).toEqual([
     ".golden: 30 lines, 1 files",
     "No extension: 8 lines, 1 files",
+  ]);
+  expect(view.otherRows.map((row) => [row.name, row.share])).toEqual([
+    [".golden", (30 / 38) * 100],
+    ["No extension", (8 / 38) * 100],
   ]);
   expect(view.warning).toBe(
     "1 source file was too large to count and is not included in these totals.",
@@ -183,18 +202,14 @@ test("orders languages by lines and retains all other file rows for display", ()
   expect(view.codeSummary).toBe("170 code lines · 3 files");
   expect(view.textSummary).toBe("10 text lines · 2 files");
   expect(view.otherSummary).toBe("80 lines · 13 files");
-  expect(view.codeRows.map((line) => line.split(":")[0])).toEqual([
-    "Rust",
-    "Go",
-    "Shell",
-  ]);
-  expect(view.textRows.map((line) => line.split(":")[0])).toEqual([
+  expect(view.codeRows.map((row) => row.name)).toEqual(["Rust", "Go", "Shell"]);
+  expect(view.textRows.map((row) => row.name)).toEqual([
     "Plain Text",
     "Markdown",
   ]);
   expect(view.otherRows).toHaveLength(13);
-  expect(view.otherRows[0]).toBe(".e00: 12 lines, 1 files");
-  expect(view.otherRows.slice(10)).toEqual([
+  expect(view.otherRows[0]?.label).toBe(".e00: 12 lines, 1 files");
+  expect(view.otherRows.slice(10).map((row) => row.label)).toEqual([
     ".e10: 2 lines, 1 files",
     ".e11: 1 lines, 1 files",
     "1 more extension: 2 lines, 1 files",

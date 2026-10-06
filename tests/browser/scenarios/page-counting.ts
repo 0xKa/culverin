@@ -296,7 +296,7 @@ export async function runPageCounting(
   );
 
   const manualTrigger = countingSettings.getByRole("radio", {
-    name: "When I select Count lines or Analyze",
+    name: "When I click Count lines or Analyze",
   });
 
   const openTrigger = countingSettings.getByRole("radio", {

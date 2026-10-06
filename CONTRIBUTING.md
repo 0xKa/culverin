@@ -48,6 +48,7 @@ After a rebuild, click the reload button on the extension card.
 | `bun run package`       | Writes a release ZIP and its checksum to `dist/`.                  |
 | `bun run test:package`  | Builds the ZIP, unpacks it, and runs the browser tests against it. |
 | `bun run bench:archive` | Measures archive processing speed on large generated archives.     |
+| `bun run screenshots`   | Captures the popup, settings, and page row in light and dark mode. |
 | `bun run icons:build`   | Regenerates the PNG icons from `assets/original/`.                 |
 | `bun run notices:build` | Regenerates `extension/public/THIRD_PARTY_NOTICES.txt`.            |
 

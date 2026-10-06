@@ -236,19 +236,23 @@ export async function runPopupResults(
   );
 
   assert.deepEqual(
-    await resumedPopup.locator("#detail-content > ul").evaluateAll((lists) =>
-      lists.map((list) => {
-        let heading = list.previousElementSibling;
-        while (heading && heading.tagName !== "H2")
-          heading = heading.previousElementSibling;
-        return [
-          heading?.textContent,
-          heading?.nextElementSibling?.textContent,
-          list.getAttribute("aria-label"),
-          Array.from(list.children, (item) => item.textContent),
-        ];
-      }),
-    ),
+    await resumedPopup
+      .locator("#detail-content > section")
+      .evaluateAll((sections) =>
+        sections.map((section) => {
+          const heading = section.querySelector("h2");
+          const list = section.querySelector(":scope > ul");
+          return [
+            heading?.textContent,
+            heading?.nextElementSibling?.textContent,
+            list?.getAttribute("aria-label"),
+            Array.from(
+              list?.children ?? [],
+              (item) => item.querySelector(".sr-only")?.textContent,
+            ),
+          ];
+        }),
+      ),
     [
       [
         "Code",
@@ -287,7 +291,7 @@ export async function runPopupResults(
 
   await moreOther.getByText("Show 2 more").click();
 
-  assert.deepEqual(await moreList.locator("li").allTextContents(), [
+  assert.deepEqual(await moreList.locator("li .sr-only").allTextContents(), [
     ".zz10: 1 lines, 1 files",
     ".zz11: 1 lines, 1 files",
   ]);

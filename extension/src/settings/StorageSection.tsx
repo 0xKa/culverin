@@ -13,6 +13,7 @@ import { formatBytes } from "../ui/format";
 import { Button } from "../ui/Button";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
+import { Panel, SectionHeader } from "./layout";
 
 const exact = (time: number) =>
   new Date(time).toLocaleString([], {
@@ -70,41 +71,56 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
   }, [options]);
 
   if (!entries) return null;
+  const share = Math.min(100, (used / options.bytes) * 100);
   return (
-    <div id={`${id}-list`} className="mt-3">
-      <p id={`${id}-summary`} className="m-0">
-        {cacheSummary(entries)}
-      </p>
-      <p className="text-muted mt-0 mb-3">
-        {formatBytes(used)} of {formatBytes(options.bytes)} used, up to{" "}
-        {options.entries} results. When full, the results viewed least recently
-        are removed first.
+    <div id={`${id}-list`} className="mt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p id={`${id}-summary`} className="m-0 font-medium">
+          {cacheSummary(entries)}
+        </p>
+        <span className="text-muted tabular text-sm">
+          {formatBytes(used)} of {formatBytes(options.bytes)} used
+        </span>
+      </div>
+      <span
+        aria-hidden="true"
+        className="bg-track mt-2 block h-1.5 overflow-hidden rounded-full forced-colors:border forced-colors:border-[CanvasText]"
+      >
+        <span
+          className="bg-accent block h-full rounded-full transition-[width] duration-500 ease-(--ease-spring) forced-colors:bg-[CanvasText]"
+          style={{ width: `${Math.max(share, used > 0 ? 1 : 0)}%` }}
+        />
+      </span>
+      <p className="text-muted m-0 mt-2 text-sm">
+        Holds up to {options.entries} results. When full, the results viewed
+        least recently are removed first.
       </p>
       {entries.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+        <div className="border-divider -mx-5 mt-4 -mb-5 overflow-x-auto border-t">
+          <table className="w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="border-divider border-b">
-                <th className="py-1.5 pr-4 font-semibold">Repository</th>
-                <th className="py-1.5 pr-4 text-right font-semibold">
-                  Code lines
-                </th>
-                <th className="py-1.5 pr-4 text-right font-semibold">Files</th>
-                <th className="py-1.5 pr-4 font-semibold">Counted</th>
-                <th className="py-1.5 font-semibold">Last viewed</th>
+              <tr className="border-divider text-muted border-b text-xs">
+                <th className="py-2 pr-4 pl-5 font-medium">Repository</th>
+                <th className="py-2 pr-4 text-right font-medium">Code lines</th>
+                <th className="py-2 pr-4 text-right font-medium">Files</th>
+                <th className="py-2 pr-4 font-medium">Counted</th>
+                <th className="py-2 pr-5 font-medium">Last viewed</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr key={entry.identity} className="border-divider border-b">
-                  <td className="py-1.5 pr-4 align-top">
+                <tr
+                  key={entry.identity}
+                  className="border-divider hover:bg-surface border-b transition-colors duration-150 last:border-b-0"
+                >
+                  <td className="py-2.5 pr-4 pl-5 align-top">
                     <ExternalLink
                       href={`https://github.com/${entry.owner}/${entry.name}`}
-                      className="underline"
+                      className="font-medium no-underline hover:underline"
                     >
                       {entry.owner}/{entry.name}
                     </ExternalLink>
-                    <div className="text-muted text-[0.9em]">
+                    <div className="text-muted mt-0.5 text-xs">
                       <span className="font-mono">{entry.sha.slice(0, 7)}</span>
                       {entry.topLanguage && ` · mostly ${entry.topLanguage}`}
                       {defaultHash &&
@@ -112,20 +128,20 @@ function CacheList({ id, options }: { id: string; options: CacheOptions }) {
                         " · custom ignore"}
                     </div>
                   </td>
-                  <td className="py-1.5 pr-4 text-right align-top tabular-nums">
+                  <td className="tabular py-2.5 pr-4 text-right align-top">
                     {entry.codeLines.toLocaleString()}
                   </td>
-                  <td className="py-1.5 pr-4 text-right align-top tabular-nums">
+                  <td className="tabular py-2.5 pr-4 text-right align-top">
                     {entry.files.toLocaleString()}
                   </td>
                   <td
-                    className="py-1.5 pr-4 align-top whitespace-nowrap"
+                    className="py-2.5 pr-4 align-top whitespace-nowrap"
                     title={exact(entry.storedAt)}
                   >
                     {relativeTime(entry.storedAt, now)}
                   </td>
                   <td
-                    className="py-1.5 align-top whitespace-nowrap"
+                    className="py-2.5 pr-5 align-top whitespace-nowrap"
                     title={exact(entry.lastAccess)}
                   >
                     {relativeTime(entry.lastAccess, now)}
@@ -165,70 +181,80 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="storage-heading" hidden={hidden}>
-      <h2 id="storage-heading" className="mb-4 text-[1.5em] font-bold">
-        Storage
-      </h2>
-      <p className="text-muted mb-6">
+      <SectionHeader id="storage-heading" title="Storage">
         Clearing saved results keeps your settings and GitHub connection.
-      </p>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 id="cache-heading" className="text-[1.17em] font-bold">
-          Public results
-        </h3>
-        <Button
-          id="clear-public"
-          type="button"
-
-          disabled={busy}
-          onClick={() => clear("public")}
+      </SectionHeader>
+      <div className="grid gap-5">
+        <Panel
+          title="Public results"
+          titleId="cache-heading"
+          actions={
+            <Button
+              id="clear-public"
+              type="button"
+              size="md"
+              disabled={busy}
+              onClick={() => clear("public")}
+            >
+              Clear public results
+            </Button>
+          }
         >
-          Clear public results
-        </Button>
-      </div>
-      <p>
-        Complete public results are stored locally for reuse. Culverin checks
-        repository visibility before showing a cached result.
-      </p>
-      <Status id="status">
-        {status?.scope === "public" && status.message}
-      </Status>
-      <CacheList id="cache" options={publicCache} />
-      <div className="mt-6 mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 id="private-heading" className="text-[1.17em] font-bold">
-          Private results
-        </h3>
-        <Button
-          id="clear-private"
-          type="button"
-
-          disabled={busy}
-          onClick={() => clear("private")}
+          <p className="text-muted m-0">
+            Complete public results are stored locally for reuse. Culverin
+            checks repository visibility before showing a cached result.
+          </p>
+          <Status id="status" className="m-0 text-sm not-empty:mt-2">
+            {status?.scope === "public" && status.message}
+          </Status>
+          <CacheList id="cache" options={publicCache} />
+        </Panel>
+        <Panel
+          title="Private results"
+          titleId="private-heading"
+          actions={
+            <Button
+              id="clear-private"
+              type="button"
+              size="md"
+              disabled={busy}
+              onClick={() => clear("private")}
+            >
+              Clear private results
+            </Button>
+          }
         >
-          Clear private results
-        </Button>
-      </div>
-      <p>
-        Complete results for private repositories are stored separately and
-        shown only after GitHub confirms your connection can still read the
-        repository. They are also deleted when you disconnect GitHub.
-      </p>
-      <Status id="private-status">
-        {status?.scope === "private" && status.message}
-      </Status>
-      <CacheList id="private" options={privateCache} />
-      <div className="border-divider mt-6 border-t pt-4">
-        <Button
-          id="clear-all"
-          type="button"
-          variant="danger"
-          disabled={busy}
-          onClick={() => clear("all")}
-        >
-          Clear all results
-        </Button>
-        <Status id="all-status" className="mt-2">
-          {status?.scope === "all" && status.message}
-        </Status>
+          <p className="text-muted m-0">
+            Complete results for private repositories are stored separately and
+            shown only after GitHub confirms your connection can still read the
+            repository. They are also deleted when you disconnect GitHub.
+          </p>
+          <Status id="private-status" className="m-0 text-sm not-empty:mt-2">
+            {status?.scope === "private" && status.message}
+          </Status>
+          <CacheList id="private" options={privateCache} />
+        </Panel>
+        <div className="border-error/30 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-dashed p-5">
+          <div>
+            <p className="m-0 font-medium">Clear everything</p>
+            <p className="text-muted m-0 mt-0.5 text-sm">
+              Removes every saved public and private result.
+            </p>
+          </div>
+          <Button
+            id="clear-all"
+            type="button"
+            size="md"
+            variant="danger"
+            disabled={busy}
+            onClick={() => clear("all")}
+          >
+            Clear all results
+          </Button>
+          <Status id="all-status" className="m-0 w-full text-sm empty:-mt-3">
+            {status?.scope === "all" && status.message}
+          </Status>
+        </div>
       </div>
     </section>
   );

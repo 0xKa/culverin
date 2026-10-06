@@ -13,9 +13,9 @@ test("tracks repository, busy state, sizes, result and details", () => {
   const sizes = { repositorySize: "2 MB", snapshotLabel: "Files at abc" };
   const ready = reduce(busy, { type: "sizes", value: sizes });
   const result = {
-    codeLines: "1 code lines",
+    codeTotal: "1",
     textLines: "0 text lines",
-    metrics: "",
+    stats: [],
     snapshotSize: "20 B",
     intro: [],
     codeSummary: "",
@@ -46,10 +46,10 @@ test("tracks repository, busy state, sizes, result and details", () => {
   expect(reanalyzing.reanalyze).toBe(true);
   const updated = reduce(reanalyzing, {
     type: "result",
-    value: { ...result, codeLines: "2 code lines" },
+    value: { ...result, codeTotal: "2" },
     sizes,
   });
-  expect(updated.result?.codeLines).toBe("2 code lines");
+  expect(updated.result?.codeTotal).toBe("2");
   expect(updated.detailsOpen).toBe(false);
   const cleared = reduce(shown, { type: "clearResult" });
   expect(cleared.result).toBeUndefined();

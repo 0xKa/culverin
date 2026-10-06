@@ -1,10 +1,12 @@
 import type { ComponentProps } from "preact";
 
-export function ExternalLink({
-  className = "underline",
-  ...props
-}: ComponentProps<"a">) {
+export function ExternalLink({ className, ...props }: ComponentProps<"a">) {
   return (
-    <a {...props} className={className} target="_blank" rel="noreferrer" />
+    <a
+      {...props}
+      className={className ?? "underline"}
+      target="_blank"
+      rel="noreferrer"
+    />
   );
 }

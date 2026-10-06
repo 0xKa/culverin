@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./dot-loader.css";
+@import "./status-badge.css";
 
 @theme {
   --color-*: initial;
@@ -20,6 +21,8 @@
   --color-accent-text: oklch(0.46 0.13 255);
   --color-accent-soft: oklch(0.93 0.03 255);
   --color-ok: oklch(0.55 0.14 150);
+  --color-ok-text: oklch(0.47 0.12 150);
+  --color-ok-soft: oklch(0.95 0.035 150);
   --color-warning: oklch(0.6 0.14 65);
   --color-warning-text: oklch(0.5 0.11 65);
   --color-warning-soft: oklch(0.96 0.04 85);
@@ -77,6 +80,8 @@
     --color-accent-text: oklch(0.82 0.08 250);
     --color-accent-soft: oklch(0.29 0.045 255);
     --color-ok: oklch(0.74 0.15 150);
+    --color-ok-text: oklch(0.8 0.13 150);
+    --color-ok-soft: oklch(0.27 0.045 150);
     --color-warning: oklch(0.81 0.14 80);
     --color-warning-text: oklch(0.83 0.13 80);
     --color-warning-soft: oklch(0.27 0.04 80);

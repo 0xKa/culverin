@@ -3,10 +3,12 @@ const steps = Array.from(
   (_, index) => (index % 5) + Math.floor(index / 5),
 );
 
-export function DotLoader({ className }: { className?: string }) {
+export function DotLoader({ size = "md" }: { size?: "sm" | "md" }) {
   return (
     <span
-      className={className ? `culverin-dots ${className}` : "culverin-dots"}
+      className={
+        size === "sm" ? "culverin-dots culverin-dots-sm" : "culverin-dots"
+      }
       aria-hidden="true"
     >
       {steps.map((step, index) => (

@@ -2,7 +2,7 @@ import { ExternalLink } from "../ui/ExternalLink";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { Button } from "../ui/Button";
-import { Spinner } from "../ui/Spinner";
+import { DotLoader } from "../ui/DotLoader";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { inputClass, Panel, SectionHeader } from "./layout";
@@ -155,7 +155,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   aria-busy={busy === "connect"}
                   onClick={() => void controller.connect()}
                 >
-                  {busy === "connect" && <Spinner />}
+                  {busy === "connect" && <DotLoader size="sm" />}
                   {busy === "connect" ? "Connecting…" : "Connect with GitHub"}
                 </Button>
               </>
@@ -211,7 +211,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                     disabled={busy !== undefined || !token.trim()}
                     aria-busy={busy === "token"}
                   >
-                    {busy === "token" && <Spinner />}
+                    {busy === "token" && <DotLoader size="sm" />}
                     {busy === "token" ? "Checking token…" : "Save token"}
                   </Button>
                 </form>

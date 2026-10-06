@@ -7,6 +7,12 @@
   forced-color-adjust: none;
 }
 
+.culverin-dots-sm {
+  gap: 1px;
+  width: 16px;
+  height: 16px;
+}
+
 .culverin-dots > span {
   border-radius: 50%;
   background: currentColor;

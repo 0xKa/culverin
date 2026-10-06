@@ -112,13 +112,13 @@ export async function runGithubStorage(
 
   assert.equal(await connectButton.getAttribute("aria-busy"), "true");
 
-  await connectButton.locator(".culverin-spinner").waitFor();
+  await connectButton.locator(".culverin-dots").waitFor();
 
   releaseDeviceCode();
 
   await settingsPage.locator("#github-device-code").waitFor();
 
-  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
+  assert.equal(await githubSection.locator(".culverin-dots").count(), 0);
 
   await githubSection.getByText(/Waiting for approval on GitHub/).waitFor();
 
@@ -191,7 +191,7 @@ export async function runGithubStorage(
 
   await tokenButton.getByText("Checking token…").waitFor();
 
-  await tokenButton.locator(".culverin-spinner").waitFor();
+  await tokenButton.locator(".culverin-dots").waitFor();
 
   assert.equal(await tokenButton.isDisabled(), true);
 
@@ -209,7 +209,7 @@ export async function runGithubStorage(
 
   assert.equal(await tokenButton.isDisabled(), false);
 
-  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
+  assert.equal(await githubSection.locator(".culverin-dots").count(), 0);
 
   await settingsPage.locator("#github-token").fill("fixture-token");
 
@@ -221,7 +221,7 @@ export async function runGithubStorage(
 
   assert.equal(await settingsPage.locator("#github-token").count(), 0);
 
-  assert.equal(await githubSection.locator(".culverin-spinner").count(), 0);
+  assert.equal(await githubSection.locator(".culverin-dots").count(), 0);
 
   fixtures.mode = "private";
 

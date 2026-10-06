@@ -173,6 +173,7 @@ function CacheList({
                   <td className="py-1.5 pr-2 text-right align-top">
                     <IconButton
                       type="button"
+                      tone="danger"
                       label={`Delete result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
                       className="disabled:pointer-events-none disabled:opacity-50"
                       disabled={busy}

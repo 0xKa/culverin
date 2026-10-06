@@ -47,6 +47,27 @@ export function readRateLimit(
   return validRateLimit(value) ? value : undefined;
 }
 
+function member(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
+export function readRateLimitBody(
+  body: unknown,
+  authenticated = false,
+): RateLimit | undefined {
+  const core = member(member(body, "resources"), "core");
+  const reset = member(core, "reset");
+  const value = {
+    limit: member(core, "limit"),
+    remaining: member(core, "remaining"),
+    reset: Number.isSafeInteger(reset) ? (reset as number) * 1000 : NaN,
+    ...(authenticated ? { authenticated: true as const } : {}),
+  };
+  return validRateLimit(value) ? value : undefined;
+}
+
 export function mergeRateLimit(
   current: RateLimit | undefined,
   next: RateLimit,

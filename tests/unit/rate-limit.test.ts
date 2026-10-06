@@ -6,6 +6,7 @@ import {
   usageLevel,
   mergeRateLimit,
   readRateLimit,
+  readRateLimitBody,
   validRateLimit,
 } from "../../extension/src/github/rate-limit";
 import { apiLimitView } from "../../extension/src/popup/view";
@@ -34,6 +35,37 @@ test("reads the core rate limit from GitHub response headers", () => {
       }),
     ),
   ).toEqual({ limit: 60, remaining: 0, reset: 1790684233000 });
+});
+
+test("reads the core rate limit from the rate limit endpoint body", () => {
+  const body = {
+    resources: {
+      core: { limit: 5000, remaining: 4990, reset: 1790684233, used: 10 },
+      search: { limit: 10, remaining: 10, reset: 1790684233, used: 0 },
+    },
+    rate: { limit: 5000, remaining: 4990, reset: 1790684233, used: 10 },
+  };
+  expect(readRateLimitBody(body)).toEqual({
+    limit: 5000,
+    remaining: 4990,
+    reset: 1790684233000,
+  });
+  expect(readRateLimitBody(body, true)).toEqual({
+    limit: 5000,
+    remaining: 4990,
+    reset: 1790684233000,
+    authenticated: true,
+  });
+  for (const malformed of [
+    undefined,
+    [],
+    { resources: {} },
+    { rate: body.rate },
+    { resources: { core: { limit: 60, remaining: 61, reset: 1790684233 } } },
+    { resources: { core: { limit: 60, remaining: 1, reset: 1.5 } } },
+    { resources: { core: { limit: "60", remaining: 1, reset: 1790684233 } } },
+  ])
+    expect(readRateLimitBody(malformed)).toBeUndefined();
 });
 
 test("ignores other resources and malformed headers", () => {

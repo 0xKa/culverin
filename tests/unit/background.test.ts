@@ -59,9 +59,28 @@ function fixture() {
   const calls: string[] = [];
   const tokens: (string | undefined)[] = [];
   let visibility = "public";
-  const fetcher = (async (input: RequestInfo | URL) => {
+  let rateLimitStatus = 200;
+  const authorizations: (string | null)[] = [];
+  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     calls.push(url);
+    if (url === "https://api.github.com/rate_limit") {
+      const authorization = new Headers(init?.headers).get("authorization");
+      authorizations.push(authorization);
+      const limit = authorization ? 5000 : 60;
+      const response = new Response(
+        rateLimitStatus === 200
+          ? JSON.stringify({
+              resources: {
+                core: { limit, remaining: limit - 7, reset: 1900000000 },
+              },
+            })
+          : "{}",
+        { status: rateLimitStatus },
+      );
+      Object.defineProperty(response, "url", { value: url });
+      return response;
+    }
     if (url === "https://api.github.com/user") {
       const response = new Response(JSON.stringify({ login: "octo" }), {
         status: 200,
@@ -139,8 +158,12 @@ function fixture() {
     local,
     session,
     sync,
+    authorizations,
     private: () => {
       visibility = "private";
+    },
+    rateLimitStatus: (status: number) => {
+      rateLimitStatus = status;
     },
   };
 }
@@ -274,6 +297,69 @@ test("signing in keeps the rate limit GitHub reported for the new account", asyn
     remaining: 4963,
     reset: 1_900_000_000_000,
     authenticated: true,
+  });
+});
+
+test("settings can check the rate limit without spending a request", async () => {
+  const api = fixture();
+  const gates = createSenderGates({
+    id: "test",
+    settingsUrl: "chrome-extension://test/settings.html",
+    popupUrl: "chrome-extension://test/popup.html",
+  });
+  const settings = createSettingsHandler(api.resources, api.auth, gates);
+  const sender = {
+    id: "test",
+    url: "chrome-extension://test/settings.html#counting",
+    frameId: 0,
+    documentId: "document",
+  };
+  const check = () =>
+    new Promise<unknown>((resolve) =>
+      expect(
+        settings.handle(
+          {
+            protocolVersion: 1,
+            requestId: crypto.randomUUID(),
+            navigationId: crypto.randomUUID(),
+            type: "rate-limit.check",
+          },
+          sender,
+          resolve,
+        ),
+      ).toBe(true),
+    );
+
+  expect(await check()).toMatchObject({ state: "checked" });
+  expect(api.calls).toEqual(["https://api.github.com/rate_limit"]);
+  expect(api.authorizations).toEqual([null]);
+  expect(api.session.values["github.rateLimit"]).toEqual({
+    limit: 60,
+    remaining: 53,
+    reset: 1_900_000_000_000,
+  });
+
+  await api.resources.connection.connect(
+    { method: "token", login: "octo", token: "fixture-token" },
+    await api.resources.connection.generation(),
+  );
+  expect(await check()).toMatchObject({ state: "checked" });
+  expect(api.authorizations.at(-1)).toBe("Bearer fixture-token");
+  expect(api.session.values["github.rateLimit"]).toEqual({
+    limit: 5000,
+    remaining: 4993,
+    reset: 1_900_000_000_000,
+    authenticated: true,
+  });
+
+  api.rateLimitStatus(401);
+  expect(await check()).toMatchObject({
+    state: "failed",
+    code: "authentication_invalid",
+  });
+  expect(await api.resources.connection.status()).toMatchObject({
+    connected: false,
+    expired: true,
   });
 });
 

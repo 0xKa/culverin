@@ -70,6 +70,13 @@ export function createAuthService(resources: BackgroundResources) {
     };
     return { fetcher, observed: () => observed };
   }
+  async function expire(auth: Auth): Promise<void> {
+    if (await connection.expire(auth.generation))
+      await connectionChanged(auth.generation, {
+        clearPrivate: false,
+        clearRefs: false,
+      });
+  }
   async function resolveFor(
     repository: { owner: string; name: string },
     auth: Auth,
@@ -94,11 +101,7 @@ export function createAuthService(resources: BackgroundResources) {
     } catch (error) {
       if (!(error instanceof AcquisitionError)) throw error;
       if (error.code === "authentication_invalid") {
-        if (await connection.expire(auth.generation))
-          await connectionChanged(auth.generation, {
-            clearPrivate: false,
-            clearRefs: false,
-          });
+        await expire(auth);
         return anonymous();
       }
       if (error.code !== "repository_unavailable") throw error;
@@ -116,11 +119,7 @@ export function createAuthService(resources: BackgroundResources) {
     resolving: boolean,
   ): Promise<PublicErrorCode> {
     if (code === "authentication_invalid" && auth.token) {
-      if (await connection.expire(auth.generation))
-        await connectionChanged(auth.generation, {
-          clearPrivate: false,
-          clearRefs: false,
-        });
+      await expire(auth);
       return code;
     }
     if (code !== "repository_unavailable" && code !== "repository_forbidden")
@@ -366,5 +365,5 @@ export function createAuthService(resources: BackgroundResources) {
     return false;
   }
 
-  return { handle, resolveFor, accessFailure };
+  return { handle, resolveFor, accessFailure, expire };
 }

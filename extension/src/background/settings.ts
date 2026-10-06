@@ -1,6 +1,10 @@
 import { ARCHIVE_TIMEOUTS } from "../archive/limits";
 import { resolutionIdentity } from "../github/cache";
-import { resolveRepository, safeFailure } from "../github/client";
+import {
+  fetchRateLimit,
+  resolveRepository,
+  safeFailure,
+} from "../github/client";
 import { validRepository } from "../github/repository";
 import {
   validSettingsRequest,
@@ -27,7 +31,7 @@ export function createSettingsHandler(
     clearInterrupted,
     interrupted,
   } = resources;
-  const { trackedFetch } = resources.rates;
+  const { trackedFetch, record } = resources.rates;
   const VERSION = 1;
   function handleGithub(
     value: unknown,
@@ -70,6 +74,29 @@ export function createSettingsHandler(
                 ? "interrupted"
                 : "idle",
         });
+        return;
+      }
+      if (request.type === "rate-limit.check") {
+        const auth = await connection.auth();
+        const signal = AbortSignal.timeout(10_000);
+        try {
+          const next = await fetchRateLimit(
+            trackedFetch(auth.token !== undefined),
+            auth.token,
+            signal,
+          );
+          if ((await connection.generation()) !== auth.generation) {
+            reply({ state: "stale" });
+            return;
+          }
+          await record(next);
+          reply({ state: "checked" });
+        } catch (error) {
+          const failure = safeFailure(error, signal);
+          if (failure.code === "authentication_invalid" && auth.token)
+            await authService.expire(auth);
+          reply({ state: "failed", ...failure });
+        }
         return;
       }
       if (

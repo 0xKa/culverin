@@ -1,5 +1,6 @@
 import { validLogin, validRepository } from "./repository";
 import { ARCHIVE_LIMITS } from "../archive/limits";
+import { readRateLimitBody, type RateLimit } from "./rate-limit";
 
 export const API_VERSION = "2026-03-10";
 export const METADATA_LIMIT = 1024 * 1024;
@@ -168,6 +169,19 @@ export async function fetchLogin(
   if (typeof login !== "string" || !validLogin(login))
     throw new AcquisitionError("network_unavailable");
   return login;
+}
+
+export async function fetchRateLimit(
+  fetcher: Fetcher,
+  token: string | undefined,
+  signal: AbortSignal,
+): Promise<RateLimit> {
+  const value = readRateLimitBody(
+    await apiGet(fetcher, "https://api.github.com/rate_limit", token, signal),
+    token !== undefined,
+  );
+  if (!value) throw new AcquisitionError("network_unavailable");
+  return value;
 }
 
 export async function resolveRepository(

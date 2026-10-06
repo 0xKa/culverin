@@ -317,6 +317,62 @@ export async function runPageCounting(
     /^Everything on your network that uses GitHub without signing in shares the same 60\./,
   );
 
+  let rateLimitChecks = 0;
+  let refreshed!: () => void;
+  const refreshChecked = new Promise<void>((resolve) => {
+    refreshed = resolve;
+  });
+
+  await context.route("https://api.github.com/rate_limit", (route) => {
+    rateLimitChecks++;
+    if (rateLimitChecks === 2) refreshed();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        resources: {
+          core: {
+            limit: 60,
+            remaining: 41,
+            reset: Math.floor(Date.now() / 1000) + 3600,
+            used: 19,
+          },
+        },
+      }),
+    });
+  });
+
+  await worker.evaluate(() =>
+    chrome.storage.session.remove("github.rateLimit"),
+  );
+
+  const usage = countingSettings.locator("#api-usage");
+
+  await usage.getByText("Not known yet.").waitFor();
+
+  await usage.getByRole("button", { name: "Check now" }).click();
+
+  await countingSettings.locator("#api-usage", { hasText: "41/60" }).waitFor();
+
+  assert.equal(rateLimitChecks, 1);
+
+  await usage.getByRole("button", { name: "Refresh" }).click();
+
+  await refreshChecked;
+
+  await countingSettings
+    .locator("#api-usage-check:not([disabled])", { hasText: "Refresh" })
+    .waitFor();
+
+  assert.equal(rateLimitChecks, 2);
+
+  assert.equal(
+    await countingSettings.locator("#api-usage-status").textContent(),
+    "",
+  );
+
+  await context.unroute("https://api.github.com/rate_limit");
+
   await countingSettings.getByText("Why does a check use 2 requests?").click();
 
   await countingSettings

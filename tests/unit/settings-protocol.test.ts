@@ -26,6 +26,7 @@ const commands: SettingsCommand[] = [
     "cache.clear-public",
     "cache.clear-all",
     "analysis.status",
+    "rate-limit.check",
   ].map((type) => ({ type }) as SettingsCommand),
   { type: "auth.submit", submissionId: "c".repeat(36) },
   { type: "repository.lookup", owner: "culverin", name: "sample" },
@@ -89,6 +90,7 @@ test("replies validate status, polling, generation, safe failure, and correlatio
       "running",
       "interrupted",
       "busy",
+      "checked",
     ].map((state) => ({ state })),
     { state: "failed", code: "network_unavailable" },
   ];

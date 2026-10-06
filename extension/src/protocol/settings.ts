@@ -25,7 +25,8 @@ export type SettingsCommand =
         | "auth.clear-private-session"
         | "cache.clear-public"
         | "cache.clear-all"
-        | "analysis.status";
+        | "analysis.status"
+        | "rate-limit.check";
     }
   | { type: "auth.submit"; submissionId: string }
   | {
@@ -59,7 +60,8 @@ export type SettingsPayload =
         | "queued"
         | "running"
         | "interrupted"
-        | "busy";
+        | "busy"
+        | "checked";
     }
   | { state: "failed"; code: PublicErrorCode; retryAt?: number; limit?: string }
   | { state: "resolved"; resolution: ResolutionEnvelope }
@@ -121,6 +123,7 @@ export function validSettingsRequest(value: unknown): value is SettingsRequest {
     case "cache.clear-public":
     case "cache.clear-all":
     case "analysis.status":
+    case "rate-limit.check":
       return exact(value, fields);
     default:
       return false;
@@ -247,6 +250,7 @@ export function validSettingsReply(
     case "running":
     case "interrupted":
     case "busy":
+    case "checked":
       return exact(value, fields);
     default:
       return false;

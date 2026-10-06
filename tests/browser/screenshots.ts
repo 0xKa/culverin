@@ -207,6 +207,14 @@ try {
   await settings.reload();
   await settings.waitForTimeout(400);
   await shoot(settings, "settings-storage-narrow");
+  await settings.setViewportSize({ width: 1100, height: 800 });
+  await worker.evaluate(() =>
+    chrome.storage.session.remove("github.rateLimit"),
+  );
+  await settings.goto(`${extensionUrl}/settings.html#counting`);
+  await settings.reload();
+  await settings.waitForTimeout(400);
+  await shoot(settings, "settings-counting-unknown");
 
   console.log(`Screenshots written to ${output}`);
 } finally {

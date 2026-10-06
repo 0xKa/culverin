@@ -1,6 +1,6 @@
 # Privacy
 
-Effective 2026-10-02.
+Effective 2026-10-06.
 
 Culverin counts lines of code in GitHub repositories inside your browser. Public repositories need no account; to count private repositories you can connect your GitHub account. Culverin has no backend, account of its own, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
@@ -12,6 +12,8 @@ Requests are sent without your GitHub cookies, with `credentials: "omit"` and `c
 
 By default, opening or reloading a repository page sends no request to GitHub unless Culverin already has a completed result for that repository; it then requests metadata to check that the result is still current. It never downloads source code. Only an explicit Analyze action in the toolbar popup or on the repository page's lines-of-code row starts an archive download. Opening the toolbar popup sends no request to GitHub; it shows only what Culverin already checked in the last 20 minutes.
 
+The settings page shows how many GitHub API requests you have left, using the counts GitHub returns with Culverin's other requests. When you select Check now or Refresh there, the extension asks `api.github.com` for your current limit. GitHub does not count that request against the limit.
+
 If you choose to count when a repository page opens, in the Counting section of the settings page, opening a repository page always requests metadata and, when there is no current result, downloads that commit's source archive as if you had selected Analyze. Culverin tries this at most once per repository commit and settings in each browser session.
 
 ## Connecting GitHub
@@ -21,7 +23,7 @@ Connecting is optional and happens only when you choose it in the GitHub section
 - **Connect with GitHub** uses the Culverin GitHub App. Culverin asks GitHub for a short code, you enter it at `https://github.com/login/device`, and you approve the app on GitHub, where you also choose which repositories it may read. The app can only read repository contents and metadata. GitHub then gives the extension a token for your account that expires after 8 hours, and a refresh token that the extension uses to get a new one.
 - **Personal access token** lets you paste a token you create on GitHub instead. A fine-grained token with read-only access to repository contents is enough.
 
-Either way, the extension asks GitHub for your username to show which account is connected. While connected, the token is sent to `api.github.com` with repository metadata requests, so they count against your account's GitHub limit rather than the shared anonymous one, and with source archive requests for private repositories. Tokens are sent only to GitHub. They are never given to the script that runs on GitHub pages, to the toolbar popup, or to the analysis worker.
+Either way, the extension asks GitHub for your username to show which account is connected. While connected, the token is sent to `api.github.com` with repository metadata requests and limit checks, so they count against your account's GitHub limit rather than the shared anonymous one, and with source archive requests for private repositories. Tokens are sent only to GitHub. They are never given to the script that runs on GitHub pages, to the toolbar popup, or to the analysis worker.
 
 ## What stays in your browser
 

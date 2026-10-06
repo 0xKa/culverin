@@ -4,9 +4,15 @@ import {
   subscribeRateLimit,
   type RateLimitSnapshot,
 } from "../github/rate-limit-observer";
+import { Button } from "../ui/Button";
+import { DotLoader } from "../ui/DotLoader";
 import { formatClockTime } from "../ui/format";
+import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
+import { sendSettings } from "./client";
 import { Panel } from "./layout";
+
+const FREE = "Checking doesn't use any of your requests.";
 
 export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
   const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({
@@ -18,7 +24,39 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
     ? rateLimit.limit.toLocaleString()
     : "60";
 
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState("");
+
   useEffect(() => subscribeRateLimit(setSnapshot), []);
+
+  async function check(): Promise<void> {
+    setChecking(true);
+    setStatus("");
+    const reply = await sendSettings({ type: "rate-limit.check" });
+    setChecking(false);
+    if (reply?.state === "checked") return;
+    setStatus(
+      reply?.state === "failed" && reply.code === "authentication_invalid"
+        ? "Your GitHub connection expired. Reconnect GitHub to check your account's limit."
+        : "Couldn't reach GitHub. Try again.",
+    );
+  }
+
+  const checkButton = (label: string, variant: "secondary" | "ghost") => (
+    <Button
+      id={`${idPrefix}api-usage-check`}
+      type="button"
+      size="sm"
+      variant={variant}
+      title={FREE}
+      disabled={checking}
+      aria-busy={checking}
+      onClick={() => void check()}
+    >
+      {checking && <DotLoader size="sm" />}
+      {checking ? "Checking…" : label}
+    </Button>
+  );
 
   return (
     <Panel title="GitHub requests" titleId={`${idPrefix}requests-heading`}>
@@ -47,15 +85,22 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
                   resets at {formatClockTime(rateLimit.reset)}
                 </span>
               )}
+              <span className="ml-auto">{checkButton("Refresh", "ghost")}</span>
             </>
           ) : (
-            <span className="text-muted text-sm">
-              Not known yet. GitHub only reports it in reply to a request, and
-              Culverin doesn't send one just to check. It appears after Culverin
-              next contacts GitHub.
-            </span>
+            <>
+              <span className="text-muted text-sm">Not known yet.</span>
+              {checkButton("Check now", "secondary")}
+            </>
           )}
         </div>
+        {!rateLimit && <p className="text-muted m-0 mt-1.5 text-xs">{FREE}</p>}
+        <Status
+          id={`${idPrefix}api-usage-status`}
+          className="m-0 text-sm not-empty:mt-2"
+        >
+          {status}
+        </Status>
       </div>
       <p className="m-0">
         Checking a repository uses 2 of your {limit} GitHub requests per hour.

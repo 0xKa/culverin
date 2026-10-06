@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Culverin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Count lines of code in GitHub repositories locally in your browser, with no servers or tracking.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "offscreen"],

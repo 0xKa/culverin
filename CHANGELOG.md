@@ -2,6 +2,18 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.3 - 2026-10-06
+
+- Opens the popup when you click the About row while it counts, instead of canceling the count. The popup follows the same count, shows its progress and result, and has a Cancel button.
+- Shows the number of counted files beside the code lines in the popup, and moves Text lines into the metrics below. Code lines now show in the accent color.
+- Adds a view button and a delete button to each saved result in Settings → Storage. View opens the result in a popup-style dialog; delete removes only that result.
+- Offers the GitHub app and a personal access token side by side in Settings → GitHub, so neither looks like the fallback.
+- Copies the GitHub approval code with a small icon button and confirms "Code copied." beside it.
+- Shows a loader while the approval code waits, and checks again as soon as you return to the Settings tab, so a connection appears within a few seconds of approving it on GitHub.
+- Moves GitHub requests and Common questions from the Counting section to the GitHub section.
+- Keeps the Storage tables inside their panels and lines up their columns between public and private results.
+- Keeps using results saved by 0.1.2.
+
 ## 0.1.2 - 2026-10-06
 
 - Fixes the API count staying at 5000/5000 after Check now or Refresh. For a connected account, GitHub's free limit endpoint reports an unused window, which hid every later request. Check now and Refresh now spend one request when you are connected to read your real count, and stay free without a connection. A count from a real request replaces an outdated one. The privacy policy describes the one request.

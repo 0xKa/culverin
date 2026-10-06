@@ -8,6 +8,7 @@ import { CheckIcon, CopyIcon } from "../ui/icons";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { inputClass, Panel, SectionHeader } from "./layout";
+import { QuestionsPanel } from "./QuestionsPanel";
 import { RequestsPanel } from "./RequestsPanel";
 import { createGitHubController, type GitHubBusy } from "./github-controller";
 
@@ -242,7 +243,8 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
             </Panel>
           </div>
         )}
-        <RequestsPanel idPrefix="github-" />
+        <RequestsPanel />
+        <QuestionsPanel />
         <div>
           <h3 className="text-md m-0 font-semibold">
             Where your connection is kept

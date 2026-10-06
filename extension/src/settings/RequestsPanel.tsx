@@ -17,7 +17,7 @@ import { Panel } from "./layout";
 const FREE =
   "Checking is free without a GitHub connection. While connected, it uses 1 of your requests.";
 
-export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
+export function RequestsPanel() {
   const [snapshot, setSnapshot] = useState<RateLimitSnapshot>({
     value: undefined,
     now: Date.now(),
@@ -45,14 +45,9 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
     );
   }
 
-  const id = `${idPrefix}api-usage-check`;
-
   return (
-    <Panel title="GitHub requests" titleId={`${idPrefix}requests-heading`}>
-      <div
-        id={`${idPrefix}api-usage`}
-        className="bg-surface mb-4 rounded-lg p-4"
-      >
+    <Panel title="GitHub requests" titleId="requests-heading">
+      <div id="api-usage" className="bg-surface mb-4 rounded-lg p-4">
         <p className="text-muted m-0 text-sm">GitHub API usage</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           {rateLimit ? (
@@ -64,7 +59,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
                 </span>
               </span>
               <UsageMeter
-                id={`${idPrefix}api-usage-meter`}
+                id="api-usage-meter"
                 value={rateLimit}
                 now={now}
                 className="h-2 w-32"
@@ -75,7 +70,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
                 </span>
               )}
               <IconButton
-                id={id}
+                id="api-usage-check"
                 type="button"
                 label={checking ? "Checking…" : "Refresh"}
                 className="ml-auto disabled:pointer-events-none"
@@ -90,7 +85,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
             <>
               <span className="text-muted text-sm">Not known yet.</span>
               <Button
-                id={id}
+                id="api-usage-check"
                 type="button"
                 size="sm"
                 title={FREE}
@@ -105,10 +100,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
           )}
         </div>
         {!rateLimit && <p className="text-muted m-0 mt-1.5 text-xs">{FREE}</p>}
-        <Status
-          id={`${idPrefix}api-usage-status`}
-          className="m-0 text-sm not-empty:mt-2"
-        >
+        <Status id="api-usage-status" className="m-0 text-sm not-empty:mt-2">
           {status}
         </Status>
       </div>
@@ -116,10 +108,7 @@ export function RequestsPanel({ idPrefix = "" }: { idPrefix?: string }) {
         Checking a repository uses 2 of your {limit} GitHub requests per hour.
         The toolbar popup shows how many are left.
       </p>
-      <p
-        id={`${idPrefix}api-usage-shared`}
-        className="text-muted m-0 mt-2 text-sm"
-      >
+      <p id="api-usage-shared" className="text-muted m-0 mt-2 text-sm">
         {rateLimit?.authenticated
           ? `GitHub counts every request made with your account toward the same ${limit}, including VS Code, GitHub Desktop, the gh command line, and other GitHub apps or tokens you use. The count can be below ${limit} before Culverin has used any.`
           : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}

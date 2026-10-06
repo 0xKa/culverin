@@ -244,10 +244,10 @@ try {
   await worker.evaluate(() =>
     chrome.storage.session.remove("github.rateLimit"),
   );
-  await settings.goto(`${extensionUrl}/settings.html#counting`);
+  await settings.goto(`${extensionUrl}/settings.html#github`);
   await settings.reload();
   await settings.waitForTimeout(400);
-  await shoot(settings, "settings-counting-unknown");
+  await shoot(settings, "settings-github-unknown");
 
   console.log(`Screenshots written to ${output}`);
 } finally {

@@ -307,6 +307,17 @@ export async function runPageCounting(
     .locator('input[name="count-trigger"][value="manual"]:checked')
     .waitFor();
 
+  assert.equal(await countingSettings.locator("#api-usage:visible").count(), 0);
+
+  assert.equal(
+    await countingSettings.getByText("Common questions").isVisible(),
+    false,
+  );
+
+  await countingSettings
+    .getByRole("link", { name: "GitHub", exact: true })
+    .click();
+
   assert.match(
     ((await countingSettings.locator("#api-usage").textContent()) ?? "").trim(),
     /^GitHub API usage\d+\/60resets at /,
@@ -378,6 +389,8 @@ export async function runPageCounting(
   await countingSettings
     .getByText(/^The first asks for the repository's details/)
     .waitFor();
+
+  await countingSettings.getByRole("link", { name: "Counting" }).click();
 
   await openTrigger.check();
 

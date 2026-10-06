@@ -145,6 +145,8 @@ export type CachedResultSummary = {
   storedAt: number;
   lastAccess: number;
   bytes: number;
+  result: AnalysisResultV2;
+  resolution: ResolutionEnvelope;
 };
 
 export function cachedResultSummaries(
@@ -175,6 +177,8 @@ export function cachedResultSummaries(
       storedAt: entry.storedAt,
       lastAccess: entry.lastAccess,
       bytes: entry.bytes,
+      result: entry.result,
+      resolution: entry.resolution,
     }))
     .sort((a, b) => b.lastAccess - a.lastAccess);
 }

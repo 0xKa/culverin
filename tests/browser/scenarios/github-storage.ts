@@ -378,6 +378,39 @@ export async function runGithubStorage(
 
   assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
 
+  const showDetails = settingsPage
+    .locator("#cache-list")
+    .getByRole("button", { name: /^Show details for .+ at [0-9a-f]{7}$/ });
+
+  await showDetails.click();
+
+  const resultDialog = settingsPage.getByRole("dialog");
+
+  await resultDialog.waitFor();
+
+  assert.match(
+    (await resultDialog.locator("#code-lines").textContent()) ?? "",
+    /code lines/,
+  );
+
+  assert.equal(
+    await resultDialog
+      .locator("#details")
+      .evaluate((node) => (node as HTMLDetailsElement).open),
+    true,
+  );
+
+  await settingsPage.keyboard.press("Escape");
+
+  await resultDialog.waitFor({ state: "detached" });
+
+  assert.equal(
+    await showDetails.evaluate((node) => node === document.activeElement),
+    true,
+  );
+
+  assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
+
   const untrustedDelete = await harness.evaluate(
     () =>
       new Promise<string>((resolve) =>

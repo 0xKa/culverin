@@ -202,6 +202,16 @@ try {
     await settings.waitForTimeout(400);
     await shoot(settings, `settings-${section}`);
   }
+  await settings.goto(`${extensionUrl}/settings.html#storage`);
+  await settings.reload();
+  await settings
+    .getByRole("button", { name: /^Show details for / })
+    .first()
+    .click();
+  await settings.locator("#result-dialog #detail-content").waitFor();
+  await settings.waitForTimeout(400);
+  await shoot(settings, "settings-storage-result", false);
+  await settings.keyboard.press("Escape");
   await settings.setViewportSize({ width: 600, height: 800 });
   await settings.goto(`${extensionUrl}/settings.html#storage`);
   await settings.reload();

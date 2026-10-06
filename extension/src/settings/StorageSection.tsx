@@ -13,7 +13,8 @@ import { formatBytes } from "../ui/format";
 import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
-import { TrashIcon } from "../ui/icons";
+import { EyeIcon, TrashIcon } from "../ui/icons";
+import { ResultDialog } from "./ResultDialog";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
 import { Panel, SectionHeader } from "./layout";
@@ -58,6 +59,7 @@ function CacheList({
   const [entries, setEntries] = useState<CachedResultSummary[]>();
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
+  const [inspected, setInspected] = useState<CachedResultSummary>();
   const now = Date.now();
 
   useEffect(() => {
@@ -119,7 +121,7 @@ function CacheList({
                 <th className="py-2 pr-4 font-medium">Counted</th>
                 <th className="py-2 pr-4 font-medium">Last viewed</th>
                 <th className="py-2 pr-2">
-                  <span className="sr-only">Delete</span>
+                  <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
@@ -170,7 +172,14 @@ function CacheList({
                   >
                     {relativeTime(entry.lastAccess, now)}
                   </td>
-                  <td className="py-1.5 pr-2 text-right align-top">
+                  <td className="py-1.5 pr-2 text-right align-top whitespace-nowrap">
+                    <IconButton
+                      type="button"
+                      label={`Show details for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
+                      onClick={() => setInspected(entry)}
+                    >
+                      <EyeIcon />
+                    </IconButton>
                     <IconButton
                       type="button"
                       tone="danger"
@@ -187,6 +196,13 @@ function CacheList({
             </tbody>
           </table>
         </div>
+      )}
+      {inspected && (
+        <ResultDialog
+          entry={inspected}
+          counted={exact(inspected.storedAt)}
+          onClose={() => setInspected(undefined)}
+        />
       )}
     </div>
   );

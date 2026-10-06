@@ -82,7 +82,11 @@ test("formats repository and result details", () => {
   expect(view.textLines).toBe("4 text lines");
   expect(view.stats).toEqual([
     { label: "Files", value: "2" },
-    { label: "Physical lines", value: "8" },
+    {
+      label: "Physical lines",
+      value: "8",
+      title: "Physical lines = code + comments + blanks",
+    },
     { label: "Comments", value: "4" },
     { label: "Blanks", value: "1" },
   ]);

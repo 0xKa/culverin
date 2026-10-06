@@ -29,6 +29,7 @@ export type BreakdownRow = {
 export type StatView = {
   label: string;
   value: string;
+  title?: string;
 };
 
 export type ResultView = {
@@ -145,7 +146,11 @@ export function resultView(
     textLines: `${text.toLocaleString()} text lines`,
     stats: [
       { label: "Files", value: totals.files.toLocaleString() },
-      { label: "Physical lines", value: totals.lines.toLocaleString() },
+      {
+        label: "Physical lines",
+        value: totals.lines.toLocaleString(),
+        title: "Physical lines = code + comments + blanks",
+      },
       { label: "Comments", value: totals.comments.toLocaleString() },
       { label: "Blanks", value: totals.blanks.toLocaleString() },
     ],

@@ -86,7 +86,7 @@ function Totals({ result }: { result: ResultView }) {
         className="border-divider mt-3.5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3.5"
       >
         {result.stats.map((stat) => (
-          <div key={stat.label} className="flex flex-col">
+          <div key={stat.label} title={stat.title} className="flex flex-col">
             <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
             <dd className="m-0 font-mono text-sm font-semibold">
               {stat.value}

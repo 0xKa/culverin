@@ -1,5 +1,7 @@
 import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
+import { Code, createElement, Database, Files, type IconNode } from "lucide";
 import spinnerStyles from "../ui/spinner.css" with { type: "text" };
+import { formatBytes } from "../ui/format";
 import { failureMessages, limitNote } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
@@ -14,15 +16,19 @@ export type RowState =
   | { kind: "hidden" }
   | { kind: "idle" }
   | { kind: "running"; phase: AnalysisPhase }
-  | {
-      kind: "complete";
-      total: number;
-      uncounted?: number;
-      customIgnore?: boolean;
-    }
+  | CompleteState
   | { kind: "retry"; detail: string }
   | { kind: "notice"; label: string; detail: string }
   | { kind: "connect"; label: string; detail: string };
+
+export type CompleteState = {
+  kind: "complete";
+  total: number;
+  files: number;
+  bytes: number;
+  uncounted?: number;
+  customIgnore?: boolean;
+};
 
 export type VisibleRowState = Exclude<RowState, { kind: "hidden" }>;
 
@@ -36,7 +42,7 @@ export type RowView = {
 export type SummaryUi = {
   host: HTMLElement;
   live: HTMLElement;
-  row?: HTMLElement;
+  rows: HTMLElement[];
   action?: RowAction;
 };
 
@@ -120,9 +126,9 @@ export function lookupFailureState(
 export function rowView(state: VisibleRowState): RowView {
   if (state.kind === "idle")
     return {
-      label: "Count lines of code",
+      label: "Analyze with Culverin",
       title:
-        "Download this repository's source from GitHub and count it in your browser",
+        "Download this repository's source from GitHub and count its lines of code, files, and size in your browser",
       action: "analyze",
     };
   if (state.kind === "running")
@@ -145,7 +151,7 @@ export function rowView(state: VisibleRowState): RowView {
   }
   if (state.kind === "retry")
     return {
-      label: "Couldn't count lines · Retry",
+      label: "Couldn't analyze · Retry",
       title: state.detail,
       action: "analyze",
     };
@@ -156,6 +162,38 @@ export function rowView(state: VisibleRowState): RowView {
       action: "connect",
     };
   return { label: state.label, title: state.detail };
+}
+
+export function resultViews(state: CompleteState): RowView[] {
+  const files = state.files === 1 ? "file" : "files";
+  const size = formatBytes(state.bytes, "en");
+  return [
+    rowView(state),
+    {
+      count: compactCount(state.files),
+      label: files,
+      title: `${state.files.toLocaleString("en")} ${files} at the analyzed commit. Open Culverin for details`,
+      action: "details",
+    },
+    {
+      count: size,
+      label: "",
+      title: `${size} of files at the analyzed commit (${state.bytes.toLocaleString("en")} ${state.bytes === 1 ? "byte" : "bytes"}). Open Culverin for details`,
+      action: "details",
+    },
+  ];
+}
+
+const resultIcons: IconNode[] = [Code, Files, Database];
+
+function resultIcon(node: IconNode): Element {
+  return createElement(node, {
+    width: 16,
+    height: 16,
+    "stroke-width": 2.25,
+    "aria-hidden": "true",
+    focusable: "false",
+  });
 }
 
 let iconTemplate: Element | undefined;
@@ -187,6 +225,7 @@ export function createSummaryUi(
 ${spinnerStyles}
 :host { display:block; margin-top:var(--base-size-8,8px); color:var(--fgColor-muted,#59636e) }
 :host([hidden]) { display:none }
+[aria-live] { display:flex; flex-direction:column; align-items:flex-start; gap:var(--base-size-8,8px) }
 .row { display:inline; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; line-height:inherit; letter-spacing:inherit; text-align:start }
 button.row { cursor:pointer }
 button.row:hover, button.row:focus-visible { color:var(--fgColor-accent,#0969da) }
@@ -198,12 +237,12 @@ strong { font-weight:var(--base-text-weight-semibold,600) }
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
   shadow.append(style, live);
-  const ui: SummaryUi = { host, live };
+  const ui: SummaryUi = { host, live, rows: [] };
   live.addEventListener("click", (event) => {
     if (
       !event.isTrusted ||
       !ui.action ||
-      !ui.row?.contains(event.target as Node)
+      !ui.rows.some((row) => row.contains(event.target as Node))
     )
       return;
     activate(ui.action);
@@ -217,31 +256,46 @@ export function showState(ui: SummaryUi, state: RowState): void {
     ui.action = undefined;
     return;
   }
-  const view = rowView(state);
-  const interactive = view.action !== undefined;
-  let row = ui.row;
-  if (!row || row instanceof HTMLButtonElement !== interactive) {
-    row = document.createElement(interactive ? "button" : "span");
+  const views =
+    state.kind === "complete" ? resultViews(state) : [rowView(state)];
+  const rows = views.map((view, index) => {
+    const interactive = view.action !== undefined;
+    const current = ui.rows[index];
+    if (current && current instanceof HTMLButtonElement === interactive)
+      return current;
+    const row = document.createElement(interactive ? "button" : "span");
     row.className = "row";
     if (row instanceof HTMLButtonElement) row.type = "button";
-    ui.live.replaceChildren(row);
-    ui.row = row;
-  }
-  let indicator: Element;
-  if (state.kind === "running") {
-    indicator =
-      row.querySelector(".culverin-spinner") ?? document.createElement("span");
-    indicator.className = "culverin-spinner";
-    indicator.setAttribute("aria-hidden", "true");
-  } else indicator = icon();
-  const parts: Node[] = [indicator];
-  if (view.count !== undefined) {
-    const count = document.createElement("strong");
-    count.textContent = view.count;
-    parts.push(count, document.createTextNode(` ${view.label}`));
-  } else parts.push(document.createTextNode(view.label));
-  row.replaceChildren(...parts);
-  row.title = view.title;
-  ui.action = view.action;
+    return row;
+  });
+  if (
+    rows.length !== ui.rows.length ||
+    rows.some((row, index) => row !== ui.rows[index])
+  )
+    ui.live.replaceChildren(...rows);
+  ui.rows = rows;
+  views.forEach((view, index) => {
+    const row = rows[index]!;
+    let indicator: Element;
+    if (state.kind === "running") {
+      indicator =
+        row.querySelector(".culverin-spinner") ??
+        document.createElement("span");
+      indicator.className = "culverin-spinner";
+      indicator.setAttribute("aria-hidden", "true");
+    } else if (state.kind === "complete")
+      indicator = resultIcon(resultIcons[index]!);
+    else indicator = icon();
+    const parts: Node[] = [indicator];
+    if (view.count !== undefined) {
+      const count = document.createElement("strong");
+      count.textContent = view.count;
+      parts.push(count);
+      if (view.label) parts.push(document.createTextNode(` ${view.label}`));
+    } else parts.push(document.createTextNode(view.label));
+    row.replaceChildren(...parts);
+    row.title = view.title;
+  });
+  ui.action = views[0]!.action;
   ui.host.hidden = false;
 }

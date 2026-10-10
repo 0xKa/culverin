@@ -108,7 +108,7 @@ export async function runPartialResults(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const partialPopup = await openPopup(page);
 
@@ -310,7 +310,7 @@ export async function runPartialResults(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const multiplePartialPopup = await openPopup(page);
 

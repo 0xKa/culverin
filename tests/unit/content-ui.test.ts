@@ -4,6 +4,7 @@ import {
   compactCount,
   failureState,
   lookupFailureState,
+  resultViews,
   rowView,
 } from "../../extension/src/content/ui";
 
@@ -17,20 +18,28 @@ test("formats counts like GitHub repository stats", () => {
 });
 
 test("describes complete counts with exact tooltips and opens details", () => {
-  expect(rowView({ kind: "complete", total: 1_234_567 })).toEqual({
+  expect(
+    rowView({ kind: "complete", total: 1_234_567, files: 1, bytes: 0 }),
+  ).toEqual({
     count: "1.2M",
     label: "lines of code",
     title: "1,234,567 lines of code. Open Culverin for details",
     action: "details",
   });
-  expect(rowView({ kind: "complete", total: 1 })).toEqual({
+  expect(rowView({ kind: "complete", total: 1, files: 1, bytes: 0 })).toEqual({
     count: "1",
     label: "line of code",
     title: "1 line of code. Open Culverin for details",
     action: "details",
   });
   expect(
-    rowView({ kind: "complete", total: 412_345, customIgnore: true }),
+    rowView({
+      kind: "complete",
+      total: 412_345,
+      files: 1,
+      bytes: 0,
+      customIgnore: true,
+    }),
   ).toEqual({
     count: "412.3k",
     label: "lines of code",
@@ -40,9 +49,42 @@ test("describes complete counts with exact tooltips and opens details", () => {
   });
 });
 
+test("adds file count and size rows after a result", () => {
+  const [lines, files, size] = resultViews({
+    kind: "complete",
+    total: 60_612,
+    files: 1_234,
+    bytes: 4_718_592,
+    uncounted: 1,
+  });
+  expect(lines).toMatchObject({ count: "60.6k+", label: "lines of code" });
+  expect(files).toEqual({
+    count: "1.2k",
+    label: "files",
+    title: "1,234 files at the analyzed commit. Open Culverin for details",
+    action: "details",
+  });
+  expect(size).toEqual({
+    count: "4.5 MB",
+    label: "",
+    title:
+      "4.5 MB of files at the analyzed commit (4,718,592 bytes). Open Culverin for details",
+    action: "details",
+  });
+  const [, oneFile, oneByte] = resultViews({
+    kind: "complete",
+    total: 0,
+    files: 1,
+    bytes: 1,
+  });
+  expect(oneFile).toMatchObject({ count: "1", label: "file" });
+  expect(oneByte).toMatchObject({ count: "1 B" });
+  expect(oneByte!.title).toContain("(1 byte)");
+});
+
 test("offers explicit analysis and cancellation actions", () => {
   expect(rowView({ kind: "idle" })).toMatchObject({
-    label: "Count lines of code",
+    label: "Analyze with Culverin",
     action: "analyze",
   });
   expect(rowView({ kind: "running", phase: "downloading" })).toEqual({
@@ -51,7 +93,7 @@ test("offers explicit analysis and cancellation actions", () => {
     action: "details",
   });
   expect(rowView(failureState("network_unavailable"))).toEqual({
-    label: "Couldn't count lines · Retry",
+    label: "Couldn't analyze · Retry",
     title: "GitHub could not be reached.",
     action: "analyze",
   });
@@ -87,7 +129,7 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   expect(limited.title).toStartWith("GitHub rate limit reached. Retry after ");
   expect(limited.action).toBeUndefined();
   expect(rowView(failureState("archive_throttled"))).toMatchObject({
-    label: "Couldn't count lines · Retry",
+    label: "Couldn't analyze · Retry",
     title:
       "GitHub is busy preparing this repository's source snapshot. Try again in a minute.",
     action: "analyze",
@@ -118,7 +160,7 @@ test("maps failures to retryable, blocked, and hidden states", () => {
     action: "connect",
   });
   expect(rowView(failureState("repository_unavailable"))).toMatchObject({
-    label: "Couldn't count lines · Retry",
+    label: "Couldn't analyze · Retry",
     action: "analyze",
   });
   expect(lookupFailureState("network_unavailable")).toEqual({ kind: "idle" });
@@ -157,15 +199,22 @@ test("names the limit an analysis reached", () => {
 });
 
 test("marks a total that leaves out files too large to count", () => {
-  const view = rowView({ kind: "complete", total: 1234, uncounted: 2 });
+  const view = rowView({
+    kind: "complete",
+    total: 1234,
+    files: 1,
+    bytes: 0,
+    uncounted: 2,
+  });
   expect(view.count).toBe("1.2k+");
   expect(view.action).toBe("details");
   expect(view.title).toBe(
     "1,234 lines of code, not including 2 source files too large to count. Open Culverin for details",
   );
-  expect(rowView({ kind: "complete", total: 1234, uncounted: 0 }).count).toBe(
-    "1.2k",
-  );
+  expect(
+    rowView({ kind: "complete", total: 1234, files: 1, bytes: 0, uncounted: 0 })
+      .count,
+  ).toBe("1.2k");
 });
 
 test("uses a pixel-aligned monochrome icon asset", () => {

@@ -246,6 +246,8 @@ test("validates popup requests and compact page summary updates", () => {
     repository: { owner: "owner", name: "repo" },
     totalCodeLines: 125,
     uncountedFiles: 0,
+    totalFiles: 3,
+    totalBytes: 2048,
     customIgnore: false,
   };
   expect(validSummaryUpdate(update)).toBe(true);
@@ -258,6 +260,11 @@ test("validates popup requests and compact page summary updates", () => {
   expect(validSummaryUpdate({ ...update, totalCodeLines: "125" })).toBe(false);
   expect(validSummaryUpdate({ ...update, uncountedFiles: 2 })).toBe(true);
   expect(validSummaryUpdate({ ...update, uncountedFiles: -1 })).toBe(false);
+  expect(validSummaryUpdate({ ...update, totalFiles: -1 })).toBe(false);
+  expect(validSummaryUpdate({ ...update, totalBytes: 1.5 })).toBe(false);
+  const withoutBytes: Partial<typeof update> = { ...update };
+  delete withoutBytes.totalBytes;
+  expect(validSummaryUpdate(withoutBytes)).toBe(false);
   expect(validSummaryUpdate({ ...update, token: "secret" })).toBe(false);
 });
 

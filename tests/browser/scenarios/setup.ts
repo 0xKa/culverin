@@ -15,7 +15,7 @@ export async function runSetup(
   const summary = page.locator("[data-culverin-root]");
   await page.goto("https://github.com/culverin/bootstrap-fixture#readme");
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await summary.count(), 1);
 
@@ -30,7 +30,7 @@ export async function runSetup(
     {
       after: "forks",
       before: "Report repository",
-      live: "Count lines of code",
+      live: "Analyze with Culverin",
       icon: "currentColor",
       shapes: 6,
     },
@@ -67,7 +67,7 @@ export async function runSetup(
 
   assert.equal(fixtures.apiRequests, beforeWorkerStopApiRequests);
 
-  assert.equal(await page.getByText("Count lines of code").count(), 1);
+  assert.equal(await page.getByText("Analyze with Culverin").count(), 1);
 
   const { openActionPopup, actionPopup, openPopup, extensionUrl } =
     createPopupControls(context, harness, worker.url());

@@ -32,6 +32,8 @@ export type SummaryUpdate = {
   repository: { owner: string; name: string };
   totalCodeLines: number;
   uncountedFiles: number;
+  totalFiles: number;
+  totalBytes: number;
   customIgnore: boolean;
 };
 
@@ -196,6 +198,8 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
       "repository",
       "totalCodeLines",
       "uncountedFiles",
+      "totalFiles",
+      "totalBytes",
       "customIgnore",
     ]) ||
     value.protocolVersion !== PUBLIC_VERSION ||
@@ -212,6 +216,10 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
     (value.totalCodeLines as number) >= 0 &&
     Number.isSafeInteger(value.uncountedFiles) &&
     (value.uncountedFiles as number) >= 0 &&
+    Number.isSafeInteger(value.totalFiles) &&
+    (value.totalFiles as number) >= 0 &&
+    Number.isSafeInteger(value.totalBytes) &&
+    (value.totalBytes as number) >= 0 &&
     typeof value.customIgnore === "boolean"
   );
 }

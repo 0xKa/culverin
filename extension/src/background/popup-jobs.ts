@@ -87,6 +87,8 @@ export function createPopupJobs(
       repository,
       totalCodeLines: result.totals.code,
       uncountedFiles: result.coverage.skippedByReason.oversized_source,
+      totalFiles: result.coverage.regularFiles,
+      totalBytes: result.coverage.totalBytes,
       customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
     };
     await chrome.tabs

@@ -78,7 +78,7 @@ export async function runAcquisitionLifetimes(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const singleChunkPopup = await openPopup(page);
 
@@ -127,7 +127,7 @@ export async function runAcquisitionLifetimes(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   fixtures.mode = "slow";
 
@@ -229,7 +229,7 @@ export async function runAcquisitionLifetimes(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const detachedArchive = new Promise<void>((resolve) => {
     fixtures.slowArchiveStarted = resolve;
@@ -267,7 +267,7 @@ export async function runAcquisitionLifetimes(
 
   assert.equal(fixtures.archiveRequests, 8);
 
-  assert.equal(await page.getByText("Count lines of code").count(), 1);
+  assert.equal(await page.getByText("Analyze with Culverin").count(), 1);
 
   fixtures.mode = "ok";
   return { ...state };

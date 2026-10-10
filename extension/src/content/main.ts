@@ -98,6 +98,8 @@ async function completeState(
   return {
     kind: "complete",
     total: result.totals.code,
+    files: result.coverage.regularFiles,
+    bytes: result.coverage.totalBytes,
     uncounted: result.coverage.skippedByReason.oversized_source,
     customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
   };
@@ -265,6 +267,8 @@ function create(repository: PageRepository): View {
     setState(current, {
       kind: "complete",
       total: message.totalCodeLines,
+      files: message.totalFiles,
+      bytes: message.totalBytes,
       uncounted: message.uncountedFiles,
       customIgnore: message.customIgnore,
     });

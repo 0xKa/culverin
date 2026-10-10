@@ -183,7 +183,7 @@ export async function runPagePopupLifetimes(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(fixtures.archiveRequests, 1);
 
@@ -197,7 +197,7 @@ export async function runPagePopupLifetimes(
     history.replaceState({}, "", "/culverin/bootstrap-fixture");
   });
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
@@ -213,7 +213,7 @@ export async function runPagePopupLifetimes(
 
   await page.waitForFunction((root) => !root.isConnected, originalRoot);
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
@@ -227,19 +227,19 @@ export async function runPagePopupLifetimes(
 
   await page.waitForFunction((root) => !root.isConnected, otherRoot);
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
   await page.evaluate(() => history.forward());
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
   await page.evaluate(() => history.back());
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
@@ -259,7 +259,7 @@ export async function runPagePopupLifetimes(
       ?.parentElement?.nextElementSibling?.hasAttribute("data-culverin-root"),
   );
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(await summary.count(), 1);
 
@@ -289,7 +289,7 @@ export async function runPagePopupLifetimes(
     "forks",
   );
 
-  await page.getByText("Count lines of code").waitFor({ timeout: 1000 });
+  await page.getByText("Analyze with Culverin").waitFor({ timeout: 1000 });
 
   await page.evaluate(() => sessionStorage.setItem("holdHydration", "1"));
 
@@ -299,7 +299,7 @@ export async function runPagePopupLifetimes(
 
   assert.equal(await summary.count(), 0);
 
-  await page.getByText("Count lines of code").waitFor({ timeout: 4000 });
+  await page.getByText("Analyze with Culverin").waitFor({ timeout: 4000 });
 
   assert.equal(
     await page.evaluate(() => {
@@ -311,7 +311,7 @@ export async function runPagePopupLifetimes(
 
   await page.reload();
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(fixtures.archiveRequests, 1);
 
@@ -321,7 +321,7 @@ export async function runPagePopupLifetimes(
     fixtures.slowArchiveStarted = resolve;
   });
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const cancelPopup = await openPopup(page);
 
@@ -392,7 +392,7 @@ export async function runPagePopupLifetimes(
 
   await page.waitForTimeout(1700);
 
-  assert.equal(await page.getByText("Count lines of code").count(), 1);
+  assert.equal(await page.getByText("Analyze with Culverin").count(), 1);
 
   await cancelPopup.close();
 
@@ -446,7 +446,7 @@ export async function runPagePopupLifetimes(
     history.replaceState({}, "", "/culverin/bootstrap-fixture");
   });
 
-  await page.getByText("Count lines of code").waitFor({ timeout: 1000 });
+  await page.getByText("Analyze with Culverin").waitFor({ timeout: 1000 });
 
   const retryPopup = await openPopup(page);
 
@@ -581,7 +581,7 @@ export async function runPagePopupLifetimes(
 
   await summary.waitFor({ state: "attached" });
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(fixtures.apiRequests, beforeUncachedApiRequests);
 
@@ -605,7 +605,7 @@ export async function runPagePopupLifetimes(
 
   await summary.waitFor({ state: "attached" });
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const privatePopup = await openPopup(page);
 
@@ -628,7 +628,7 @@ export async function runPagePopupLifetimes(
 
   await privatePopup.close();
 
-  await page.getByText("Count lines of code").click();
+  await page.getByText("Analyze with Culverin").click();
 
   await page.getByText("Private repository? Connect GitHub").waitFor();
 

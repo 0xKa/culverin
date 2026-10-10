@@ -51,7 +51,27 @@ export async function runPageCounting(
     history.pushState({}, "", "/culverin/bootstrap-other"),
   );
 
-  await page.getByText("Count lines of code").waitFor();
+  const assertResultRows = async () => {
+    const rows = await summary.evaluate((host) =>
+      Array.from(host.shadowRoot!.querySelectorAll(".row")).map((row) => ({
+        tag: row.tagName,
+        text: row.textContent,
+        title: row.getAttribute("title"),
+        stroke: row.querySelector("svg")?.getAttribute("stroke"),
+      })),
+    );
+    assert.deepEqual(
+      rows.map(({ tag, stroke }) => ({ tag, stroke })),
+      Array(3).fill({ tag: "BUTTON", stroke: "currentColor" }),
+    );
+    assert.equal(rows[0]!.text, "0 lines of code");
+    assert.match(rows[1]!.text ?? "", /^\d[\d.]*[kMB]? files?$/);
+    assert.match(rows[2]!.text ?? "", /^\d[\d.,]* (B|KB|MB)$/);
+    assert.match(rows[1]!.title ?? "", /files? at the analyzed commit\./);
+    assert.match(rows[2]!.title ?? "", /of files at the analyzed commit \(/);
+  };
+
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const zeroPopup = await openPopup(page);
 
@@ -70,6 +90,8 @@ export async function runPageCounting(
 
   await page.getByText("0 lines of code", { exact: true }).waitFor();
 
+  await assertResultRows();
+
   await zeroPopup.close();
 
   await page.evaluate(() =>
@@ -81,7 +103,7 @@ export async function runPageCounting(
   await page.reload();
 
   const countButton = page.getByRole("button", {
-    name: "Count lines of code",
+    name: "Analyze with Culverin",
   });
 
   const rowTitle = () =>
@@ -117,6 +139,8 @@ export async function runPageCounting(
     .waitFor({ timeout: 15_000 });
 
   assert.equal(await rowTitle(), "0 lines of code. Open Culverin for details");
+
+  await assertResultRows();
 
   assert.equal(
     await page.getByRole("button", { name: "0 lines of code" }).count(),
@@ -257,7 +281,7 @@ export async function runPageCounting(
   );
 
   const retryButton = page.getByRole("button", {
-    name: "Couldn't count lines · Retry",
+    name: "Couldn't analyze · Retry",
   });
 
   await retryButton.waitFor({ timeout: 15_000 });
@@ -319,7 +343,7 @@ export async function runPageCounting(
   );
 
   const manualTrigger = countingSettings.getByRole("radio", {
-    name: "When I click Count lines or Analyze",
+    name: "When I click Analyze",
   });
 
   const openTrigger = countingSettings.getByRole("radio", {

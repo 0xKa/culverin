@@ -8,6 +8,7 @@
     "build:test": "vite build --mode diagnostic && bun build --target=browser --format=iife --minify --outfile=../.bun/test-extension/content.js src/content/main.ts"
   },
   "dependencies": {
+    "lucide": "1.51.0",
     "lucide-preact": "1.51.0",
     "preact": "10.29.8"
   }

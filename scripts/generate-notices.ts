@@ -110,6 +110,7 @@ const sections = packages.map((item) => {
 const bundledPackages = [
   { name: "preact", path: "extension/node_modules", license: "MIT" },
   { name: "tailwindcss", path: "node_modules", license: "MIT" },
+  { name: "lucide", path: "extension/node_modules", license: "ISC" },
   {
     name: "lucide-preact",
     path: "extension/node_modules",

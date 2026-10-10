@@ -133,7 +133,7 @@ export async function runPopupResults(
 
   await page.goto("https://github.com/culverin/bootstrap-fixture");
 
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   assert.equal(
     await worker.evaluate(
@@ -181,7 +181,7 @@ export async function runPopupResults(
 
   assert.equal(heldPopupJobs?.length, 1);
 
-  assert.equal(await page.getByText("Count lines of code").count(), 1);
+  assert.equal(await page.getByText("Analyze with Culverin").count(), 1);
 
   const resumedPopup = await openPopup(page);
 

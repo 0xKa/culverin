@@ -84,7 +84,7 @@ try {
   await page.setViewportSize({ width: 1100, height: 700 });
   const fixtures = await installGitHubFixtures(context, page, "a".repeat(40));
   await page.goto("https://github.com/culverin/bootstrap-fixture");
-  await page.getByText("Count lines of code").waitFor();
+  await page.getByText("Analyze with Culverin").waitFor();
 
   const worker =
     context.serviceWorkers()[0] ??

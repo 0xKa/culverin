@@ -41,8 +41,8 @@ export function QuestionsPanel() {
         <Question summary="What uses requests, and what doesn't?">
           <ul className="m-0 grid list-disc gap-1 pl-5">
             <li>
-              Count lines or Analyze: 2, unless the repository was checked in
-              the last 20 minutes.
+              Analyze: 2, unless the repository was checked in the last 20
+              minutes.
             </li>
             <li>Reanalyze in the popup: always 2.</li>
             <li>

@@ -10,7 +10,7 @@ import { Panel, SectionHeader } from "./layout";
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
     value: "manual",
-    label: "When I click Count lines or Analyze",
+    label: "When I click Analyze",
     detail:
       "Opening a repository page sends nothing to GitHub unless you counted it before. Then Culverin checks that the count is still current, at most once every 20 minutes.",
   },

@@ -1,6 +1,6 @@
 import { ExternalLink } from "../ui/ExternalLink";
 import { sendSettings } from "./client";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
   cachedResultSummaries,
@@ -16,8 +16,8 @@ import { IconButton } from "../ui/IconButton";
 import { tip } from "../ui/tooltip";
 import { Eye, Trash } from "lucide-preact";
 import { ResultDialog } from "./ResultDialog";
-import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
+import { ActionStatus, useAction, type ActionOptions } from "./ActionStatus";
 import { Panel, SectionHeader } from "./layout";
 
 const exact = (time: number) =>
@@ -46,6 +46,8 @@ const clearActions = {
 
 type ClearScope = keyof typeof clearActions;
 
+const ROW_EXIT_MS = 150;
+
 function CacheList({
   id,
   options,
@@ -55,12 +57,19 @@ function CacheList({
   id: string;
   options: CacheOptions;
   busy: boolean;
-  onDelete: (entry: CachedResultSummary) => void;
+  onDelete: (entry: CachedResultSummary) => Promise<boolean>;
 }) {
   const [entries, setEntries] = useState<CachedResultSummary[]>();
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
   const [inspected, setInspected] = useState<CachedResultSummary>();
+  const [leaving, setLeaving] = useState<string>();
+  const [focusAfter, setFocusAfter] = useState<{
+    removed: string;
+    next?: string;
+  }>();
+  const list = useRef<HTMLDivElement>(null);
+  const summary = useRef<HTMLParagraphElement>(null);
   const now = Date.now();
 
   useEffect(() => {
@@ -86,12 +95,46 @@ function CacheList({
     return () => chrome.storage.onChanged.removeListener(changed);
   }, [options]);
 
+  useEffect(() => {
+    if (
+      !focusAfter ||
+      busy ||
+      !entries ||
+      entries.some((entry) => entry.identity === focusAfter.removed)
+    )
+      return;
+    setFocusAfter(undefined);
+    setLeaving(undefined);
+    if (document.activeElement && document.activeElement !== document.body)
+      return;
+    const next =
+      focusAfter.next &&
+      list.current?.querySelector<HTMLButtonElement>(
+        `[data-delete="${CSS.escape(focusAfter.next)}"]`,
+      );
+    (next || summary.current)?.focus();
+  }, [focusAfter, busy, entries]);
+
+  function remove(entry: CachedResultSummary, index: number): void {
+    const next = (entries?.[index + 1] ?? entries?.[index - 1])?.identity;
+    setLeaving(entry.identity);
+    void onDelete(entry).then((deleted) => {
+      if (deleted) setFocusAfter({ removed: entry.identity, next });
+      else setLeaving(undefined);
+    });
+  }
+
   if (!entries) return null;
   const share = Math.min(100, (used / options.bytes) * 100);
   return (
-    <div id={`${id}-list`} className="mt-4">
+    <div ref={list} id={`${id}-list`} className="mt-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p id={`${id}-summary`} className="m-0 font-medium">
+        <p
+          ref={summary}
+          id={`${id}-summary`}
+          tabIndex={-1}
+          className="m-0 font-medium"
+        >
           {cacheSummary(entries)}
         </p>
         <span className="text-muted tabular text-sm">
@@ -135,10 +178,11 @@ function CacheList({
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
+              {entries.map((entry, index) => (
                 <tr
                   key={entry.identity}
-                  className="border-divider hover:bg-surface border-b transition-colors duration-150 last:border-b-0"
+                  data-leaving={leaving === entry.identity || undefined}
+                  className="border-divider hover:bg-surface border-b transition-[background-color,opacity] duration-150 last:border-b-0 data-leaving:pointer-events-none data-leaving:opacity-0"
                 >
                   <td className="py-2.5 pr-4 pl-4 align-top wrap-anywhere">
                     <ExternalLink
@@ -196,8 +240,9 @@ function CacheList({
                       tip={{ side: "left" }}
                       label={`Delete result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
                       className="disabled:pointer-events-none disabled:opacity-50"
+                      data-delete={entry.identity}
                       disabled={busy}
-                      onClick={() => onDelete(entry)}
+                      onClick={() => remove(entry, index)}
                     >
                       <Trash />
                     </IconButton>
@@ -221,47 +266,65 @@ function CacheList({
 
 export function StorageSection({ hidden }: { hidden: boolean }) {
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<{
-    scope: ClearScope;
-    message: string;
-  }>();
+  const actions = {
+    public: useAction(),
+    private: useAction(),
+    all: useAction(),
+  };
+
+  async function act(
+    scope: ClearScope,
+    request: () => Promise<boolean>,
+    options: ActionOptions,
+  ): Promise<boolean> {
+    setBusy(true);
+    const done = await actions[scope].run(async () => {
+      if (!(await request())) throw new Error("Request failed");
+    }, options);
+    setBusy(false);
+    return done;
+  }
 
   function remove(
     scope: "public" | "private",
     entry: CachedResultSummary,
-  ): void {
-    setBusy(true);
-    setStatus(undefined);
-    void sendSettings({
-      type: "cache.delete",
+  ): Promise<boolean> {
+    return act(
       scope,
-      identity: entry.identity,
-    }).then((reply) => {
-      setBusy(false);
-      setStatus({
-        scope,
-        message:
-          reply?.state === "result-deleted"
-            ? `Deleted the result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}.`
-            : "Couldn't delete the result. Try again.",
-      });
-    });
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, ROW_EXIT_MS));
+        const reply = await sendSettings({
+          type: "cache.delete",
+          scope,
+          identity: entry.identity,
+        });
+        if (reply?.state !== "result-deleted") return false;
+        const cache = scope === "public" ? publicCache : privateCache;
+        const stored = await chrome.storage.local.get(cache.key);
+        return !cachedResultSummaries(stored[cache.key], cache).some(
+          (saved) => saved.identity === entry.identity,
+        );
+      },
+      {
+        quiet: true,
+        message: `Deleted the result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}.`,
+        failure: "Couldn't delete. Try again.",
+      },
+    );
   }
 
   function clear(scope: ClearScope): void {
     const action = clearActions[scope];
-    setBusy(true);
-    setStatus(undefined);
-    void sendSettings({ type: action.type }).then((reply) => {
-      setBusy(false);
-      setStatus({
-        scope,
-        message:
-          reply?.state === action.state
-            ? action.message
-            : "Couldn't clear saved results. Try again.",
-      });
-    });
+    void act(
+      scope,
+      async () =>
+        (await sendSettings({ type: action.type }))?.state === action.state,
+      {
+        label: "Cleared",
+        message: action.message,
+        failure: "Couldn't clear. Try again.",
+      },
+    );
   }
 
   return (
@@ -275,24 +338,24 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
           className="min-w-0"
           titleId="cache-heading"
           actions={
-            <Button
-              id="clear-public"
-              type="button"
-              size="md"
-              disabled={busy}
-              onClick={() => clear("public")}
-            >
-              Clear public results
-            </Button>
+            <div className="flex items-center gap-3">
+              <ActionStatus id="status" state={actions.public.state} />
+              <Button
+                id="clear-public"
+                type="button"
+                size="md"
+                disabled={busy}
+                onClick={() => clear("public")}
+              >
+                Clear public results
+              </Button>
+            </div>
           }
         >
           <p className="text-muted m-0">
             Complete public results are stored locally for reuse. Culverin
             checks repository visibility before showing a cached result.
           </p>
-          <Status id="status" className="m-0 text-sm not-empty:mt-2">
-            {status?.scope === "public" && status.message}
-          </Status>
           <CacheList
             id="cache"
             options={publicCache}
@@ -305,15 +368,18 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
           className="min-w-0"
           titleId="private-heading"
           actions={
-            <Button
-              id="clear-private"
-              type="button"
-              size="md"
-              disabled={busy}
-              onClick={() => clear("private")}
-            >
-              Clear private results
-            </Button>
+            <div className="flex items-center gap-3">
+              <ActionStatus id="private-status" state={actions.private.state} />
+              <Button
+                id="clear-private"
+                type="button"
+                size="md"
+                disabled={busy}
+                onClick={() => clear("private")}
+              >
+                Clear private results
+              </Button>
+            </div>
           }
         >
           <p className="text-muted m-0">
@@ -321,9 +387,6 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
             shown only after GitHub confirms your connection can still read the
             repository. They are also deleted when you disconnect GitHub.
           </p>
-          <Status id="private-status" className="m-0 text-sm not-empty:mt-2">
-            {status?.scope === "private" && status.message}
-          </Status>
           <CacheList
             id="private"
             options={privateCache}
@@ -338,19 +401,19 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
               Removes every saved public and private result.
             </p>
           </div>
-          <Button
-            id="clear-all"
-            type="button"
-            size="md"
-            variant="danger"
-            disabled={busy}
-            onClick={() => clear("all")}
-          >
-            Clear all results
-          </Button>
-          <Status id="all-status" className="m-0 w-full text-sm empty:-mt-3">
-            {status?.scope === "all" && status.message}
-          </Status>
+          <div className="flex items-center gap-3">
+            <ActionStatus id="all-status" state={actions.all.state} />
+            <Button
+              id="clear-all"
+              type="button"
+              size="md"
+              variant="danger"
+              disabled={busy}
+              onClick={() => clear("all")}
+            >
+              Clear all results
+            </Button>
+          </div>
         </div>
       </div>
     </section>

@@ -619,6 +619,17 @@ export async function runPageCounting(
     "THIRD_PARTY_NOTICES.txt",
   );
 
+  await countingSettings.getByRole("button", { name: "Copy details" }).click();
+
+  await countingSettings
+    .locator('#about-status-mark:is([data-mark="done"], [data-mark="failed"])')
+    .waitFor();
+
+  assert.match(
+    (await countingSettings.locator("#about-status-mark").textContent()) ?? "",
+    /^(Copied|Couldn't copy\. Select the details below instead\.)$/,
+  );
+
   await countingSettings.getByRole("link", { name: "Culverin ignore" }).click();
 
   await countingSettings.locator("#rules").waitFor({ state: "visible" });

@@ -1,5 +1,4 @@
 import { ExternalLink as ExternalLinkComponent } from "../ui/ExternalLink";
-import { useState } from "preact/hooks";
 import {
   engineVersion,
   rulesProfile,
@@ -9,9 +8,9 @@ import {
 import { Button } from "../ui/Button";
 import { ExternalLink } from "lucide-preact";
 import { Separator } from "../ui/Separator";
-import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
 import { aboutDetails, browserVersion, REPOSITORY_URL } from "./about";
+import { ActionStatus, useAction } from "./ActionStatus";
 
 const links: [string, string][] = [
   ["Source code", REPOSITORY_URL],
@@ -21,7 +20,7 @@ const links: [string, string][] = [
 ];
 
 export function AboutSection({ hidden }: { hidden: boolean }) {
-  const [copyStatus, setCopyStatus] = useState("");
+  const copied = useAction();
   const manifest = chrome.runtime.getManifest();
   const rows: [string, string][] = [
     ["Version", manifest.version],
@@ -34,15 +33,18 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
     ["Extension ID", chrome.runtime.id],
   ];
 
-  async function copy(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(
-        aboutDetails([["Culverin", manifest.version], ...rows.slice(1)]),
-      );
-      setCopyStatus("Copied. Paste these details into your issue report.");
-    } catch {
-      setCopyStatus("Couldn't copy. Select the details above instead.");
-    }
+  function copy(): void {
+    void copied.run(
+      () =>
+        navigator.clipboard.writeText(
+          aboutDetails([["Culverin", manifest.version], ...rows.slice(1)]),
+        ),
+      {
+        label: "Copied",
+        message: "Copied.",
+        failure: "Couldn't copy. Select the details below instead.",
+      },
+    );
   }
 
   return (
@@ -59,17 +61,18 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
       <div className="grid gap-4">
         <Panel
           actions={
-            <Button
-              id="copy-details"
-              type="button"
-              size="md"
-              onClick={() => void copy()}
-            >
-              Copy details
-            </Button>
+            <div className="flex items-center gap-3">
+              <ActionStatus id="about-status" state={copied.state} />
+              <Button id="copy-details" type="button" size="md" onClick={copy}>
+                Copy details
+              </Button>
+            </div>
           }
           title="Details"
         >
+          <p className="text-muted m-0 mb-3 text-sm">
+            Include these details when you report an issue.
+          </p>
           <dl id="about-details" className="m-0 text-sm">
             {rows.map(([label, value]) => (
               <div
@@ -99,12 +102,6 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
               </dd>
             </div>
           </dl>
-          <Status
-            id="about-status"
-            className="text-muted m-0 text-sm not-empty:mt-2"
-          >
-            {copyStatus}
-          </Status>
         </Panel>
         <Panel title="Links">
           <ul className="divide-divider m-0 -my-1 list-none divide-y p-0">

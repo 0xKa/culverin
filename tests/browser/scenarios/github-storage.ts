@@ -430,12 +430,65 @@ export async function runGithubStorage(
 
   assert.equal(untrustedDelete, "rejected");
 
-  await settingsPage
+  const privateDelete = settingsPage
     .locator("#private-list")
     .getByRole("button", {
       name: /^Delete result for .+ at [0-9a-f]{7}$/,
-    })
-    .click();
+    });
+
+  type DeleteHold = typeof globalThis & {
+    workingSend?: typeof chrome.runtime.sendMessage;
+    failDelete?: () => void;
+  };
+
+  await settingsPage.evaluate(() => {
+    const scope = globalThis as DeleteHold;
+    scope.workingSend = chrome.runtime.sendMessage;
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime) as (
+      message: unknown,
+      callback: (reply: unknown) => void,
+    ) => void;
+    chrome.runtime.sendMessage = ((
+      message: { type?: string },
+      callback: (reply: unknown) => void,
+    ) => {
+      if (message.type !== "cache.delete") return send(message, callback);
+      scope.failDelete = () => callback(undefined);
+    }) as typeof chrome.runtime.sendMessage;
+  });
+
+  await privateDelete.click();
+
+  await settingsPage
+    .locator("#private-list tr[data-leaving]")
+    .waitFor({ state: "attached" });
+
+  await settingsPage.waitForFunction(
+    () => typeof (globalThis as DeleteHold).failDelete === "function",
+  );
+
+  await settingsPage.evaluate(() => {
+    const scope = globalThis as DeleteHold;
+    chrome.runtime.sendMessage = scope.workingSend!;
+    scope.failDelete!();
+  });
+
+  await settingsPage
+    .locator('#private-status-mark[data-mark="failed"]')
+    .waitFor();
+
+  assert.equal(
+    await settingsPage.locator("#private-status-mark").textContent(),
+    "Couldn't delete. Try again.",
+  );
+
+  await settingsPage
+    .locator("#private-list tr[data-leaving]")
+    .waitFor({ state: "detached" });
+
+  assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
+
+  await privateDelete.click();
 
   await settingsPage
     .locator("#private-status", { hasText: /^Deleted the result for / })
@@ -445,7 +498,103 @@ export async function runGithubStorage(
     .locator("#private-summary", { hasText: "No saved results." })
     .waitFor();
 
+  await settingsPage.waitForFunction(
+    () => document.activeElement?.id === "private-summary",
+  );
+
+  assert.equal(await settingsPage.locator("#private-status-mark").count(), 0);
+
   assert.deepEqual(await privateStorage(), { private: 0, public: 1 });
+
+  await settingsPage.evaluate(async (key) => {
+    const stored = (await chrome.storage.local.get(key))[key] as {
+      entries: {
+        identity: string;
+        bytes: number;
+        result: { repository: { id: string } };
+        resolution: { repositoryId: string; name: string };
+      }[];
+    };
+    const second = structuredClone(stored.entries[0]!);
+    second.result.repository.id = "2";
+    second.resolution.repositoryId = "2";
+    second.resolution.name = "second-fixture";
+    second.identity = JSON.stringify([
+      "2",
+      ...(JSON.parse(second.identity) as unknown[]).slice(1),
+    ]);
+    second.bytes = 0;
+    second.bytes = new TextEncoder().encode(JSON.stringify(second)).byteLength;
+    await chrome.storage.local.set({
+      [key]: { ...stored, entries: [...stored.entries, second] },
+    });
+  }, "culverin.public-results.v1");
+
+  await settingsPage
+    .locator("#cache-summary", { hasText: "2 results for 2 repositories" })
+    .waitFor();
+
+  const publicDeletes = settingsPage
+    .locator("#cache-list")
+    .locator("button[data-delete]");
+
+  const remaining = await publicDeletes.nth(1).getAttribute("data-delete");
+
+  await settingsPage.evaluate(() => {
+    const scope = globalThis as DeleteHold;
+    scope.workingSend = chrome.runtime.sendMessage;
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime) as (
+      message: unknown,
+      callback: (reply: unknown) => void,
+    ) => void;
+    chrome.runtime.sendMessage = ((
+      message: {
+        type?: string;
+        identity?: string;
+        requestId?: string;
+        navigationId?: string;
+      },
+      callback: (reply: unknown) => void,
+    ) => {
+      if (message.type !== "cache.delete") return send(message, callback);
+      void (async () => {
+        const key = "culverin.public-results.v1";
+        const stored = (await chrome.storage.local.get(key))[key] as {
+          entries: { identity: string }[];
+        };
+        await chrome.storage.local.set({
+          [key]: {
+            ...stored,
+            entries: stored.entries.filter(
+              (entry) => entry.identity !== message.identity,
+            ),
+          },
+        });
+        callback({
+          protocolVersion: 1,
+          requestId: message.requestId,
+          navigationId: message.navigationId,
+          state: "result-deleted",
+        });
+      })();
+    }) as typeof chrome.runtime.sendMessage;
+  });
+
+  await publicDeletes.first().click();
+
+  await settingsPage
+    .locator("#cache-summary", { hasText: "1 result for 1 repository" })
+    .waitFor();
+
+  await settingsPage.waitForFunction(
+    (identity) =>
+      document.activeElement?.getAttribute("data-delete") === identity,
+    remaining,
+  );
+
+  await settingsPage.evaluate(() => {
+    chrome.runtime.sendMessage = (globalThis as DeleteHold).workingSend!;
+  });
 
   await restoreResults();
 
@@ -454,6 +603,13 @@ export async function runGithubStorage(
     .click();
 
   await settingsPage.getByText("Public results cleared.").waitFor();
+
+  await settingsPage.locator('#status-mark[data-mark="done"]').waitFor();
+
+  assert.equal(
+    await settingsPage.locator("#status-mark").textContent(),
+    "Cleared",
+  );
 
   await settingsPage
     .locator("#cache-summary", { hasText: "No saved results." })

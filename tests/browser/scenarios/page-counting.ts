@@ -67,8 +67,14 @@ export async function runPageCounting(
     assert.equal(rows[0]!.text, "0 lines of code");
     assert.match(rows[1]!.text ?? "", /^\d[\d.]*[kMB]? files?$/);
     assert.match(rows[2]!.text ?? "", /^\d[\d.,]* (B|KB|MB)$/);
-    assert.match(rows[1]!.title ?? "", /files? at the analyzed commit\./);
-    assert.match(rows[2]!.title ?? "", /of files at the analyzed commit \(/);
+    assert.match(
+      rows[1]!.title ?? "",
+      /^\d[\d,]* files? at the analyzed commit$/,
+    );
+    assert.match(
+      rows[2]!.title ?? "",
+      /bytes?\): total size of the files at the analyzed commit, as checked out\. Doesn't include Git history/,
+    );
   };
 
   await page.getByText("Analyze with Culverin").waitFor();
@@ -138,7 +144,7 @@ export async function runPageCounting(
     .getByText("0 lines of code", { exact: true })
     .waitFor({ timeout: 15_000 });
 
-  assert.equal(await rowTitle(), "0 lines of code. Open Culverin for details");
+  assert.equal(await rowTitle(), "0 lines of code");
 
   await assertResultRows();
 

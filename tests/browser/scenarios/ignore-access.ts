@@ -128,7 +128,7 @@ export async function runIgnoreAccess(
 
   assert.match(
     (await ignoredRow.getAttribute("title")) ?? "",
-    /^1 line of code \(Culverin ignore active\)\./,
+    /^1 line of code \(Culverin ignore active\)$/,
   );
 
   settingsPage.once("dialog", (dialog) => void dialog.accept());

@@ -153,8 +153,7 @@ export async function runPartialResults(
 
   const partialRow = {
     text: "0+ lines of code",
-    title:
-      "0 lines of code, not including 1 source file too large to count. Open Culverin for details",
+    title: "0 lines of code, not including 1 source file too large to count",
   };
 
   const readRow = () =>

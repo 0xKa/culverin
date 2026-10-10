@@ -145,7 +145,7 @@ export function rowView(state: VisibleRowState): RowView {
     return {
       count: `${compactCount(state.total)}${state.uncounted ? "+" : ""}`,
       label,
-      title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (Culverin ignore active)" : ""}. Open Culverin for details`,
+      title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (Culverin ignore active)" : ""}`,
       action: "details",
     };
   }
@@ -172,13 +172,13 @@ export function resultViews(state: CompleteState): RowView[] {
     {
       count: compactCount(state.files),
       label: files,
-      title: `${state.files.toLocaleString("en")} ${files} at the analyzed commit. Open Culverin for details`,
+      title: `${state.files.toLocaleString("en")} ${files} at the analyzed commit`,
       action: "details",
     },
     {
       count: size,
       label: "",
-      title: `${size} of files at the analyzed commit (${state.bytes.toLocaleString("en")} ${state.bytes === 1 ? "byte" : "bytes"}). Open Culverin for details`,
+      title: `${size} (${state.bytes.toLocaleString("en")} ${state.bytes === 1 ? "byte" : "bytes"}): total size of the files at the analyzed commit, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.`,
       action: "details",
     },
   ];

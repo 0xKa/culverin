@@ -23,13 +23,13 @@ test("describes complete counts with exact tooltips and opens details", () => {
   ).toEqual({
     count: "1.2M",
     label: "lines of code",
-    title: "1,234,567 lines of code. Open Culverin for details",
+    title: "1,234,567 lines of code",
     action: "details",
   });
   expect(rowView({ kind: "complete", total: 1, files: 1, bytes: 0 })).toEqual({
     count: "1",
     label: "line of code",
-    title: "1 line of code. Open Culverin for details",
+    title: "1 line of code",
     action: "details",
   });
   expect(
@@ -43,8 +43,7 @@ test("describes complete counts with exact tooltips and opens details", () => {
   ).toEqual({
     count: "412.3k",
     label: "lines of code",
-    title:
-      "412,345 lines of code (Culverin ignore active). Open Culverin for details",
+    title: "412,345 lines of code (Culverin ignore active)",
     action: "details",
   });
 });
@@ -61,14 +60,14 @@ test("adds file count and size rows after a result", () => {
   expect(files).toEqual({
     count: "1.2k",
     label: "files",
-    title: "1,234 files at the analyzed commit. Open Culverin for details",
+    title: "1,234 files at the analyzed commit",
     action: "details",
   });
   expect(size).toEqual({
     count: "4.5 MB",
     label: "",
     title:
-      "4.5 MB of files at the analyzed commit (4,718,592 bytes). Open Culverin for details",
+      "4.5 MB (4,718,592 bytes): total size of the files at the analyzed commit, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
     action: "details",
   });
   const [, oneFile, oneByte] = resultViews({
@@ -209,7 +208,7 @@ test("marks a total that leaves out files too large to count", () => {
   expect(view.count).toBe("1.2k+");
   expect(view.action).toBe("details");
   expect(view.title).toBe(
-    "1,234 lines of code, not including 2 source files too large to count. Open Culverin for details",
+    "1,234 lines of code, not including 2 source files too large to count",
   );
   expect(
     rowView({ kind: "complete", total: 1234, files: 1, bytes: 0, uncounted: 0 })

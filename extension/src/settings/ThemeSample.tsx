@@ -59,7 +59,7 @@ export function ThemeSample() {
       <figcaption className="mb-3">
         <span className="text-md font-semibold">Popup preview</span>
         <p className="text-muted m-0 mt-1 text-sm">
-          Sample data using your selected theme.
+          Sample data using your appearance settings.
         </p>
       </figcaption>
       <div className="border-divider bg-surface rounded-lg border border-dashed p-3 sm:p-5">

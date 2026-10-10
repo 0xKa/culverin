@@ -1,6 +1,6 @@
 # Privacy
 
-Effective 2026-10-10.
+Effective 2026-10-11.
 
 Culverin counts lines of code in GitHub repositories inside your browser. Public repositories need no account; to count private repositories you can connect your GitHub account. Culverin has no backend, account of its own, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
@@ -33,7 +33,7 @@ Complete aggregate results for public repositories are kept in the extension's l
 
 If you connect GitHub, the extension keeps your GitHub username and token, and for the GitHub App the refresh token and expiry times, in its local storage so you don't have to connect again after restarting the browser. This storage is not encrypted by Culverin, and anyone with access to your browser profile could read it. The GitHub App token can only read the repositories you chose; a personal access token can do whatever you allowed when you created it.
 
-Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice and theme are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep a copy of your theme so they open in it, in the extension's local page storage.
+Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice, theme, and high contrast preference are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep copies of your theme and contrast preference so they open with your chosen appearance, in the extension's local page storage.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 

@@ -148,6 +148,93 @@ export async function runPageCounting(
 
   await assertResultRows();
 
+  const rowTexts = () =>
+    summary.evaluate((host) =>
+      Array.from(host.shadowRoot!.querySelectorAll(".row")).map(
+        (row) => row.textContent,
+      ),
+    );
+
+  const returnToPage = async (expected: (string | RegExp)[]) => {
+    await page.bringToFront();
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event("visibilitychange", { bubbles: true })),
+    );
+    for (let attempt = 0; ; attempt++) {
+      const texts = await rowTexts();
+      if (
+        texts.length === expected.length &&
+        texts.every((text, index) => {
+          const want = expected[index]!;
+          return typeof want === "string"
+            ? text === want
+            : want.test(text ?? "");
+        })
+      )
+        return;
+      if (attempt > 40)
+        assert.fail(`Unexpected About rows: ${texts.join(", ")}`);
+      await page.waitForTimeout(100);
+    }
+  };
+
+  const pageSettings = await context.newPage();
+
+  await pageSettings.goto(
+    `chrome-extension://${new URL(worker.url()).host}/settings.html#repository-page`,
+  );
+
+  const sizeItem = pageSettings.getByRole("checkbox", { name: "Size" });
+
+  await sizeItem.waitFor();
+
+  assert.equal(await sizeItem.isChecked(), true);
+
+  await sizeItem.uncheck();
+
+  await pageSettings.getByText("Size hidden. Saved.").waitFor();
+
+  await pageSettings.getByRole("button", { name: "Move Files up" }).click();
+
+  await pageSettings.getByText("Files moved to position 1. Saved.").waitFor();
+
+  assert.equal(
+    await pageSettings.evaluate(() =>
+      document.activeElement?.getAttribute("aria-label"),
+    ),
+    "Move Files down",
+  );
+
+  assert.deepEqual(
+    await pageSettings.locator("#about-preview > span").allTextContents(),
+    ["1.2k files", "12.3k lines of code"],
+  );
+
+  await pageSettings.getByRole("checkbox", { name: "Files" }).uncheck();
+
+  assert.equal(
+    await pageSettings
+      .getByRole("checkbox", { name: "Lines of code" })
+      .isDisabled(),
+    true,
+  );
+
+  await pageSettings.getByRole("checkbox", { name: "Files" }).check();
+
+  await returnToPage([/^\d[\d.]*[kMB]? files?$/, "0 lines of code"]);
+
+  await pageSettings.evaluate(() =>
+    chrome.storage.sync.remove("culverin.aboutItems"),
+  );
+
+  await pageSettings.close();
+
+  await returnToPage([
+    "0 lines of code",
+    /^\d[\d.]*[kMB]? files?$/,
+    /^\d[\d.,]* (B|KB|MB)$/,
+  ]);
+
   assert.equal(
     await page.getByRole("button", { name: "0 lines of code" }).count(),
     1,

@@ -210,6 +210,32 @@ test("lets only the page ask to open the GitHub settings", () => {
   ).toBe(true);
 });
 
+test("lets only the page ask which About items to show", () => {
+  const request = {
+    protocolVersion: 1,
+    type: "display.get",
+    requestId,
+    navigationId,
+  };
+  expect(validPublicRequest(request)).toBe(true);
+  expect(
+    validPublicRequest({
+      ...request,
+      repository: { owner: "owner", name: "repo" },
+    }),
+  ).toBe(false);
+  expect(validPopupPublicRequest({ ...request, tabId: 7 })).toBe(false);
+  const reply = { ...request, type: "display", items: ["files", "lines"] };
+  expect(validPublicReply(reply, requestId, navigationId)).toBe(true);
+  for (const items of [[], ["lines", "lines"], ["lines", "stars"], "lines"])
+    expect(validPublicReply({ ...reply, items }, requestId, navigationId)).toBe(
+      false,
+    );
+  expect(
+    validPublicReply({ ...reply, extra: true }, requestId, navigationId),
+  ).toBe(false);
+});
+
 test("validates popup requests and compact page summary updates", () => {
   const popupRequest = {
     protocolVersion: 1,

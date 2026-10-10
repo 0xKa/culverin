@@ -5,6 +5,7 @@ import {
   type PublicReply,
   type PublicRequest,
 } from "../github/public-protocol";
+import { aboutLayout, shownItems } from "../repository-page/about-items";
 import type { createPublicAnalysis } from "./analysis";
 import type { createPopupJobs } from "./popup-jobs";
 import type { BackgroundResources } from "./resources";
@@ -67,6 +68,17 @@ export function createPublicTransport(
           () => opened(true),
           () => opened(false),
         );
+      return true;
+    }
+    if (request.type === "display.get") {
+      void aboutLayout.read(chrome.storage.sync).then((layout) =>
+        respond(
+          publicReply(request, {
+            type: "display",
+            items: shownItems(layout),
+          }),
+        ),
+      );
       return true;
     }
     if (request.type === "settings.open") {

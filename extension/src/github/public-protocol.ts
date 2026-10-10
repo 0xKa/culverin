@@ -1,4 +1,8 @@
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
+import {
+  validShownItems,
+  type AboutItem,
+} from "../repository-page/about-items";
 import type { Resolution } from "./client";
 import { validRepository } from "./repository";
 
@@ -14,7 +18,8 @@ export type PublicRequest = {
     | "analysis.cancel"
     | "analysis.status"
     | "popup.open"
-    | "settings.open";
+    | "settings.open"
+    | "display.get";
   requestId: string;
   navigationId: string;
   repository?: { owner: string; name: string };
@@ -101,6 +106,7 @@ export type PublicReply = {
     }
   | { type: "popup.opened"; opened: boolean }
   | { type: "settings.opened"; opened: boolean }
+  | { type: "display"; items: AboutItem[] }
   | {
       type: "analysis.progress";
       phase:
@@ -160,7 +166,8 @@ export function validPublicRequest(value: unknown): value is PublicRequest {
   return (
     (value.type === "analysis.status" ||
       value.type === "popup.open" ||
-      value.type === "settings.open") &&
+      value.type === "settings.open" ||
+      value.type === "display.get") &&
     exact(value, ["protocolVersion", "type", "requestId", "navigationId"])
   );
 }
@@ -185,7 +192,8 @@ export function validPopupPublicRequest(
   return (
     validPublicRequest(request) &&
     request.type !== "popup.open" &&
-    request.type !== "settings.open"
+    request.type !== "settings.open" &&
+    request.type !== "display.get"
   );
 }
 
@@ -386,6 +394,8 @@ export function validPublicReply(
         value.state as string,
       )
     );
+  if (value.type === "display")
+    return exact(value, [...base, "items"]) && validShownItems(value.items);
   if (value.type === "popup.opened" || value.type === "settings.opened")
     return (
       exact(value, [...base, "opened"]) && typeof value.opened === "boolean"

@@ -5,6 +5,7 @@ import { AboutSection } from "./AboutSection";
 import { CountingSection } from "./CountingSection";
 import { GitHubSection } from "./GitHubSection";
 import { IgnoreSection } from "./IgnoreSection";
+import { RepositoryPageSection } from "./RepositoryPageSection";
 import {
   initialSection,
   parseSection,
@@ -78,6 +79,7 @@ export function App() {
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
           <CountingSection hidden={active !== "counting"} />
+          <RepositoryPageSection hidden={active !== "repository-page"} />
           <GitHubSection hidden={active !== "github"} />
           <AboutSection hidden={active !== "about"} />
         </main>

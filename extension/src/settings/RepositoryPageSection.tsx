@@ -1,0 +1,187 @@
+import {
+  ChevronDown,
+  ChevronUp,
+  Code,
+  Database,
+  Files,
+  type LucideIcon,
+} from "lucide-preact";
+import { useEffect, useRef, useState } from "preact/hooks";
+import {
+  aboutLayout,
+  moveItem,
+  shownItems,
+  toggleItem,
+  type AboutItem,
+  type AboutLayout,
+} from "../repository-page/about-items";
+import { IconButton } from "../ui/IconButton";
+import { Status } from "../ui/Status";
+import { Panel, SectionHeader } from "./layout";
+
+const items: Record<
+  AboutItem,
+  { label: string; icon: LucideIcon; count: string; unit: string }
+> = {
+  lines: {
+    label: "Lines of code",
+    icon: Code,
+    count: "12.3k",
+    unit: "lines of code",
+  },
+  files: { label: "Files", icon: Files, count: "1.2k", unit: "files" },
+  size: { label: "Size", icon: Database, count: "4.5 MB", unit: "" },
+};
+
+type Direction = "up" | "down";
+
+export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
+  const [layout, setLayout] = useState<AboutLayout>();
+  const [status, setStatus] = useState("");
+  const [focus, setFocus] = useState<{
+    item: AboutItem;
+    direction: Direction;
+  }>();
+  const list = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    void aboutLayout.read().then(setLayout);
+  }, []);
+
+  useEffect(() => {
+    if (!focus) return;
+    const opposite = focus.direction === "up" ? "down" : "up";
+    const arrow = (direction: Direction) =>
+      list.current?.querySelector<HTMLButtonElement>(
+        `[data-arrow="${focus.item}:${direction}"]`,
+      );
+    const pressed = arrow(focus.direction);
+    const other = arrow(opposite);
+    (pressed && !pressed.disabled ? pressed : other)?.focus();
+    setFocus(undefined);
+  }, [focus, layout]);
+
+  async function save(next: AboutLayout, message: string): Promise<void> {
+    setLayout(next);
+    try {
+      await aboutLayout.write(next);
+      setStatus(`${message} Saved.`);
+    } catch {
+      setStatus("Couldn't save the setting. Try again.");
+    }
+  }
+
+  function toggle(current: AboutLayout, item: AboutItem): void {
+    const next = toggleItem(current, item);
+    if (next === current) return;
+    const shown = !next.hidden.includes(item);
+    void save(next, `${items[item].label} ${shown ? "shown" : "hidden"}.`);
+  }
+
+  function move(current: AboutLayout, item: AboutItem, direction: Direction) {
+    const next = moveItem(current, item, direction === "up" ? -1 : 1);
+    if (next === current) return;
+    setFocus({ item, direction });
+    void save(
+      next,
+      `${items[item].label} moved to position ${next.order.indexOf(item) + 1}.`,
+    );
+  }
+
+  const visible = layout ? shownItems(layout) : [];
+
+  return (
+    <section aria-labelledby="repository-page-heading" hidden={hidden}>
+      <SectionHeader id="repository-page-heading" title="Repository page">
+        What Culverin adds to the About list on GitHub repository pages.
+      </SectionHeader>
+      <Panel>
+        <fieldset className="m-0 border-0 p-0">
+          <legend className="text-md mb-1 p-0 font-semibold">
+            Show in the About list
+          </legend>
+          <p className="text-muted m-0 mb-3 text-sm">
+            These rows appear after a count, in this order. Before a count, the
+            page shows Analyze with Culverin. Changes apply when you open or
+            return to a repository page. At least one item stays shown.
+          </p>
+          <ul
+            ref={list}
+            id="about-items"
+            className="border-divider divide-divider m-0 list-none divide-y rounded-lg border p-0"
+          >
+            {layout?.order.map((item, index) => {
+              const { label, icon: Icon } = items[item];
+              const shown = !layout.hidden.includes(item);
+              return (
+                <li key={item} className="flex items-center gap-3 px-3 py-1.5">
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5">
+                    <input
+                      type="checkbox"
+                      name="about-items"
+                      value={item}
+                      className="size-4"
+                      checked={shown}
+                      disabled={shown && visible.length === 1}
+                      onChange={() => toggle(layout, item)}
+                    />
+                    <Icon class="text-muted" />
+                    <span className="font-medium">{label}</span>
+                  </label>
+                  <IconButton
+                    type="button"
+                    label={`Move ${label} up`}
+                    disabled={index === 0}
+                    className="disabled:opacity-40"
+                    data-arrow={`${item}:up`}
+                    onClick={() => move(layout, item, "up")}
+                  >
+                    <ChevronUp />
+                  </IconButton>
+                  <IconButton
+                    type="button"
+                    label={`Move ${label} down`}
+                    disabled={index === layout.order.length - 1}
+                    className="disabled:opacity-40"
+                    data-arrow={`${item}:down`}
+                    onClick={() => move(layout, item, "down")}
+                  >
+                    <ChevronDown />
+                  </IconButton>
+                </li>
+              );
+            })}
+          </ul>
+        </fieldset>
+        <Status
+          id="repository-page-status"
+          className="text-muted m-0 text-sm not-empty:mt-2"
+        >
+          {status}
+        </Status>
+        <figure className="m-0 mt-4">
+          <figcaption className="text-muted mb-2 text-xs font-medium">
+            Preview
+          </figcaption>
+          <div
+            id="about-preview"
+            className="border-divider text-muted grid justify-items-start gap-2 rounded-lg border border-dashed px-4 py-3 text-sm"
+          >
+            {visible.map((item) => {
+              const { icon: Icon, count, unit } = items[item];
+              return (
+                <span key={item} className="inline-flex items-center gap-2">
+                  <Icon />
+                  <span>
+                    <strong className="font-semibold">{count}</strong>
+                    {unit && ` ${unit}`}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </figure>
+      </Panel>
+    </section>
+  );
+}

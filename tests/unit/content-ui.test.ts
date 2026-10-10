@@ -58,12 +58,14 @@ test("adds file count and size rows after a result", () => {
   });
   expect(lines).toMatchObject({ count: "60.6k+", label: "lines of code" });
   expect(files).toEqual({
+    item: "files",
     count: "1.2k",
     label: "files",
     title: "1,234 files at the analyzed commit",
     action: "details",
   });
   expect(size).toEqual({
+    item: "size",
     count: "4.5 MB",
     label: "",
     title:
@@ -79,6 +81,29 @@ test("adds file count and size rows after a result", () => {
   expect(oneFile).toMatchObject({ count: "1", label: "file" });
   expect(oneByte).toMatchObject({ count: "1 B" });
   expect(oneByte!.title).toContain("(1 byte)");
+});
+
+test("shows only the chosen About items in the chosen order", () => {
+  const state = {
+    kind: "complete",
+    total: 10,
+    files: 2,
+    bytes: 2048,
+  } as const;
+  expect(resultViews(state).map((view) => view.item)).toEqual([
+    "lines",
+    "files",
+    "size",
+  ]);
+  expect(
+    resultViews(state, ["size", "lines"]).map(({ item, count }) => [
+      item,
+      count,
+    ]),
+  ).toEqual([
+    ["size", "2 KB"],
+    ["lines", "10"],
+  ]);
 });
 
 test("offers explicit analysis and cancellation actions", () => {

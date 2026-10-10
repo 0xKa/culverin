@@ -8,6 +8,7 @@ import {
 } from "../github/public-protocol";
 import { failureMessages } from "../github/failure-messages";
 import { pageContext } from "./repository";
+import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
 import { sameRepository, type PageRepository } from "../github/repository";
 import {
   createSummaryUi,
@@ -24,6 +25,8 @@ type View = {
   navigationId: string;
   repository: PageRepository;
   ui: SummaryUi;
+  state?: RowState;
+  items: AboutItem[];
   lookupRequestId?: string;
   analysisRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
@@ -78,7 +81,23 @@ function send(
 
 function setState(current: View, state: RowState): void {
   clearTimeout(current.retryTimer);
-  showState(current.ui, state);
+  current.state = state;
+  showState(current.ui, state, current.items);
+}
+
+function refreshDisplay(current: View): void {
+  send(current, "display.get")
+    .response.then((reply) => {
+      if (
+        reply.type !== "display" ||
+        !currentView(current) ||
+        reply.items.join() === current.items.join()
+      )
+        return;
+      current.items = reply.items;
+      if (current.state) showState(current.ui, current.state, current.items);
+    })
+    .catch(() => undefined);
 }
 
 function rateLimit(current: View, retryAt?: number): void {
@@ -238,6 +257,7 @@ function create(repository: PageRepository): View {
     navigationId: crypto.randomUUID(),
     repository,
     ui: createSummaryUi((action) => activate(current, action)),
+    items: [...ABOUT_ITEMS],
     messageListener: () => undefined,
   };
   current.messageListener = (message, sender) => {
@@ -283,6 +303,7 @@ function mount(): void {
   if (!context) return;
   if (!view) {
     view = create(context.repository);
+    refreshDisplay(view);
     void lookup(view);
   }
   if (context.hydrating && !hydrated.has(context.hydrating)) {
@@ -359,4 +380,8 @@ window.addEventListener("popstate", schedule);
 window.addEventListener("pageshow", schedule);
 window.addEventListener("resize", schedule);
 window.addEventListener("pagehide", detach);
+window.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && view && currentView(view))
+    refreshDisplay(view);
+});
 mount();

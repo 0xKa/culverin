@@ -20,7 +20,7 @@ beforeAll(async () => {
           }));
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
             loader: "js",
-            contents: `export { failureState, lookupFailureState } from ${JSON.stringify(resolve("extension/src/content/ui.ts"))}; export const createSummaryUi = (activate) => window.fixture.create(activate); export const showState = (ui, state) => window.fixture.show(state);`,
+            contents: `export { failureState, lookupFailureState } from ${JSON.stringify(resolve("extension/src/content/ui.ts"))}; export const createSummaryUi = (activate) => window.fixture.create(activate); export const showState = (ui, state, items) => window.fixture.show(state, items);`,
           }));
         },
       },
@@ -34,6 +34,7 @@ afterEach(() => jest.useRealTimers());
 function pageHarness({ answerLookup = true } = {}) {
   jest.useFakeTimers();
   const states: RowState[] = [];
+  const shownItems: unknown[] = [];
   let activate!: (action: RowAction) => void;
   const requests: Record<string, unknown>[] = [];
   const callbacks = new Map<string, (value: unknown) => void>();
@@ -85,6 +86,7 @@ function pageHarness({ answerLookup = true } = {}) {
   };
   const document = {
     readyState: "complete",
+    visibilityState: "visible",
     querySelectorAll: () => [],
     querySelector: () => ({ getAttribute: () => "culverin/sample" }),
   };
@@ -96,7 +98,10 @@ function pageHarness({ answerLookup = true } = {}) {
         activate = action;
         return { host: { remove: () => undefined, isConnected: true } };
       },
-      show: (state: RowState) => states.push(state),
+      show: (state: RowState, items: unknown) => {
+        states.push(state);
+        shownItems.push(items);
+      },
     },
   };
   const run = new Function(
@@ -119,6 +124,7 @@ function pageHarness({ answerLookup = true } = {}) {
   );
   return {
     states,
+    shownItems,
     activate: (action: RowAction) => activate(action),
     requests,
     callbacks,
@@ -198,7 +204,9 @@ test("completed page counts survive disconnect and reconnect only on the next ac
   await settle();
   expect(states.at(-1)).toEqual(completed);
   expect(runtime.connect).toHaveBeenCalledTimes(1);
-  expect(requests).toHaveLength(2);
+  expect(
+    requests.filter((request) => request.type !== "display.get"),
+  ).toHaveLength(2);
   activate("analyze");
   expect(runtime.connect).toHaveBeenCalledTimes(2);
   expect(runtime.connect).toHaveBeenLastCalledWith({ name: "culverin.public" });
@@ -270,4 +278,48 @@ test("a disconnect during the page lookup shows the count action", async () => {
   });
   await settle();
   expect(states.at(-1)).toEqual({ kind: "idle" });
+});
+
+test("redraws a result with the About items chosen in settings", async () => {
+  const { states, shownItems, activate, requests, callbacks, lifecycle } =
+    pageHarness();
+  await settle();
+  const display = () =>
+    requests.filter((request) => request.type === "display.get");
+  expect(display()).toHaveLength(1);
+  activate("analyze");
+  const request = requests.at(-1)!;
+  callbacks.get(request.requestId as string)!({
+    protocolVersion: 1,
+    requestId: request.requestId,
+    navigationId: request.navigationId,
+    ...(await completedResult()),
+  });
+  await settle();
+  expect(states.at(-1)).toMatchObject({ kind: "complete" });
+  expect(shownItems.at(-1)).toEqual(["lines", "files", "size"]);
+  const answer = (items: string[]) => {
+    const asked = display().at(-1)!;
+    callbacks.get(asked.requestId as string)!({
+      protocolVersion: 1,
+      requestId: asked.requestId,
+      navigationId: asked.navigationId,
+      type: "display",
+      items,
+    });
+  };
+  answer(["size", "lines"]);
+  await settle();
+  expect(states.at(-1)).toMatchObject({ kind: "complete" });
+  expect(shownItems.at(-1)).toEqual(["size", "lines"]);
+  const shown = states.length;
+  lifecycle.get("visibilitychange")!();
+  expect(display()).toHaveLength(2);
+  answer(["size", "lines"]);
+  await settle();
+  expect(states).toHaveLength(shown);
+  lifecycle.get("visibilitychange")!();
+  answer(["files"]);
+  await settle();
+  expect(shownItems.at(-1)).toEqual(["files"]);
 });

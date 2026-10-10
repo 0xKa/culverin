@@ -229,7 +229,14 @@ try {
       "culverin.private-results.v1": { version: 1, entries },
     });
   });
-  for (const section of ["storage", "ignore", "counting", "github", "about"]) {
+  for (const section of [
+    "storage",
+    "ignore",
+    "counting",
+    "repository-page",
+    "github",
+    "about",
+  ]) {
     await settings.goto(`${extensionUrl}/settings.html#${section}`);
     await settings.reload();
     await settings.waitForTimeout(400);

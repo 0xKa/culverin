@@ -2,6 +2,7 @@ import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { typ
 import { Code, createElement, Database, Files, type IconNode } from "lucide";
 import spinnerStyles from "../ui/spinner.css" with { type: "text" };
 import { formatBytes } from "../ui/format";
+import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
 import { failureMessages, limitNote } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
@@ -164,27 +165,37 @@ export function rowView(state: VisibleRowState): RowView {
   return { label: state.label, title: state.detail };
 }
 
-export function resultViews(state: CompleteState): RowView[] {
+export type ResultRowView = RowView & { item: AboutItem };
+
+export function resultViews(
+  state: CompleteState,
+  items: readonly AboutItem[] = ABOUT_ITEMS,
+): ResultRowView[] {
   const files = state.files === 1 ? "file" : "files";
   const size = formatBytes(state.bytes, "en");
-  return [
-    rowView(state),
-    {
+  const views: Record<AboutItem, RowView> = {
+    lines: rowView(state),
+    files: {
       count: compactCount(state.files),
       label: files,
       title: `${state.files.toLocaleString("en")} ${files} at the analyzed commit`,
       action: "details",
     },
-    {
+    size: {
       count: size,
       label: "",
       title: `${size} (${state.bytes.toLocaleString("en")} ${state.bytes === 1 ? "byte" : "bytes"}): total size of the files at the analyzed commit, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.`,
       action: "details",
     },
-  ];
+  };
+  return items.map((item) => ({ ...views[item], item }));
 }
 
-const resultIcons: IconNode[] = [Code, Files, Database];
+const resultIcons: Record<AboutItem, IconNode> = {
+  lines: Code,
+  files: Files,
+  size: Database,
+};
 
 function resultIcon(node: IconNode): Element {
   return createElement(node, {
@@ -250,14 +261,18 @@ strong { font-weight:var(--base-text-weight-semibold,600) }
   return ui;
 }
 
-export function showState(ui: SummaryUi, state: RowState): void {
+export function showState(
+  ui: SummaryUi,
+  state: RowState,
+  items: readonly AboutItem[] = ABOUT_ITEMS,
+): void {
   if (state.kind === "hidden") {
     ui.host.hidden = true;
     ui.action = undefined;
     return;
   }
-  const views =
-    state.kind === "complete" ? resultViews(state) : [rowView(state)];
+  const views: (RowView & { item?: AboutItem })[] =
+    state.kind === "complete" ? resultViews(state, items) : [rowView(state)];
   const rows = views.map((view, index) => {
     const interactive = view.action !== undefined;
     const current = ui.rows[index];
@@ -284,7 +299,7 @@ export function showState(ui: SummaryUi, state: RowState): void {
       indicator.className = "culverin-spinner";
       indicator.setAttribute("aria-hidden", "true");
     } else if (state.kind === "complete")
-      indicator = resultIcon(resultIcons[index]!);
+      indicator = resultIcon(resultIcons[view.item ?? "lines"]);
     else indicator = icon();
     const parts: Node[] = [indicator];
     if (view.count !== undefined) {

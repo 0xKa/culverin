@@ -6,6 +6,10 @@ import { createPublicAnalysis } from "../../extension/src/background/analysis";
 import { createSettingsHandler } from "../../extension/src/background/settings";
 import { createSenderGates } from "../../extension/src/background/senders";
 import { COUNT_TRIGGER_KEY } from "../../extension/src/counting/trigger";
+import {
+  PAGE_COUNT_FORMAT_KEY,
+  PAGE_SIZE_UNITS_KEY,
+} from "../../extension/src/repository-page/numbers";
 import type {
   PublicPayload,
   PublicRequest,
@@ -168,6 +172,40 @@ function fixture() {
     },
   };
 }
+
+test("page display replies expose only the independent formatting choices and About items without acquisition", async () => {
+  const api = fixture();
+  api.sync.values[PAGE_COUNT_FORMAT_KEY] = "full";
+  api.sync.values[PAGE_SIZE_UNITS_KEY] = "decimal";
+  api.sync.values["culverin.countFormat"] = "abbreviated";
+  api.sync.values["culverin.sizeUnits"] = "binary";
+  api.local.values["github.connection"] = { token: "fixture-token" };
+  const runtime = createGitHubRuntime(api.browser, api.fetcher);
+  const request = {
+    protocolVersion: 1,
+    requestId: crypto.randomUUID(),
+    navigationId: crypto.randomUUID(),
+    type: "display.get",
+  };
+  const sender = {
+    id: "test",
+    frameId: 0,
+    documentId: "fixture-document",
+    url: "https://github.com/culverin/sample",
+    tab: { id: 1, url: "https://github.com/culverin/sample" },
+  } as chrome.runtime.MessageSender;
+  const reply = await new Promise((resolve) =>
+    expect(runtime.handleGithub(request, sender, resolve)).toBe(true),
+  );
+  expect(reply).toEqual({
+    ...request,
+    type: "display",
+    items: ["lines", "files", "size"],
+    formats: { counts: "full", sizes: "decimal" },
+  });
+  expect(api.calls).toEqual([]);
+  expect(api.tokens).toEqual([]);
+});
 
 test("surface policies avoid requests on open and only opt-in page lookups claim automatic counting", async () => {
   const api = fixture();

@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import type { RowAction, RowState } from "../../extension/src/content/ui";
 import { event, settle } from "./support/events";
 import { completedResult } from "./support/result";
+import { defaultPageNumberFormats } from "../../extension/src/repository-page/format";
+import type { NumberFormats } from "../../extension/src/ui/format";
 
 let source: string;
 beforeAll(async () => {
@@ -20,7 +22,7 @@ beforeAll(async () => {
           }));
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
             loader: "js",
-            contents: `export { failureState, lookupFailureState } from ${JSON.stringify(resolve("extension/src/content/ui.ts"))}; export const createSummaryUi = (activate) => window.fixture.create(activate); export const showState = (ui, state, items) => window.fixture.show(state, items);`,
+            contents: `export { failureState, lookupFailureState } from ${JSON.stringify(resolve("extension/src/content/ui.ts"))}; export const createSummaryUi = (activate) => window.fixture.create(activate); export const showState = (ui, state, items, formats) => window.fixture.show(state, items, formats);`,
           }));
         },
       },
@@ -35,6 +37,7 @@ function pageHarness({ answerLookup = true } = {}) {
   jest.useFakeTimers();
   const states: RowState[] = [];
   const shownItems: unknown[] = [];
+  const shownFormats: NumberFormats[] = [];
   let activate!: (action: RowAction) => void;
   const requests: Record<string, unknown>[] = [];
   const callbacks = new Map<string, (value: unknown) => void>();
@@ -98,9 +101,10 @@ function pageHarness({ answerLookup = true } = {}) {
         activate = action;
         return { host: { remove: () => undefined, isConnected: true } };
       },
-      show: (state: RowState, items: unknown) => {
+      show: (state: RowState, items: unknown, formats: NumberFormats) => {
         states.push(state);
         shownItems.push(items);
+        shownFormats.push(formats);
       },
     },
   };
@@ -125,6 +129,7 @@ function pageHarness({ answerLookup = true } = {}) {
   return {
     states,
     shownItems,
+    shownFormats,
     activate: (action: RowAction) => activate(action),
     requests,
     callbacks,
@@ -281,8 +286,15 @@ test("a disconnect during the page lookup shows the count action", async () => {
 });
 
 test("redraws a result with the About items chosen in settings", async () => {
-  const { states, shownItems, activate, requests, callbacks, lifecycle } =
-    pageHarness();
+  const {
+    states,
+    shownItems,
+    shownFormats,
+    activate,
+    requests,
+    callbacks,
+    lifecycle,
+  } = pageHarness();
   await settle();
   const display = () =>
     requests.filter((request) => request.type === "display.get");
@@ -298,7 +310,7 @@ test("redraws a result with the About items chosen in settings", async () => {
   await settle();
   expect(states.at(-1)).toMatchObject({ kind: "complete" });
   expect(shownItems.at(-1)).toEqual(["lines", "files", "size"]);
-  const answer = (items: string[]) => {
+  const answer = (items: string[], formats = defaultPageNumberFormats) => {
     const asked = display().at(-1)!;
     callbacks.get(asked.requestId as string)!({
       protocolVersion: 1,
@@ -306,6 +318,7 @@ test("redraws a result with the About items chosen in settings", async () => {
       navigationId: asked.navigationId,
       type: "display",
       items,
+      formats,
     });
   };
   answer(["size", "lines"]);
@@ -322,4 +335,31 @@ test("redraws a result with the About items chosen in settings", async () => {
   answer(["files"]);
   await settle();
   expect(shownItems.at(-1)).toEqual(["files"]);
+  const requestsBeforeFormatting = requests.filter(
+    (request) => request.type !== "display.get",
+  );
+  lifecycle.get("visibilitychange")!();
+  answer(["files"], { counts: "full", sizes: "decimal" });
+  await settle();
+  expect(shownFormats.at(-1)).toEqual({ counts: "full", sizes: "decimal" });
+  expect(states.at(-1)).toMatchObject({ kind: "complete" });
+  expect(requests.filter((request) => request.type !== "display.get")).toEqual(
+    requestsBeforeFormatting,
+  );
+  lifecycle.get("visibilitychange")!();
+  const stale = display().at(-1)!;
+  lifecycle.get("visibilitychange")!();
+  answer(["files"], defaultPageNumberFormats);
+  await settle();
+  callbacks.get(stale.requestId as string)!({
+    protocolVersion: 1,
+    requestId: stale.requestId,
+    navigationId: stale.navigationId,
+    type: "display",
+    items: ["size"],
+    formats: { counts: "full", sizes: "decimal" },
+  });
+  await settle();
+  expect(shownItems.at(-1)).toEqual(["files"]);
+  expect(shownFormats.at(-1)).toEqual(defaultPageNumberFormats);
 });

@@ -1,5 +1,6 @@
 import {
   definePreference,
+  type Preference,
   type PreferenceStorage,
 } from "../preferences/define";
 import {
@@ -20,19 +21,50 @@ function parseSizeUnits(value: unknown): SizeUnits | undefined {
   return value === "binary" || value === "decimal" ? value : undefined;
 }
 
-export const countFormat = definePreference<CountFormat>({
-  key: COUNT_FORMAT_KEY,
-  fallback: defaultNumberFormats.counts,
-  parse: parseCountFormat,
-  isDefault: (value) => value === defaultNumberFormats.counts,
-});
+export type NumberFormatPreferences = {
+  counts: Preference<CountFormat>;
+  sizes: Preference<SizeUnits>;
+  defaults: NumberFormats;
+};
 
-export const sizeUnits = definePreference<SizeUnits>({
-  key: SIZE_UNITS_KEY,
-  fallback: defaultNumberFormats.sizes,
-  parse: parseSizeUnits,
-  isDefault: (value) => value === defaultNumberFormats.sizes,
-});
+export function defineNumberFormats(
+  keys: { counts: string; sizes: string },
+  defaults: NumberFormats,
+): NumberFormatPreferences {
+  return {
+    counts: definePreference<CountFormat>({
+      key: keys.counts,
+      fallback: defaults.counts,
+      parse: parseCountFormat,
+      isDefault: (value) => value === defaults.counts,
+    }),
+    sizes: definePreference<SizeUnits>({
+      key: keys.sizes,
+      fallback: defaults.sizes,
+      parse: parseSizeUnits,
+      isDefault: (value) => value === defaults.sizes,
+    }),
+    defaults,
+  };
+}
+
+export const appearanceNumberPreferences = defineNumberFormats(
+  { counts: COUNT_FORMAT_KEY, sizes: SIZE_UNITS_KEY },
+  defaultNumberFormats,
+);
+export const countFormat = appearanceNumberPreferences.counts;
+export const sizeUnits = appearanceNumberPreferences.sizes;
+
+export async function readNumberFormats(
+  preferences: NumberFormatPreferences,
+  storage: PreferenceStorage = chrome.storage.sync,
+): Promise<NumberFormats> {
+  const [counts, sizes] = await Promise.all([
+    preferences.counts.read(storage),
+    preferences.sizes.read(storage),
+  ]);
+  return { counts, sizes };
+}
 
 type Dependencies = {
   storage: PreferenceStorage;
@@ -48,49 +80,49 @@ export function subscribeNumberFormats(
     storage: chrome.storage.sync,
     changes: chrome.storage.onChanged,
   },
+  preferences: NumberFormatPreferences = appearanceNumberPreferences,
 ): () => void {
+  const countKey = preferences.counts.key;
+  const sizeKey = preferences.sizes.key;
+  const defaults = preferences.defaults;
   let disposed = false;
   let countsChanged = false;
   let sizesChanged = false;
-  let formats = { ...defaultNumberFormats };
+  let formats = { ...defaults };
   const changed = (
     changes: Record<string, chrome.storage.StorageChange>,
     area: string,
   ) => {
     if (disposed || area !== "sync") return;
-    if (!(COUNT_FORMAT_KEY in changes) && !(SIZE_UNITS_KEY in changes)) return;
-    if (COUNT_FORMAT_KEY in changes) {
+    if (!(countKey in changes) && !(sizeKey in changes)) return;
+    if (countKey in changes) {
       countsChanged = true;
       formats = {
         ...formats,
         counts:
-          parseCountFormat(changes[COUNT_FORMAT_KEY]?.newValue) ??
-          defaultNumberFormats.counts,
+          parseCountFormat(changes[countKey]?.newValue) ?? defaults.counts,
       };
     }
-    if (SIZE_UNITS_KEY in changes) {
+    if (sizeKey in changes) {
       sizesChanged = true;
       formats = {
         ...formats,
-        sizes:
-          parseSizeUnits(changes[SIZE_UNITS_KEY]?.newValue) ??
-          defaultNumberFormats.sizes,
+        sizes: parseSizeUnits(changes[sizeKey]?.newValue) ?? defaults.sizes,
       };
     }
     publish(formats);
   };
   dependencies.changes.addListener(changed);
-  void Promise.all([
-    countFormat.read(dependencies.storage),
-    sizeUnits.read(dependencies.storage),
-  ]).then(([counts, sizes]) => {
-    if (disposed) return;
-    formats = {
-      counts: countsChanged ? formats.counts : counts,
-      sizes: sizesChanged ? formats.sizes : sizes,
-    };
-    publish(formats);
-  });
+  void readNumberFormats(preferences, dependencies.storage).then(
+    ({ counts, sizes }) => {
+      if (disposed) return;
+      formats = {
+        counts: countsChanged ? formats.counts : counts,
+        sizes: sizesChanged ? formats.sizes : sizes,
+      };
+      publish(formats);
+    },
+  );
   return () => {
     disposed = true;
     dependencies.changes.removeListener(changed);

@@ -5,7 +5,13 @@ import {
   sizeUnits,
   SIZE_UNITS_KEY,
   subscribeNumberFormats,
+  readNumberFormats,
 } from "../../extension/src/appearance/numbers";
+import {
+  PAGE_COUNT_FORMAT_KEY,
+  PAGE_SIZE_UNITS_KEY,
+  pageNumberPreferences,
+} from "../../extension/src/repository-page/numbers";
 import type { NumberFormats } from "../../extension/src/ui/format";
 import { deferred, event, settle } from "./support/events";
 
@@ -28,6 +34,61 @@ const changes = () =>
       area: string,
     ) => void
   >();
+
+test("keeps page defaults and saved choices independent from popup formatting", async () => {
+  const saved = storage({
+    [COUNT_FORMAT_KEY]: "abbreviated",
+    [SIZE_UNITS_KEY]: "decimal",
+  });
+  expect(await readNumberFormats(pageNumberPreferences, saved)).toEqual({
+    counts: "abbreviated",
+    sizes: "binary",
+  });
+  await pageNumberPreferences.counts.write("full", saved);
+  await pageNumberPreferences.sizes.write("decimal", saved);
+  expect(await countFormat.read(saved)).toBe("abbreviated");
+  expect(await sizeUnits.read(saved)).toBe("decimal");
+  await sizeUnits.write("binary", saved);
+  expect(await readNumberFormats(pageNumberPreferences, saved)).toEqual({
+    counts: "full",
+    sizes: "decimal",
+  });
+  await pageNumberPreferences.counts.write("abbreviated", saved);
+  await pageNumberPreferences.sizes.write("binary", saved);
+  expect(saved.values.has(PAGE_COUNT_FORMAT_KEY)).toBe(false);
+  expect(saved.values.has(PAGE_SIZE_UNITS_KEY)).toBe(false);
+  expect(saved.values.get(COUNT_FORMAT_KEY)).toBe("abbreviated");
+});
+
+test("subscribes to page preferences separately and falls back to their own defaults", async () => {
+  const changed = changes();
+  const published: NumberFormats[] = [];
+  const stop = subscribeNumberFormats(
+    (formats) => published.push(formats),
+    { storage: storage({ [PAGE_COUNT_FORMAT_KEY]: "full" }), changes: changed },
+    pageNumberPreferences,
+  );
+  await settle();
+  expect(published.at(-1)).toEqual({ counts: "full", sizes: "binary" });
+  const count = published.length;
+  changed.emit(
+    {
+      [COUNT_FORMAT_KEY]: { newValue: "full" },
+      [SIZE_UNITS_KEY]: { newValue: "decimal" },
+    },
+    "sync",
+  );
+  expect(published).toHaveLength(count);
+  changed.emit(
+    {
+      [PAGE_COUNT_FORMAT_KEY]: { newValue: "invalid" },
+      [PAGE_SIZE_UNITS_KEY]: { newValue: "decimal" },
+    },
+    "sync",
+  );
+  expect(published.at(-1)).toEqual({ counts: "abbreviated", sizes: "decimal" });
+  stop();
+});
 
 test("persists independent formatting choices and removes defaults without touching theme or contrast", async () => {
   const saved = storage({

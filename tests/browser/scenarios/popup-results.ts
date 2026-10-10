@@ -217,7 +217,7 @@ export async function runPopupResults(
 
   assert.equal(
     await resumedPopup.locator("#clone-size").textContent(),
-    "Estimated clone size ≈ 2 MB",
+    "Estimated clone size ≈ 2 MiB",
   );
 
   assert.equal(
@@ -661,7 +661,7 @@ export async function runPopupResults(
     (await restartPopup.locator("#snapshot-size").getAttribute("data-tip")) ??
       "",
     new RegExp(
-      `^Total size of the files at commit ${fixtures.sha.slice(0, 12)},`,
+      `^47 bytes[.] Total size of the files at commit ${fixtures.sha.slice(0, 12)},`,
     ),
   );
 

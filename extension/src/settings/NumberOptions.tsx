@@ -1,4 +1,7 @@
-import { countFormat, sizeUnits } from "../appearance/numbers";
+import {
+  appearanceNumberPreferences,
+  type NumberFormatPreferences,
+} from "../appearance/numbers";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import { formatCount, type CountFormat, type SizeUnits } from "../ui/format";
 import { ActionStatus, useAction } from "./ActionStatus";
@@ -21,17 +24,27 @@ const sizes: { value: SizeUnits; label: string; detail: string }[] = [
   },
 ];
 
-export function NumberOptions() {
-  const [formats, setFormats] = useNumberFormats();
+export function NumberOptions({
+  preferences = appearanceNumberPreferences,
+  idPrefix = "",
+  description = "Applies to the popup, saved results, and this preview. Hover or focus values to see exact counts and bytes.",
+  formatExample = formatCount,
+}: {
+  preferences?: NumberFormatPreferences;
+  idPrefix?: string;
+  description?: string;
+  formatExample?: (value: number, format: CountFormat) => string;
+} = {}) {
+  const [formats, setFormats] = useNumberFormats(preferences);
   const countAction = useAction();
   const sizeAction = useAction();
 
   function changeCounts(value: CountFormat): void {
     if (!formats) return;
     setFormats({ ...formats, counts: value });
-    void countAction.run(() => countFormat.write(value), {
+    void countAction.run(() => preferences.counts.write(value), {
       restore: () =>
-        void countFormat
+        void preferences.counts
           .read()
           .then((counts) =>
             setFormats((current) => current && { ...current, counts }),
@@ -42,9 +55,9 @@ export function NumberOptions() {
   function changeSizes(value: SizeUnits): void {
     if (!formats) return;
     setFormats({ ...formats, sizes: value });
-    void sizeAction.run(() => sizeUnits.write(value), {
+    void sizeAction.run(() => preferences.sizes.write(value), {
       restore: () =>
-        void sizeUnits
+        void preferences.sizes
           .read()
           .then((sizes) =>
             setFormats((current) => current && { ...current, sizes }),
@@ -65,7 +78,7 @@ export function NumberOptions() {
               >
                 <input
                   type="radio"
-                  name="count-format"
+                  name={`${idPrefix}count-format`}
                   value={option.value}
                   className="size-4 translate-y-0.5"
                   checked={formats?.counts === option.value}
@@ -73,14 +86,14 @@ export function NumberOptions() {
                 />
                 <span className="font-medium">{option.label}</span>
                 <span className="text-muted col-start-2 text-sm">
-                  {formatCount(12_480, option.value)} code lines
+                  {formatExample(12_480, option.value)} code lines
                 </span>
               </label>
             ))}
           </div>
         </fieldset>
         <ActionStatus
-          id="count-format-status"
+          id={`${idPrefix}count-format-status`}
           state={countAction.state}
           className="absolute top-0 right-0 h-[1.375rem]"
         />
@@ -96,7 +109,7 @@ export function NumberOptions() {
               >
                 <input
                   type="radio"
-                  name="size-units"
+                  name={`${idPrefix}size-units`}
                   value={option.value}
                   className="size-4 translate-y-0.5"
                   checked={formats?.sizes === option.value}
@@ -111,15 +124,12 @@ export function NumberOptions() {
           </div>
         </fieldset>
         <ActionStatus
-          id="size-units-status"
+          id={`${idPrefix}size-units-status`}
           state={sizeAction.state}
           className="absolute top-0 right-0 h-[1.375rem]"
         />
       </div>
-      <p className="text-muted m-0 text-sm">
-        Applies to the popup, saved results, and this preview. Hover or focus
-        values to see exact counts and bytes.
-      </p>
+      <p className="text-muted m-0 text-sm">{description}</p>
     </div>
   );
 }

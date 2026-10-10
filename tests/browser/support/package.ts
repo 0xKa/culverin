@@ -30,11 +30,11 @@ export function inspectPackage(directory: string, diagnostic = false): void {
       ? [
           "archive-HASH.js",
           "culverin_counter_bg-HASH.wasm",
+          "numbers-HASH.js",
+          "numbers-HASH.js",
           "preact-HASH.js",
           "protocol-HASH.js",
           "result-HASH.js",
-          "settings-HASH.js",
-          "settings-HASH.js",
           "styles-HASH.css",
           "styles-HASH.js",
           "worker-HASH.js",
@@ -42,10 +42,10 @@ export function inspectPackage(directory: string, diagnostic = false): void {
         ]
       : [
           "culverin_counter_bg-HASH.wasm",
+          "numbers-HASH.js",
+          "numbers-HASH.js",
           "preact-HASH.js",
           "result-HASH.js",
-          "settings-HASH.js",
-          "settings-HASH.js",
           "styles-HASH.css",
           "styles-HASH.js",
           "tar-HASH.js",

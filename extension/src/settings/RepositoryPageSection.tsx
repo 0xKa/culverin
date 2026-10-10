@@ -18,19 +18,28 @@ import {
 import { IconButton } from "../ui/IconButton";
 import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { useNumberFormats } from "../appearance/useNumberFormats";
+import {
+  defaultPageNumberFormats,
+  formatPageCount,
+} from "../repository-page/format";
+import { pageNumberPreferences } from "../repository-page/numbers";
+import { exactBytes, formatBytes } from "../ui/format";
+import { tip } from "../ui/tooltip";
+import { NumberOptions } from "./NumberOptions";
 
 const items: Record<
   AboutItem,
-  { label: string; icon: LucideIcon; count: string; unit: string }
+  { label: string; icon: LucideIcon; value: number; unit: string }
 > = {
   lines: {
     label: "Lines of code",
     icon: Code,
-    count: "12.3k",
+    value: 12_300,
     unit: "lines of code",
   },
-  files: { label: "Files", icon: Files, count: "1.2k", unit: "files" },
-  size: { label: "Size", icon: Database, count: "4.5 MiB", unit: "" },
+  files: { label: "Files", icon: Files, value: 1_200, unit: "files" },
+  size: { label: "Size", icon: Database, value: 4.5 * 1024 ** 2, unit: "" },
 };
 
 type Direction = "up" | "down";
@@ -43,6 +52,8 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
     direction: Direction;
   }>();
   const list = useRef<HTMLUListElement>(null);
+  const [savedFormats] = useNumberFormats(pageNumberPreferences);
+  const formats = savedFormats ?? defaultPageNumberFormats;
 
   useEffect(() => {
     void aboutLayout.read().then(setLayout);
@@ -156,6 +167,12 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"
         />
+        <NumberOptions
+          preferences={pageNumberPreferences}
+          idPrefix="repository-page-"
+          formatExample={formatPageCount}
+          description="Independent from Appearance. Changes apply when you open or return to a repository page. Exact counts and bytes stay in the page's tooltips."
+        />
         <figure className="m-0 mt-4">
           <figcaption className="text-muted mb-2 text-xs font-medium">
             Preview
@@ -165,9 +182,21 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
             className="border-divider text-muted grid justify-items-start gap-2 rounded-lg border border-dashed px-4 py-3 text-sm"
           >
             {visible.map((item) => {
-              const { icon: Icon, count, unit } = items[item];
+              const { icon: Icon, value, unit } = items[item];
+              const count =
+                item === "size"
+                  ? formatBytes(value, "en", formats.sizes)
+                  : formatPageCount(value, formats.counts);
+              const title =
+                item === "size"
+                  ? exactBytes(value, "en")
+                  : `${value.toLocaleString("en")} ${unit}`;
               return (
-                <span key={item} className="inline-flex items-center gap-2">
+                <span
+                  key={item}
+                  {...tip(title)}
+                  className="inline-flex items-center gap-2"
+                >
                   <Icon />
                   <span>
                     <strong className="font-semibold">{count}</strong>

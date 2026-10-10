@@ -5,6 +5,7 @@ import {
 } from "../repository-page/about-items";
 import type { Resolution } from "./client";
 import { validRepository } from "./repository";
+import { validNumberFormats, type NumberFormats } from "../ui/format";
 
 export const PUBLIC_VERSION = 1;
 export const PUBLIC_PORT = "culverin.public";
@@ -106,7 +107,7 @@ export type PublicReply = {
     }
   | { type: "popup.opened"; opened: boolean }
   | { type: "settings.opened"; opened: boolean }
-  | { type: "display"; items: AboutItem[] }
+  | { type: "display"; items: AboutItem[]; formats: NumberFormats }
   | {
       type: "analysis.progress";
       phase:
@@ -395,7 +396,11 @@ export function validPublicReply(
       )
     );
   if (value.type === "display")
-    return exact(value, [...base, "items"]) && validShownItems(value.items);
+    return (
+      exact(value, [...base, "items", "formats"]) &&
+      validShownItems(value.items) &&
+      validNumberFormats(value.formats)
+    );
   if (value.type === "popup.opened" || value.type === "settings.opened")
     return (
       exact(value, [...base, "opened"]) && typeof value.opened === "boolean"

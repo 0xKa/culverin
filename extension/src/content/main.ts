@@ -9,6 +9,8 @@ import {
 import { failureMessages } from "../github/failure-messages";
 import { pageContext } from "./repository";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
+import { defaultPageNumberFormats } from "../repository-page/format";
+import type { NumberFormats } from "../ui/format";
 import { sameRepository, type PageRepository } from "../github/repository";
 import {
   createSummaryUi,
@@ -27,6 +29,8 @@ type View = {
   ui: SummaryUi;
   state?: RowState;
   items: AboutItem[];
+  formats: NumberFormats;
+  displayRequestId?: string;
   lookupRequestId?: string;
   analysisRequestId?: string;
   timer?: ReturnType<typeof setTimeout>;
@@ -82,20 +86,27 @@ function send(
 function setState(current: View, state: RowState): void {
   clearTimeout(current.retryTimer);
   current.state = state;
-  showState(current.ui, state, current.items);
+  showState(current.ui, state, current.items, current.formats);
 }
 
 function refreshDisplay(current: View): void {
-  send(current, "display.get")
-    .response.then((reply) => {
+  const { requestId, response } = send(current, "display.get");
+  current.displayRequestId = requestId;
+  response
+    .then((reply) => {
       if (
         reply.type !== "display" ||
         !currentView(current) ||
-        reply.items.join() === current.items.join()
+        current.displayRequestId !== requestId ||
+        (reply.items.join() === current.items.join() &&
+          reply.formats.counts === current.formats.counts &&
+          reply.formats.sizes === current.formats.sizes)
       )
         return;
       current.items = reply.items;
-      if (current.state) showState(current.ui, current.state, current.items);
+      current.formats = reply.formats;
+      if (current.state)
+        showState(current.ui, current.state, current.items, current.formats);
     })
     .catch(() => undefined);
 }
@@ -258,6 +269,7 @@ function create(repository: PageRepository): View {
     repository,
     ui: createSummaryUi((action) => activate(current, action)),
     items: [...ABOUT_ITEMS],
+    formats: { ...defaultPageNumberFormats },
     messageListener: () => undefined,
   };
   current.messageListener = (message, sender) => {

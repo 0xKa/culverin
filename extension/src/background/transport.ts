@@ -6,6 +6,8 @@ import {
   type PublicRequest,
 } from "../github/public-protocol";
 import { aboutLayout, shownItems } from "../repository-page/about-items";
+import { readNumberFormats } from "../appearance/numbers";
+import { pageNumberPreferences } from "../repository-page/numbers";
 import type { createPublicAnalysis } from "./analysis";
 import type { createPopupJobs } from "./popup-jobs";
 import type { BackgroundResources } from "./resources";
@@ -71,11 +73,15 @@ export function createPublicTransport(
       return true;
     }
     if (request.type === "display.get") {
-      void aboutLayout.read(chrome.storage.sync).then((layout) =>
+      void Promise.all([
+        aboutLayout.read(chrome.storage.sync),
+        readNumberFormats(pageNumberPreferences, chrome.storage.sync),
+      ]).then(([layout, formats]) =>
         respond(
           publicReply(request, {
             type: "display",
             items: shownItems(layout),
+            formats,
           }),
         ),
       );

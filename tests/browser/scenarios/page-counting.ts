@@ -66,7 +66,7 @@ export async function runPageCounting(
     );
     assert.equal(rows[0]!.text, "0 lines of code");
     assert.match(rows[1]!.text ?? "", /^\d[\d.]*[kMB]? files?$/);
-    assert.match(rows[2]!.text ?? "", /^\d[\d.,]* (B|KB|MB)$/);
+    assert.match(rows[2]!.text ?? "", /^\d[\d.,]* (B|KiB|MiB)$/);
     assert.match(
       rows[1]!.title ?? "",
       /^\d[\d,]* files? at the analyzed commit$/,
@@ -148,6 +148,22 @@ export async function runPageCounting(
 
   await assertResultRows();
 
+  const pageLabels = await page.evaluate(
+    () =>
+      (window as typeof window & { culverinLabels?: string[] }).culverinLabels,
+  );
+
+  assert.equal(pageLabels?.[0], "Preparing to count lines…");
+
+  assert.ok(
+    pageLabels?.some((label) =>
+      ["Downloading source…", "Unpacking source…", "Counting lines…"].includes(
+        label,
+      ),
+    ),
+    `progress labels: ${pageLabels?.join(", ")}`,
+  );
+
   const rowTexts = () =>
     summary.evaluate((host) =>
       Array.from(host.shadowRoot!.querySelectorAll(".row")).map(
@@ -182,6 +198,16 @@ export async function runPageCounting(
 
   await pageSettings.goto(
     `chrome-extension://${new URL(worker.url()).host}/settings.html#repository-page`,
+  );
+
+  assert.deepEqual(
+    (
+      await pageSettings
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link")
+        .allTextContents()
+    ).slice(0, 2),
+    ["Appearance", "Repository page"],
   );
 
   const sizeItem = pageSettings.getByRole("checkbox", { name: "Size" });
@@ -226,34 +252,114 @@ export async function runPageCounting(
   await pageSettings.evaluate(() =>
     chrome.storage.sync.remove("culverin.aboutItems"),
   );
+  await pageSettings.reload();
+
+  await pageSettings
+    .locator('input[name="repository-page-count-format"][value="full"]')
+    .check();
+  await pageSettings
+    .locator('input[name="repository-page-size-units"][value="decimal"]')
+    .check();
+  await pageSettings.waitForFunction(() =>
+    document.getElementById("about-preview")?.textContent?.includes("4.7 MB"),
+  );
+  assert.deepEqual(
+    await pageSettings.locator("#about-preview > span").allTextContents(),
+    ["12,300 lines of code", "1,200 files", "4.7 MB"],
+  );
+  assert.deepEqual(
+    await pageSettings.evaluate(() =>
+      Array.from(document.querySelectorAll("[id]"))
+        .map((e) => e.id)
+        .filter((id, i, all) => all.indexOf(id) !== i),
+    ),
+    [],
+  );
+  assert.equal(
+    await pageSettings
+      .locator('input[name="count-format"][value="full"]')
+      .isChecked(),
+    true,
+  );
+  assert.equal(
+    await pageSettings
+      .locator('input[name="size-units"][value="binary"]')
+      .isChecked(),
+    true,
+  );
+  const formattingRequests = {
+    api: fixtures.apiRequests,
+    archives: fixtures.archiveRequests,
+  };
+  const formattingTabId = state.repositoryTabId;
+  assert.ok(typeof formattingTabId === "number");
+  await worker.evaluate(async (tabId) => {
+    await chrome.tabs.sendMessage(tabId, {
+      protocolVersion: 1,
+      type: "summary.update",
+      repository: { owner: "culverin", name: "bootstrap-fixture" },
+      totalCodeLines: 12_300,
+      uncountedFiles: 0,
+      totalFiles: 1_200,
+      totalBytes: 4_718_592,
+      customIgnore: false,
+    });
+  }, formattingTabId);
+  await returnToPage(["12,300 lines of code", "1,200 files", "4.7 MB"]);
+  const exactFormattingTitles = await summary.evaluate((host) =>
+    Array.from(host.shadowRoot!.querySelectorAll(".row")).map((row) =>
+      row.getAttribute("title"),
+    ),
+  );
+  assert.equal(exactFormattingTitles[0], "12,300 lines of code");
+  assert.equal(exactFormattingTitles[1], "1,200 files at the analyzed commit");
+  assert.match(exactFormattingTitles[2] ?? "", /4,718,592 bytes/);
+  await pageSettings.reload();
+  await pageSettings.waitForFunction(
+    () =>
+      document.querySelector<HTMLInputElement>(
+        'input[name="repository-page-count-format"][value="full"]',
+      )?.checked,
+  );
+  assert.equal(
+    await pageSettings
+      .locator('input[name="repository-page-size-units"][value="decimal"]')
+      .isChecked(),
+    true,
+  );
+  await pageSettings
+    .locator('input[name="repository-page-count-format"][value="abbreviated"]')
+    .check();
+  await pageSettings
+    .locator('input[name="repository-page-size-units"][value="binary"]')
+    .check();
+  await returnToPage(["12.3k lines of code", "1.2k files", "4.5 MiB"]);
+  assert.deepEqual(
+    { api: fixtures.apiRequests, archives: fixtures.archiveRequests },
+    formattingRequests,
+  );
+  assert.deepEqual(
+    await pageSettings.evaluate(() =>
+      chrome.storage.sync.get([
+        "culverin.repositoryPage.countFormat",
+        "culverin.repositoryPage.sizeUnits",
+      ]),
+    ),
+    {},
+  );
+  await page.reload();
 
   await pageSettings.close();
 
   await returnToPage([
     "0 lines of code",
     /^\d[\d.]*[kMB]? files?$/,
-    /^\d[\d.,]* (B|KB|MB)$/,
+    /^\d[\d.,]* (B|KiB|MiB)$/,
   ]);
 
   assert.equal(
     await page.getByRole("button", { name: "0 lines of code" }).count(),
     1,
-  );
-
-  const pageLabels = await page.evaluate(
-    () =>
-      (window as typeof window & { culverinLabels?: string[] }).culverinLabels,
-  );
-
-  assert.equal(pageLabels?.[0], "Preparing to count lines…");
-
-  assert.ok(
-    pageLabels?.some((label) =>
-      ["Downloading source…", "Unpacking source…", "Counting lines…"].includes(
-        label,
-      ),
-    ),
-    `progress labels: ${pageLabels?.join(", ")}`,
   );
 
   await zeroWorker.evaluate((sha) => {

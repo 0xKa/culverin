@@ -148,7 +148,7 @@ export async function runPartialResults(
 
   assert.match(
     (await partialPopup.locator("#oversized-files li").textContent()) ?? "",
-    /8 MB/,
+    /8 MiB/,
   );
 
   const partialRow = {

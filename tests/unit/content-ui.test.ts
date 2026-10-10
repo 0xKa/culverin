@@ -106,6 +106,36 @@ test("shows only the chosen About items in the chosen order", () => {
   ]);
 });
 
+test("applies page count and size formats while keeping exact tooltips and partial markers", () => {
+  const state = {
+    kind: "complete",
+    total: 12_300,
+    files: 1_200,
+    bytes: 4_718_592,
+    uncounted: 2,
+    customIgnore: true,
+  } as const;
+  const full = resultViews(state, ["size", "lines", "files"], {
+    counts: "full",
+    sizes: "decimal",
+  });
+  expect(full.map((row) => row.count)).toEqual(["4.7 MB", "12,300+", "1,200"]);
+  expect(full[1]?.title).toBe(
+    "12,300 lines of code, not including 2 source files too large to count (Culverin ignore active)",
+  );
+  expect(full[2]?.title).toBe("1,200 files at the analyzed commit");
+  expect(full[0]?.title).toContain("(4,718,592 bytes)");
+  const compact = resultViews(state);
+  expect(compact.map((row) => row.count)).toEqual([
+    "12.3k+",
+    "1.2k",
+    "4.5 MiB",
+  ]);
+  expect(
+    rowView({ kind: "idle" }, { counts: "full", sizes: "decimal" }),
+  ).toEqual(rowView({ kind: "idle" }));
+});
+
 test("offers explicit analysis and cancellation actions", () => {
   expect(rowView({ kind: "idle" })).toMatchObject({
     label: "Analyze with Culverin",

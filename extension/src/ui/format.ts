@@ -7,6 +7,16 @@ export const defaultNumberFormats: NumberFormats = {
   sizes: "binary",
 };
 
+export function validNumberFormats(value: unknown): value is NumberFormats {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const formats = value as Record<string, unknown>;
+  return (
+    Object.keys(formats).sort().join() === "counts,sizes" &&
+    (formats.counts === "full" || formats.counts === "abbreviated") &&
+    (formats.sizes === "binary" || formats.sizes === "decimal")
+  );
+}
+
 export function formatCount(
   count: number,
   format: CountFormat = "full",

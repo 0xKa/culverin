@@ -225,7 +225,12 @@ test("lets only the page ask which About items to show", () => {
     }),
   ).toBe(false);
   expect(validPopupPublicRequest({ ...request, tabId: 7 })).toBe(false);
-  const reply = { ...request, type: "display", items: ["files", "lines"] };
+  const reply = {
+    ...request,
+    type: "display",
+    items: ["files", "lines"],
+    formats: { counts: "abbreviated", sizes: "binary" },
+  };
   expect(validPublicReply(reply, requestId, navigationId)).toBe(true);
   for (const items of [[], ["lines", "lines"], ["lines", "stars"], "lines"])
     expect(validPublicReply({ ...reply, items }, requestId, navigationId)).toBe(
@@ -234,6 +239,26 @@ test("lets only the page ask which About items to show", () => {
   expect(
     validPublicReply({ ...reply, extra: true }, requestId, navigationId),
   ).toBe(false);
+  expect(
+    validPublicReply(
+      { ...reply, formats: { counts: "full", sizes: "decimal" } },
+      requestId,
+      navigationId,
+    ),
+  ).toBe(true);
+  for (const formats of [
+    undefined,
+    null,
+    [],
+    "full",
+    { counts: "full" },
+    { counts: "compact", sizes: "binary" },
+    { counts: "full", sizes: "MB" },
+    { counts: "full", sizes: "decimal", token: "forbidden" },
+  ])
+    expect(
+      validPublicReply({ ...reply, formats }, requestId, navigationId),
+    ).toBe(false);
 });
 
 test("validates popup requests and compact page summary updates", () => {

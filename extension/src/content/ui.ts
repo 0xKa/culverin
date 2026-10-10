@@ -1,7 +1,11 @@
 import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
 import { Code, createElement, Database, Files, type IconNode } from "lucide";
 import spinnerStyles from "../ui/spinner.css" with { type: "text" };
-import { formatBytes } from "../ui/format";
+import { formatBytes, type NumberFormats } from "../ui/format";
+import {
+  defaultPageNumberFormats,
+  formatPageCount,
+} from "../repository-page/format";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
 import { failureMessages, limitNote } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
@@ -83,13 +87,8 @@ const unsupportedFailures: PublicErrorCode[] = [
   "repository_empty",
 ];
 
-const compact = new Intl.NumberFormat("en", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
 export function compactCount(value: number): string {
-  return compact.format(value).replace("K", "k");
+  return formatPageCount(value);
 }
 
 export function failureState(
@@ -124,7 +123,10 @@ export function lookupFailureState(
   return { kind: "idle" };
 }
 
-export function rowView(state: VisibleRowState): RowView {
+export function rowView(
+  state: VisibleRowState,
+  formats: NumberFormats = defaultPageNumberFormats,
+): RowView {
   if (state.kind === "idle")
     return {
       label: "Analyze with Culverin",
@@ -144,7 +146,7 @@ export function rowView(state: VisibleRowState): RowView {
       ? `, not including ${state.uncounted.toLocaleString("en")} source ${state.uncounted === 1 ? "file" : "files"} too large to count`
       : "";
     return {
-      count: `${compactCount(state.total)}${state.uncounted ? "+" : ""}`,
+      count: `${formatPageCount(state.total, formats.counts)}${state.uncounted ? "+" : ""}`,
       label,
       title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (Culverin ignore active)" : ""}`,
       action: "details",
@@ -170,13 +172,14 @@ export type ResultRowView = RowView & { item: AboutItem };
 export function resultViews(
   state: CompleteState,
   items: readonly AboutItem[] = ABOUT_ITEMS,
+  formats: NumberFormats = defaultPageNumberFormats,
 ): ResultRowView[] {
   const files = state.files === 1 ? "file" : "files";
-  const size = formatBytes(state.bytes, "en");
+  const size = formatBytes(state.bytes, "en", formats.sizes);
   const views: Record<AboutItem, RowView> = {
-    lines: rowView(state),
+    lines: rowView(state, formats),
     files: {
-      count: compactCount(state.files),
+      count: formatPageCount(state.files, formats.counts),
       label: files,
       title: `${state.files.toLocaleString("en")} ${files} at the analyzed commit`,
       action: "details",
@@ -265,6 +268,7 @@ export function showState(
   ui: SummaryUi,
   state: RowState,
   items: readonly AboutItem[] = ABOUT_ITEMS,
+  formats: NumberFormats = defaultPageNumberFormats,
 ): void {
   if (state.kind === "hidden") {
     ui.host.hidden = true;
@@ -272,7 +276,9 @@ export function showState(
     return;
   }
   const views: (RowView & { item?: AboutItem })[] =
-    state.kind === "complete" ? resultViews(state, items) : [rowView(state)];
+    state.kind === "complete"
+      ? resultViews(state, items, formats)
+      : [rowView(state, formats)];
   const rows = views.map((view, index) => {
     const interactive = view.action !== undefined;
     const current = ui.rows[index];

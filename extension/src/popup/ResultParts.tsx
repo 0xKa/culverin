@@ -2,7 +2,7 @@ import { Callout } from "../ui/Callout";
 import { ExternalLink } from "../ui/ExternalLink";
 import { Joined } from "../ui/Separator";
 import { ResultSection } from "./ResultSection";
-import type { ResultView, SizesView } from "./view";
+import type { ResultView } from "./view";
 
 export function Totals({ result }: { result: ResultView }) {
   return (
@@ -44,36 +44,17 @@ export function Totals({ result }: { result: ResultView }) {
   );
 }
 
-export function Sizes({
-  sizes,
-  snapshotSize,
-}: {
-  sizes?: SizesView;
-  snapshotSize: string;
-}) {
+export function Sizes({ result }: { result: ResultView }) {
   return (
-    <dl id="sizes" hidden={!sizes} className="mt-3 grid gap-1 text-xs">
+    <dl id="sizes" className="mt-3 grid gap-1 text-xs">
       <div className="flex justify-between gap-3">
-        <dt className="text-muted break-words">
-          Repository size (incl. history)
-        </dt>
-        <dd
-          id="repository-size"
-          title="Reported by GitHub; includes the full Git history"
-          className="m-0 font-mono font-medium whitespace-nowrap"
-        >
-          {sizes?.repositorySize}
-        </dd>
-      </div>
-      <div className="flex justify-between gap-3">
-        <dt id="snapshot-label" className="text-muted break-words">
-          {sizes?.snapshotLabel ?? "Files at commit"}
-        </dt>
+        <dt className="text-muted break-words">Size</dt>
         <dd
           id="snapshot-size"
+          title={result.sizeTitle}
           className="m-0 font-mono font-medium whitespace-nowrap"
         >
-          {snapshotSize}
+          {result.snapshotSize}
         </dd>
       </div>
     </dl>
@@ -140,6 +121,15 @@ export function Details({
             <Joined parts={line} />
           </p>
         ))}
+        {result?.cloneSize && (
+          <p
+            id="clone-size"
+            title={result.cloneTitle}
+            className="text-muted m-0 mt-1.5 text-xs"
+          >
+            Estimated clone size {result.cloneSize}
+          </p>
+        )}
         {result && result.codeRows.length > 0 && (
           <ResultSection
             title="Code"

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { CachedResultSummary } from "../github/cache";
 import { Details, OversizedFiles, Sizes, Totals } from "../popup/ResultParts";
-import { resultView, sizesView } from "../popup/view";
+import { resultView } from "../popup/view";
 import { IconButton } from "../ui/IconButton";
 import { X } from "lucide-preact";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -21,7 +21,6 @@ export function ResultDialog({
     () => resultView(entry.result, entry.resolution),
     [entry],
   );
-  const sizes = useMemo(() => sizesView(entry.resolution), [entry]);
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -65,7 +64,7 @@ export function ResultDialog({
         </div>
         <Totals result={result} />
         {result.warning && <OversizedFiles result={result} />}
-        <Sizes sizes={sizes} snapshotSize={result.snapshotSize} />
+        <Sizes result={result} />
         <Details result={result} open={open} onToggle={setOpen} />
       </div>
     </dialog>

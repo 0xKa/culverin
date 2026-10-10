@@ -17,7 +17,7 @@ import {
 } from "../github/public-protocol";
 import type { AnalysisResultV2 } from "../counter/result";
 import { subscribeRateLimit } from "../github/rate-limit-observer";
-import { apiLimitView, resultView, sizesView } from "./view";
+import { apiLimitView, resultView } from "./view";
 import type { PopupEvent } from "./state";
 import {
   failureStatus,
@@ -94,10 +94,6 @@ export function createPopupController(
     return effectiveRulesHash(ignore);
   }
 
-  function showSizes(resolution: ResolutionEnvelope): void {
-    dispatch({ type: "sizes", value: sizesView(resolution) });
-  }
-
   function showResult(
     result: AnalysisResultV2,
     resolution: ResolutionEnvelope,
@@ -106,7 +102,6 @@ export function createPopupController(
     dispatch({
       type: "result",
       value: resultView(result, resolution),
-      sizes: sizesView(resolution),
     });
   }
 
@@ -244,7 +239,6 @@ export function createPopupController(
         void resume();
       } else if (reply.type === "repository.cache_miss") {
         clearResult();
-        showSizes(reply.resolution);
         await currentRulesHash();
         if (lookupRequestId !== pending.requestId) return;
         setStatus(readyStatus(reply.resolution, reply.rulesChanged === true));
@@ -254,7 +248,6 @@ export function createPopupController(
         if (lookupRequestId !== pending.requestId) return;
         if (reply.result.engine.rulesHash !== hash) {
           clearResult();
-          showSizes(reply.resolution);
           setStatus(statuses.rulesChanged);
         } else {
           showResult(reply.result, reply.resolution);

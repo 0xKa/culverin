@@ -115,9 +115,9 @@ export function App() {
           {view.status.detail}
         </Status>
         <section id="analysis" hidden={!view.analysisVisible}>
-          {result && <Totals key={view.sizes?.snapshotLabel} result={result} />}
+          {result && <Totals key={result.commit} result={result} />}
           {result?.warning && <OversizedFiles result={result} />}
-          <Sizes sizes={view.sizes} snapshotSize={view.snapshotSize} />
+          {result && <Sizes result={result} />}
           <Callout
             id="ignore-summary"
             hidden={!view.ignoreSummary}

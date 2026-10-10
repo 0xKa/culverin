@@ -1,5 +1,5 @@
 import { statuses, type PopupStatus } from "./status";
-import type { ApiLimitView, ResultView, SizesView } from "./view";
+import type { ApiLimitView, ResultView } from "./view";
 
 export type PopupView = {
   repository?: string;
@@ -7,8 +7,6 @@ export type PopupView = {
   analysisVisible: boolean;
   analyzeDisabled: boolean;
   cancelVisible: boolean;
-  sizes?: SizesView;
-  snapshotSize: string;
   ignoreSummary?: string;
   result?: ResultView;
   detailsOpen: boolean;
@@ -22,7 +20,6 @@ export const initialView: PopupView = {
   analysisVisible: false,
   analyzeDisabled: true,
   cancelVisible: false,
-  snapshotSize: "Available after analysis",
   detailsOpen: false,
   reanalyze: false,
 };
@@ -32,8 +29,7 @@ export type PopupEvent =
   | { type: "busy"; busy: boolean; disabled: boolean }
   | { type: "lookup" }
   | { type: "clearResult" }
-  | { type: "sizes"; value: SizesView }
-  | { type: "result"; value: ResultView; sizes: SizesView }
+  | { type: "result"; value: ResultView }
   | { type: "ignore"; value?: string }
   | { type: "left" }
   | { type: "repository"; value: string }
@@ -59,17 +55,12 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
       return {
         ...view,
         result: undefined,
-        snapshotSize: "Available after analysis",
         detailsOpen: false,
         reanalyze: false,
       };
-    case "sizes":
-      return { ...view, sizes: event.value };
     case "result":
       return {
         ...view,
-        sizes: event.sizes,
-        snapshotSize: event.value.snapshotSize,
         result: event.value,
         detailsOpen: view.result ? view.detailsOpen : true,
         reanalyze: true,

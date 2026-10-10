@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { initialView, reduce } from "../../extension/src/popup/state";
 
-test("tracks repository, busy state, sizes, result and details", () => {
+test("tracks repository, busy state, result and details", () => {
   const repository = reduce(initialView, {
     type: "repository",
     value: "owner/repo",
@@ -10,15 +10,16 @@ test("tracks repository, busy state, sizes, result and details", () => {
   expect(repository.repository).toBe("owner/repo");
   const busy = reduce(repository, { type: "busy", busy: true, disabled: true });
   expect(busy.cancelVisible).toBe(true);
-  const sizes = { repositorySize: "2 MB", snapshotLabel: "Files at abc" };
-  const ready = reduce(busy, { type: "sizes", value: sizes });
+  const ready = busy;
   const result = {
     codeTotal: "1",
     fileTotal: "1",
     fileLabel: "file",
     fileTitle: "All files at this commit, 1 counted as code or text.",
     stats: [],
+    commit: "abc",
     snapshotSize: "20 B",
+    sizeTitle: "Total size of the files at commit abc, as checked out.",
     intro: [],
     codeSummary: [],
     codeRows: [],
@@ -32,10 +33,10 @@ test("tracks repository, busy state, sizes, result and details", () => {
     oversizedFiles: [],
   };
   expect(ready.reanalyze).toBe(false);
-  const shown = reduce(ready, { type: "result", value: result, sizes });
+  const shown = reduce(ready, { type: "result", value: result });
   expect(shown.detailsOpen).toBe(true);
   expect(shown.reanalyze).toBe(true);
-  expect(shown.snapshotSize).toBe("20 B");
+  expect(shown.result?.snapshotSize).toBe("20 B");
   const collapsed = reduce(shown, { type: "details", open: false });
   const reanalyzing = reduce(collapsed, {
     type: "busy",
@@ -43,20 +44,17 @@ test("tracks repository, busy state, sizes, result and details", () => {
     disabled: true,
   });
   expect(reanalyzing.result).toBe(result);
-  expect(reanalyzing.snapshotSize).toBe("20 B");
+  expect(reanalyzing.result?.snapshotSize).toBe("20 B");
   expect(reanalyzing.detailsOpen).toBe(false);
   expect(reanalyzing.reanalyze).toBe(true);
   const updated = reduce(reanalyzing, {
     type: "result",
     value: { ...result, codeTotal: "2" },
-    sizes,
   });
   expect(updated.result?.codeTotal).toBe("2");
   expect(updated.detailsOpen).toBe(false);
   const cleared = reduce(shown, { type: "clearResult" });
   expect(cleared.result).toBeUndefined();
-  expect(cleared.sizes).toEqual(sizes);
-  expect(cleared.snapshotSize).toBe("Available after analysis");
   expect(cleared.detailsOpen).toBe(false);
   expect(cleared.reanalyze).toBe(false);
 });
@@ -68,8 +66,6 @@ test("leaving a repository resets every repository-specific field", () => {
     analysisVisible: true,
     analyzeDisabled: false,
     cancelVisible: true,
-    sizes: { repositorySize: "2 MB", snapshotLabel: "Files at abc" },
-    snapshotSize: "20 B",
     ignoreSummary: "Culverin ignore: 1 rule",
     detailsOpen: true,
     reanalyze: true,

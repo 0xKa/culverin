@@ -11,7 +11,6 @@ export async function runPagePopupLifetimes(
     actionPopup,
     openPopup,
     extensionUrl,
-    publicSha,
     summary,
     harness,
   } = state;
@@ -148,10 +147,7 @@ export async function runPagePopupLifetimes(
     .getByText(/Ready to analyze main at/)
     .waitFor({ timeout: 15_000 });
 
-  assert.equal(
-    await knownPopup.locator("#repository-size").textContent(),
-    "2 MB",
-  );
+  assert.equal(await knownPopup.locator("#sizes").count(), 0);
 
   await knownPopup
     .locator("#api-limit", { hasText: "API 57/60" })
@@ -165,16 +161,6 @@ export async function runPagePopupLifetimes(
   assert.match(
     (await knownPopup.locator("#api-limit-reset").textContent()) ?? "",
     /^Resets at \d/,
-  );
-
-  assert.equal(
-    await knownPopup.locator("#snapshot-label").textContent(),
-    `Files at ${publicSha.slice(0, 12)}`,
-  );
-
-  assert.equal(
-    await knownPopup.locator("#snapshot-size").textContent(),
-    "Available after analysis",
   );
 
   assert.equal(fixtures.apiRequests, beforeKnownPopupApiRequests);

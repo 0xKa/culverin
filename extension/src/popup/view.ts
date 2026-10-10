@@ -5,11 +5,6 @@ import { currentRemaining, type RateLimit } from "../github/rate-limit";
 import { formatBytes, formatClockTime } from "../ui/format";
 import { isTextLanguage, textLines } from "./text-lines";
 
-export type SizesView = {
-  repositorySize: string;
-  snapshotLabel: string;
-};
-
 export type ApiLimitView = {
   text: string;
   reset?: string;
@@ -39,7 +34,11 @@ export type ResultView = {
   fileLabel: string;
   fileTitle: string;
   stats: StatView[];
+  commit: string;
   snapshotSize: string;
+  sizeTitle: string;
+  cloneSize?: string;
+  cloneTitle?: string;
   intro: string[][];
   codeSummary: string[];
   codeRows: BreakdownRow[];
@@ -63,16 +62,6 @@ const bySize = <T extends { files: number; language: string }>(
     b.files - a.files ||
     (a.language < b.language ? -1 : a.language > b.language ? 1 : 0);
 };
-
-export function sizesView(resolution: ResolutionEnvelope): SizesView {
-  return {
-    repositorySize:
-      resolution.sizeKb === null
-        ? "Not reported"
-        : formatBytes(resolution.sizeKb * 1024),
-    snapshotLabel: `Files at ${resolution.sha.slice(0, 12)}`,
-  };
-}
 
 const fileCount = (files: number) =>
   `${files.toLocaleString()} ${files === 1 ? "file" : "files"}`;
@@ -144,6 +133,10 @@ export function resultView(
     url: `https://github.com/${encodeURIComponent(resolution.owner)}/${encodeURIComponent(resolution.name)}/blob/${result.revision.commitSha}/${file.path.split("/").map(encodeURIComponent).join("/")}`,
   }));
   const unlisted = skipped.oversized_source - oversizedFiles.length;
+  const commit = resolution.sha.slice(0, 12);
+  const snapshotSize = formatBytes(coverage.totalBytes);
+  const historyBytes =
+    resolution.sizeKb === null ? undefined : resolution.sizeKb * 1024;
   return {
     codeTotal: totals.code.toLocaleString(),
     fileTotal: coverage.regularFiles.toLocaleString(),
@@ -165,12 +158,19 @@ export function resultView(
       { label: "Comments", value: totals.comments.toLocaleString() },
       { label: "Blanks", value: totals.blanks.toLocaleString() },
     ],
-    snapshotSize: formatBytes(coverage.totalBytes),
+    commit,
+    snapshotSize,
+    sizeTitle: `Total size of the files at commit ${commit}, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.`,
+    cloneSize:
+      historyBytes === undefined
+        ? undefined
+        : `≈ ${formatBytes(coverage.totalBytes + historyBytes)}`,
+    cloneTitle:
+      historyBytes === undefined
+        ? undefined
+        : `The ${snapshotSize} of files plus the ${formatBytes(historyBytes)} of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.`,
     intro: [
-      [
-        `Default branch ${resolution.defaultBranch}`,
-        `commit ${resolution.sha.slice(0, 12)}`,
-      ],
+      [`Default branch ${resolution.defaultBranch}`, `commit ${commit}`],
       [
         "Repository source was downloaded directly from GitHub and analyzed in your browser.",
       ],

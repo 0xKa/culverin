@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
-import { resultView, sizesView } from "../../extension/src/popup/view";
+import { resultView } from "../../extension/src/popup/view";
 
 const resolution: ResolutionEnvelope = {
   repositoryId: "1",
@@ -73,11 +73,16 @@ const result: AnalysisResultV2 = {
 };
 
 test("formats repository and result details", () => {
-  expect(sizesView(resolution)).toEqual({
-    repositorySize: "2 MB",
-    snapshotLabel: "Files at aaaaaaaaaaaa",
-  });
   const view = resultView(result, resolution);
+  expect(view.commit).toBe("aaaaaaaaaaaa");
+  expect(view.snapshotSize).toBe("30 B");
+  expect(view.sizeTitle).toBe(
+    "Total size of the files at commit aaaaaaaaaaaa, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
+  );
+  expect(view.cloneSize).toBe("≈ 2 MB");
+  expect(view.cloneTitle).toBe(
+    "The 30 B of files plus the 2 MB of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.",
+  );
   expect(view.codeTotal).toBe("3");
   expect(view.fileTotal).toBe("5");
   expect(view.fileLabel).toBe("files");
@@ -260,7 +265,6 @@ test("handles zero lines and absent languages without invalid percentages", () =
   expect(view.warning).toBeUndefined();
   expect(view.oversizedNote).toBeUndefined();
   expect(JSON.stringify(view)).not.toMatch(/NaN|Infinity/);
-  expect(sizesView({ ...resolution, sizeKb: null }).repositorySize).toBe(
-    "Not reported",
-  );
+  expect(view.cloneSize).toBeUndefined();
+  expect(view.cloneTitle).toBeUndefined();
 });

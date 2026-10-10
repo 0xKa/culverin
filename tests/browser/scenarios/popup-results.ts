@@ -216,8 +216,8 @@ export async function runPopupResults(
     .waitFor();
 
   assert.equal(
-    await resumedPopup.locator("#repository-size").textContent(),
-    "2 MB",
+    await resumedPopup.locator("#clone-size").textContent(),
+    "Estimated clone size ≈ 2 MB",
   );
 
   assert.equal(
@@ -443,7 +443,7 @@ export async function runPopupResults(
         "text-lines",
         "metrics",
         "snapshot-size",
-        "snapshot-label",
+        "clone-size",
       ].map((id) => document.getElementById(id)?.textContent),
       details: document.getElementById("detail-content")?.innerHTML,
       open: (document.getElementById("details") as HTMLDetailsElement).open,
@@ -629,9 +629,11 @@ export async function runPopupResults(
 
   assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
 
-  assert.equal(
-    await restartPopup.locator("#snapshot-label").textContent(),
-    `Files at ${fixtures.sha.slice(0, 12)}`,
+  assert.match(
+    (await restartPopup.locator("#snapshot-size").getAttribute("title")) ?? "",
+    new RegExp(
+      `^Total size of the files at commit ${fixtures.sha.slice(0, 12)},`,
+    ),
   );
 
   assert.equal((await resultSnapshot()).open, false);

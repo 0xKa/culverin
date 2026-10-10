@@ -11,7 +11,7 @@ import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
 import { DotLoader } from "../ui/DotLoader";
 import { IconButton } from "../ui/IconButton";
-import { GearIcon } from "../ui/icons";
+import { Settings } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { StatusBadge } from "../ui/StatusBadge";
 import { UsageMeter } from "../ui/UsageMeter";
@@ -54,7 +54,7 @@ function Header({ view }: { view: PopupView }) {
           label="Settings"
           onClick={() => openSettings()}
         >
-          <GearIcon />
+          <Settings />
         </IconButton>
       </div>
     </header>

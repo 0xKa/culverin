@@ -107,12 +107,16 @@ const sections = packages.map((item) => {
   return [...header, "", ...texts].join("\n");
 });
 
-const bundledPackages = ["preact", "tailwindcss"].map((name) => {
-  const directory = resolve(
-    root,
-    name === "preact" ? "extension/node_modules" : "node_modules",
-    name,
-  );
+const bundledPackages = [
+  { name: "preact", path: "extension/node_modules", license: "MIT" },
+  { name: "tailwindcss", path: "node_modules", license: "MIT" },
+  {
+    name: "lucide-preact",
+    path: "extension/node_modules",
+    license: "ISC",
+  },
+].map(({ name, path, license: expectedLicense }) => {
+  const directory = resolve(root, path, name);
   const manifest = JSON.parse(
     readFileSync(resolve(directory, "package.json"), "utf8"),
   ) as {
@@ -121,8 +125,8 @@ const bundledPackages = ["preact", "tailwindcss"].map((name) => {
     license: string;
     repository?: string | { url: string };
   };
-  if (manifest.name !== name || manifest.license !== "MIT")
-    throw new Error(`${name} must have an MIT license`);
+  if (manifest.name !== name || manifest.license !== expectedLicense)
+    throw new Error(`${name} must have a ${expectedLicense} license`);
   const license = resolve(directory, "LICENSE");
   if (!existsSync(license)) throw new Error(`${name} has no LICENSE file`);
   const repository =
@@ -131,7 +135,7 @@ const bundledPackages = ["preact", "tailwindcss"].map((name) => {
       : manifest.repository?.url;
   return [
     `${manifest.name} ${manifest.version}`,
-    "License: MIT",
+    `License: ${manifest.license}`,
     ...(repository ? [`Source: ${repository}`] : []),
     "",
     readFileSync(license, "utf8").trim(),

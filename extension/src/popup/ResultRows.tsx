@@ -1,4 +1,4 @@
-import { ChevronIcon } from "../ui/icons";
+import { ChevronDown } from "lucide-preact";
 import type { BreakdownRow } from "./view";
 
 const VISIBLE_ROWS = 10;
@@ -66,10 +66,10 @@ export function ResultRows({
           <summary className="text-accent-text mt-2.5 inline-flex items-center gap-1 rounded-sm text-xs font-medium">
             <span className="group-open:hidden">Show {more.length} more</span>
             <span className="hidden group-open:inline">Show fewer</span>
-            <ChevronIcon
-              width="12"
-              height="12"
-              className="transition-transform duration-150 ease-(--ease-out-quick) group-open:rotate-180"
+            <ChevronDown
+              size={12}
+              strokeWidth={1.125}
+              class="transition-transform duration-150 ease-(--ease-out-quick) group-open:rotate-180"
             />
           </summary>
           <Rows rows={more} label={moreLabel} muted={muted} />

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { InfoIcon, WarningIcon } from "./icons";
+import { Info, TriangleAlert } from "lucide-preact";
 
 const tones = {
   info: "border-divider bg-surface text-ink [&>svg]:text-muted",
@@ -28,9 +28,9 @@ export function Callout({
       className={`grid grid-cols-[auto_1fr] gap-x-2.5 rounded-lg border px-3 py-2 ${tones[tone]} ${className ?? ""}`.trim()}
     >
       {tone === "info" ? (
-        <InfoIcon className="mt-0.5" />
+        <Info class="mt-0.5" />
       ) : (
-        <WarningIcon className="mt-0.5" />
+        <TriangleAlert class="mt-0.5" />
       )}
       <div className="min-w-0">{children}</div>
     </div>

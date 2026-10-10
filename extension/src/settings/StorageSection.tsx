@@ -13,7 +13,7 @@ import { formatBytes } from "../ui/format";
 import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
-import { EyeIcon, TrashIcon } from "../ui/icons";
+import { Eye, Trash } from "lucide-preact";
 import { ResultDialog } from "./ResultDialog";
 import { Status } from "../ui/Status";
 import { cacheSummary, relativeTime } from "./cache-list";
@@ -186,7 +186,7 @@ function CacheList({
                       label={`Show details for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
                       onClick={() => setInspected(entry)}
                     >
-                      <EyeIcon />
+                      <Eye />
                     </IconButton>
                     <IconButton
                       type="button"
@@ -196,7 +196,7 @@ function CacheList({
                       disabled={busy}
                       onClick={() => onDelete(entry)}
                     >
-                      <TrashIcon />
+                      <Trash />
                     </IconButton>
                   </td>
                 </tr>

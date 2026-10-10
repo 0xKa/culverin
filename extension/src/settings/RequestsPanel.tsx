@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 import { DotLoader } from "../ui/DotLoader";
 import { formatClockTime } from "../ui/format";
 import { IconButton } from "../ui/IconButton";
-import { RefreshIcon } from "../ui/icons";
+import { RotateCw } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { sendSettings } from "./client";
@@ -78,7 +78,7 @@ export function RequestsPanel() {
                 aria-busy={checking}
                 onClick={() => void check()}
               >
-                {checking ? <DotLoader size="sm" /> : <RefreshIcon />}
+                {checking ? <DotLoader size="sm" /> : <RotateCw />}
               </IconButton>
             </>
           ) : (

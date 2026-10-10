@@ -3,7 +3,7 @@ import type { CachedResultSummary } from "../github/cache";
 import { Details, OversizedFiles, Sizes, Totals } from "../popup/ResultParts";
 import { resultView, sizesView } from "../popup/view";
 import { IconButton } from "../ui/IconButton";
-import { CloseIcon } from "../ui/icons";
+import { X } from "lucide-preact";
 import { StatusBadge } from "../ui/StatusBadge";
 
 export function ResultDialog({
@@ -59,7 +59,7 @@ export function ResultDialog({
               autofocus
               onClick={() => dialog.current?.close()}
             >
-              <CloseIcon />
+              <X />
             </IconButton>
           </div>
         </div>

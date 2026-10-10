@@ -1,4 +1,4 @@
-import { ExternalLink } from "../ui/ExternalLink";
+import { ExternalLink as ExternalLinkComponent } from "../ui/ExternalLink";
 import { useState } from "preact/hooks";
 import {
   engineVersion,
@@ -7,7 +7,7 @@ import {
   wrapperVersion,
 } from "../counter/rules";
 import { Button } from "../ui/Button";
-import { ExternalIcon } from "../ui/icons";
+import { ExternalLink } from "lucide-preact";
 import { Separator } from "../ui/Separator";
 import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
@@ -83,9 +83,11 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
             <div className="border-divider grid gap-x-4 border-t pt-2.5 sm:grid-cols-[11rem_1fr]">
               <dt className="text-muted">License</dt>
               <dd className="m-0">
-                <ExternalLink href={`${REPOSITORY_URL}/blob/main/LICENSE`}>
+                <ExternalLinkComponent
+                  href={`${REPOSITORY_URL}/blob/main/LICENSE`}
+                >
                   Apache License 2.0
-                </ExternalLink>
+                </ExternalLinkComponent>
                 <Separator />
                 <a
                   href="THIRD_PARTY_NOTICES.txt"
@@ -108,13 +110,13 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
           <ul className="divide-divider m-0 -my-1 list-none divide-y p-0">
             {links.map(([label, url]) => (
               <li key={label}>
-                <ExternalLink
+                <ExternalLinkComponent
                   href={url}
                   className="text-ink hover:text-accent-text -mx-2 flex items-center justify-between rounded-md px-2 py-2.5 no-underline transition-colors duration-150"
                 >
                   {label}
-                  <ExternalIcon className="text-muted" />
-                </ExternalLink>
+                  <ExternalLink class="text-muted" />
+                </ExternalLinkComponent>
               </li>
             ))}
           </ul>

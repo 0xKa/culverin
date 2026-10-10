@@ -4,7 +4,7 @@ import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { Button } from "../ui/Button";
 import { DotLoader } from "../ui/DotLoader";
 import { IconButton } from "../ui/IconButton";
-import { CheckIcon, CopyIcon } from "../ui/icons";
+import { Check, Copy } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { inputClass, Panel, SectionHeader } from "./layout";
@@ -136,7 +136,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                       label="Copy code"
                       onClick={() => void controller.copy(device.userCode)}
                     >
-                      {copied ? <CheckIcon /> : <CopyIcon />}
+                      {copied ? <Check /> : <Copy />}
                     </IconButton>
                     <Status id="github-copy-status" className="m-0 text-sm">
                       {copied === undefined

@@ -58,6 +58,8 @@ Run `bun run verify` and make sure it passes. It takes about three minutes.
 
 If you changed a dependency, run `bun run notices:build` and commit the updated notices file. If you changed the icon artwork, run `bun run icons:build` and commit the new PNGs. `bun run verify` fails when either one is out of date.
 
+Import popup and settings interface icons from `lucide-preact` rather than adding hand-drawn SVG components.
+
 ## Release package
 
 `bun run package` fails if the build contains anything unexpected. That includes a changed permission or content security policy, a source map, a local path, or a URL outside the allowed origins. The same source always produces the same ZIP checksum.

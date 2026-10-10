@@ -23,10 +23,16 @@ import { initialView, reduce, type PopupView } from "./state";
 function Header({ view }: { view: PopupView }) {
   return (
     <header className="border-divider flex items-center gap-2 border-b px-4 py-2.5">
-      <picture className="shrink-0">
-        <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
-        <img src={lightIcon} alt="" className="block size-5" />
-      </picture>
+      <img
+        src={lightIcon}
+        alt=""
+        className="block size-5 shrink-0 dark:hidden"
+      />
+      <img
+        src={darkIcon}
+        alt=""
+        className="hidden size-5 shrink-0 dark:block"
+      />
       <h1 className="text-md m-0 font-semibold tracking-tight">Culverin</h1>
       <div className="ml-auto flex items-center gap-1">
         <span

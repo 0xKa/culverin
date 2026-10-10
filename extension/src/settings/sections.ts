@@ -1,4 +1,5 @@
 export const sections = [
+  { id: "appearance", label: "Appearance" },
   { id: "storage", label: "Storage" },
   { id: "ignore", label: "Culverin ignore" },
   { id: "counting", label: "Counting" },

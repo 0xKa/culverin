@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import darkIcon from "../../../assets/dark/culverin-dark-stats.svg";
 import lightIcon from "../../../assets/light/culverin-light-stats.svg";
 import { AboutSection } from "./AboutSection";
+import { AppearanceSection } from "./AppearanceSection";
 import { CountingSection } from "./CountingSection";
 import { GitHubSection } from "./GitHubSection";
 import { IgnoreSection } from "./IgnoreSection";
@@ -50,10 +51,16 @@ export function App() {
   return (
     <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base">
       <header className="mb-8 flex items-center gap-3">
-        <picture className="shrink-0">
-          <source srcSet={darkIcon} media="(prefers-color-scheme: dark)" />
-          <img src={lightIcon} alt="" className="block size-7" />
-        </picture>
+        <img
+          src={lightIcon}
+          alt=""
+          className="block size-7 shrink-0 dark:hidden"
+        />
+        <img
+          src={darkIcon}
+          alt=""
+          className="hidden size-7 shrink-0 dark:block"
+        />
         <h1 className="m-0 text-xl font-semibold tracking-tight">Culverin</h1>
       </header>
       <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
@@ -76,6 +83,7 @@ export function App() {
           </ul>
         </nav>
         <main className="min-w-0">
+          <AppearanceSection hidden={active !== "appearance"} />
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
           <CountingSection hidden={active !== "counting"} />

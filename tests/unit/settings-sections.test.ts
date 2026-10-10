@@ -18,12 +18,12 @@ test("reads settings sections from fragments and stored values", () => {
 });
 
 test("prefers the URL fragment, then the remembered section, then the first", () => {
-  expect(sections[0].id).toBe("storage");
+  expect(sections[0].id).toBe("appearance");
   expect(initialSection("#ignore", "storage")).toBe("ignore");
   expect(initialSection("", "ignore")).toBe("ignore");
   expect(initialSection("#unknown", "ignore")).toBe("ignore");
-  expect(initialSection("", "removed")).toBe("storage");
-  expect(initialSection("", null)).toBe("storage");
+  expect(initialSection("", "removed")).toBe("appearance");
+  expect(initialSection("", null)).toBe("appearance");
 });
 
 test("remembers the section and tolerates unavailable storage", () => {

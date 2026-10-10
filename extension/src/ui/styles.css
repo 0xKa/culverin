@@ -3,6 +3,18 @@
 @import "./status-badge.css";
 @import "./tooltip.css";
 
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:not(:where([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
+  }
+}
+
 @theme {
   --color-*: initial;
   --color-transparent: transparent;
@@ -64,8 +76,8 @@
   --ease-out-quick: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
+  @variant dark {
     --color-canvas: oklch(0.185 0.015 255);
     --color-surface: oklch(0.225 0.018 255);
     --color-raised: oklch(0.245 0.02 255);
@@ -101,6 +113,14 @@
     accent-color: var(--color-accent);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
   }
 
   ::selection {

@@ -230,6 +230,7 @@ try {
     });
   });
   for (const section of [
+    "appearance",
     "storage",
     "ignore",
     "counting",

@@ -45,21 +45,32 @@ export async function runPagePopupLifetimes(
     "solid",
   );
 
+  const palette = (target: typeof popup) =>
+    target.locator("html").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.color, style.colorScheme];
+    });
+
+  const headerIcons = (target: typeof popup) =>
+    target
+      .locator("header img")
+      .evaluateAll((icons) =>
+        icons.map((icon) => getComputedStyle(icon).display),
+      );
+
   await popup.emulateMedia({ colorScheme: "light" });
 
-  const lightPalette = await popup.locator("html").evaluate((element) => {
-    const style = getComputedStyle(element);
-    return [style.backgroundColor, style.color];
-  });
+  const lightPalette = await palette(popup);
+
+  assert.deepEqual(await headerIcons(popup), ["block", "none"]);
 
   await popup.emulateMedia({ colorScheme: "dark" });
 
-  const darkPalette = await popup.locator("html").evaluate((element) => {
-    const style = getComputedStyle(element);
-    return [style.backgroundColor, style.color];
-  });
+  const darkPalette = await palette(popup);
 
-  assert.notDeepEqual(lightPalette, darkPalette);
+  assert.deepEqual(await headerIcons(popup), ["none", "block"]);
+
+  assert.notDeepEqual(lightPalette.slice(0, 2), darkPalette.slice(0, 2));
 
   await popup.emulateMedia({ forcedColors: "active" });
 
@@ -75,6 +86,92 @@ export async function runPagePopupLifetimes(
   assert.equal(fixtures.archiveRequests, 0);
 
   await popup.close();
+
+  const themed = await openPopup(page);
+
+  await themed.emulateMedia({ colorScheme: "dark" });
+
+  const appearance = await context.newPage();
+
+  await appearance.goto(`${extensionUrl}/settings.html#appearance`);
+
+  await appearance.getByRole("radio", { name: /^Light/ }).check();
+
+  await appearance.locator("#appearance-status").getByText("Saved.").waitFor();
+
+  await themed.waitForFunction(
+    () => document.documentElement.dataset.theme === "light",
+  );
+
+  assert.deepEqual(await palette(themed), [
+    ...lightPalette.slice(0, 2),
+    "light",
+  ]);
+
+  assert.deepEqual(await headerIcons(themed), ["block", "none"]);
+
+  await themed.emulateMedia({ colorScheme: "light" });
+
+  await appearance.getByRole("radio", { name: /^Dark/ }).check();
+
+  await themed.waitForFunction(
+    () => document.documentElement.dataset.theme === "dark",
+  );
+
+  assert.deepEqual(await palette(themed), [...darkPalette.slice(0, 2), "dark"]);
+
+  assert.deepEqual(await headerIcons(themed), ["none", "block"]);
+
+  const reopened = await context.newPage();
+
+  await reopened.emulateMedia({ colorScheme: "light" });
+
+  await reopened.addInitScript(() => {
+    new MutationObserver((_, observer) => {
+      if (!document.querySelector("#root")?.firstChild) return;
+      (
+        window as typeof window & { firstRenderTheme?: string }
+      ).firstRenderTheme = document.documentElement.dataset.theme ?? "system";
+      observer.disconnect();
+    }).observe(document, { childList: true, subtree: true });
+  });
+
+  await reopened.goto(`${extensionUrl}/settings.html#appearance`);
+
+  await reopened.waitForFunction(
+    () =>
+      document.querySelector<HTMLInputElement>('input[value="dark"]')?.checked,
+  );
+
+  assert.equal(
+    await reopened.evaluate(
+      () =>
+        (window as typeof window & { firstRenderTheme?: string })
+          .firstRenderTheme,
+    ),
+    "dark",
+  );
+
+  await reopened.close();
+
+  await appearance.getByRole("radio", { name: /^System/ }).check();
+
+  await themed.waitForFunction(
+    () => !("theme" in document.documentElement.dataset),
+  );
+
+  assert.deepEqual(await palette(themed), lightPalette);
+
+  assert.equal(
+    await themed.evaluate(() => localStorage.getItem("culverin.theme")),
+    null,
+  );
+
+  await appearance.close();
+
+  await themed.close();
+
+  await page.bringToFront();
 
   const interruptedLookupPopup = await context.newPage();
 

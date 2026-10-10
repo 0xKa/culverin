@@ -26,8 +26,9 @@ import {
   statuses,
   type PopupStatus,
 } from "./status";
-import { formatClockTime } from "../ui/format";
+import { defaultNumberFormats, formatClockTime } from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
+import { subscribeNumberFormats } from "../appearance/numbers";
 
 const errors: Record<PublicErrorCode, string> = {
   ...failureMessages,
@@ -48,6 +49,10 @@ export function createPopupController(
   let disposed = false;
   let started = false;
   let stopRateLimit: (() => void) | undefined;
+  let stopNumberFormats: (() => void) | undefined;
+  let formats = defaultNumberFormats;
+  let shownResult:
+    { result: AnalysisResultV2; resolution: ResolutionEnvelope } | undefined;
   const dispatch = (event: PopupEvent) => {
     if (!disposed) dispatchView(event);
   };
@@ -80,6 +85,7 @@ export function createPopupController(
 
   function clearResult(): void {
     shownSha = undefined;
+    shownResult = undefined;
     dispatch({ type: "clearResult" });
   }
 
@@ -99,9 +105,10 @@ export function createPopupController(
     resolution: ResolutionEnvelope,
   ): void {
     shownSha = resolution.sha;
+    shownResult = { result, resolution };
     dispatch({
       type: "result",
-      value: resultView(result, resolution),
+      value: resultView(result, resolution, formats),
     });
   }
 
@@ -358,6 +365,7 @@ export function createPopupController(
   }
 
   function leaveRepository(): void {
+    shownResult = undefined;
     activeRequestId = undefined;
     lookupRequestId = undefined;
     target = undefined;
@@ -390,6 +398,10 @@ export function createPopupController(
         value: value ? apiLimitView(value, now) : undefined,
       }),
     );
+    stopNumberFormats = subscribeNumberFormats((next) => {
+      formats = next;
+      if (shownResult) showResult(shownResult.result, shownResult.resolution);
+    });
     void initialize();
   }
 
@@ -402,6 +414,8 @@ export function createPopupController(
     chrome.tabs.onUpdated.removeListener(onUpdated);
     chrome.tabs.onActivated.removeListener(onActivated);
     stopRateLimit?.();
+    stopNumberFormats?.();
+    shownResult = undefined;
     clearTimeout(retryTimer);
     for (const waiter of waiting.values())
       waiter.reject(new Error("Viewer disposed"));

@@ -2,7 +2,14 @@ import type { AnalysisResultV2 } from "../counter/result";
 import { ARCHIVE_LIMITS } from "../archive/limits";
 import type { ResolutionEnvelope } from "../github/public-protocol";
 import { currentRemaining, type RateLimit } from "../github/rate-limit";
-import { formatBytes, formatClockTime } from "../ui/format";
+import {
+  defaultNumberFormats,
+  exactBytes,
+  formatBytes,
+  formatClockTime,
+  formatCount,
+  type NumberFormats,
+} from "../ui/format";
 import { isTextLanguage, textLines } from "./text-lines";
 
 export type ApiLimitView = {
@@ -15,6 +22,7 @@ export type ApiLimitView = {
 
 export type BreakdownRow = {
   label: string;
+  title?: string;
   name: string;
   value: string;
   share: number;
@@ -30,6 +38,7 @@ export type StatView = {
 
 export type ResultView = {
   codeTotal: string;
+  codeTitle?: string;
   fileTotal: string;
   fileLabel: string;
   fileTitle: string;
@@ -41,16 +50,24 @@ export type ResultView = {
   cloneTitle?: string;
   intro: string[][];
   codeSummary: string[];
+  codeSummaryTitle?: string;
   codeRows: BreakdownRow[];
   textSummary: string[];
+  textSummaryTitle?: string;
   textRows: BreakdownRow[];
   otherSummary: string[];
+  otherSummaryTitle?: string;
   otherRows: BreakdownRow[];
   noLanguages?: string;
   coverage: string;
   warning?: string;
   fileLimit: string;
-  oversizedFiles: { path: string; size: string; url: string }[];
+  oversizedFiles: {
+    path: string;
+    size: string;
+    sizeTitle: string;
+    url: string;
+  }[];
   oversizedNote?: string;
 };
 
@@ -63,20 +80,42 @@ const bySize = <T extends { files: number; language: string }>(
     (a.language < b.language ? -1 : a.language > b.language ? 1 : 0);
 };
 
-const fileCount = (files: number) =>
-  `${files.toLocaleString()} ${files === 1 ? "file" : "files"}`;
-
 const share = (part: number, whole: number) =>
   whole === 0 ? 0 : (part / whole) * 100;
 
 export function resultView(
   result: AnalysisResultV2,
   resolution: ResolutionEnvelope,
+  formats: NumberFormats = defaultNumberFormats,
 ): ResultView {
   const { totals, coverage } = result;
+  const count = (value: number) => formatCount(value, formats.counts);
+  const bytes = (value: number) => formatBytes(value, undefined, formats.sizes);
+  const exact = (text: string) =>
+    formats.counts === "abbreviated" ? text : undefined;
+  const fileCount = (value: number) =>
+    `${count(value)} ${value === 1 ? "file" : "files"}`;
+  const stat = (
+    label: string,
+    value: number,
+    title?: string,
+    id?: string,
+  ): StatView => ({
+    label,
+    value: count(value),
+    ...(title || formats.counts === "abbreviated"
+      ? {
+          title:
+            formats.counts === "abbreviated"
+              ? `${value.toLocaleString()} ${label.toLowerCase()}.${title ? ` ${title}` : ""}`
+              : title,
+        }
+      : {}),
+    ...(id ? { id } : {}),
+  });
   const text = textLines(result.languages);
   const files = (rows: { files: number }[]) =>
-    rows.reduce((sum, row) => sum + row.files, 0).toLocaleString();
+    rows.reduce((sum, row) => sum + row.files, 0);
   const codeLanguages = result.languages
     .filter((row) => !isTextLanguage(row.language))
     .sort(bySize((row) => row.code));
@@ -85,32 +124,40 @@ export function resultView(
     .sort(bySize((row) => row.comments));
   const codeRows = codeLanguages.map((row): BreakdownRow => {
     const percent = share(row.code, totals.code);
+    const label = `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`;
     return {
-      label: `${row.language}: ${row.code.toLocaleString()} code lines (${percent.toFixed(1)}% of code lines), ${row.files.toLocaleString()} files`,
+      label,
+      ...(exact(label) ? { title: label } : {}),
       name: row.language,
-      value: row.code.toLocaleString(),
+      value: count(row.code),
       share: percent,
       files: fileCount(row.files),
     };
   });
   const textRows = textLanguages.map((row): BreakdownRow => {
     const percent = share(row.comments, text);
+    const label = `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`;
     return {
-      label: `${row.language}: ${row.comments.toLocaleString()} text lines (${percent.toFixed(1)}% of text lines), ${row.files.toLocaleString()} files`,
+      label,
+      ...(exact(label) ? { title: label } : {}),
       name: row.language,
-      value: row.comments.toLocaleString(),
+      value: count(row.comments),
       share: percent,
       files: fileCount(row.files),
     };
   });
   const other = result.otherFiles;
-  const otherRow = (name: string, lines: number, files: number) => ({
-    label: `${name}: ${lines.toLocaleString()} lines, ${files.toLocaleString()} files`,
-    name,
-    value: lines.toLocaleString(),
-    share: share(lines, other.lines),
-    files: fileCount(files),
-  });
+  const otherRow = (name: string, lines: number, files: number) => {
+    const label = `${name}: ${lines.toLocaleString()} lines, ${files.toLocaleString()} files`;
+    return {
+      label,
+      ...(exact(label) ? { title: label } : {}),
+      name,
+      value: count(lines),
+      share: share(lines, other.lines),
+      files: fileCount(files),
+    };
+  };
   const otherRows = other.extensions.map((row) =>
     otherRow(row.extension || "No extension", row.lines, row.files),
   );
@@ -129,46 +176,47 @@ export function resultView(
   const skipped = coverage.skippedByReason;
   const oversizedFiles = (coverage.oversizedFiles ?? []).map((file) => ({
     path: file.path,
-    size: formatBytes(file.bytes),
+    size: bytes(file.bytes),
+    sizeTitle: exactBytes(file.bytes),
     url: `https://github.com/${encodeURIComponent(resolution.owner)}/${encodeURIComponent(resolution.name)}/blob/${result.revision.commitSha}/${file.path.split("/").map(encodeURIComponent).join("/")}`,
   }));
   const unlisted = skipped.oversized_source - oversizedFiles.length;
   const commit = resolution.sha.slice(0, 12);
-  const snapshotSize = formatBytes(coverage.totalBytes);
+  const snapshotSize = bytes(coverage.totalBytes);
   const historyBytes =
     resolution.sizeKb === null ? undefined : resolution.sizeKb * 1024;
   return {
-    codeTotal: totals.code.toLocaleString(),
-    fileTotal: coverage.regularFiles.toLocaleString(),
+    codeTotal: count(totals.code),
+    codeTitle: exact(`${totals.code.toLocaleString()} code lines`),
+    fileTotal: count(coverage.regularFiles),
     fileLabel: coverage.regularFiles === 1 ? "file" : "files",
-    fileTitle: `All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other, binary, and ignored files are listed in Analysis details.`,
+    fileTitle: `${formats.counts === "abbreviated" ? `${coverage.regularFiles.toLocaleString()} ${coverage.regularFiles === 1 ? "file" : "files"}. ` : ""}All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other, binary, and ignored files are listed in Analysis details.`,
     stats: [
-      {
-        label: "Text lines",
-        value: text.toLocaleString(),
-        title:
-          "Non-blank prose lines in Markdown, MDX, Djot, and plain text files",
-        id: "text-lines",
-      },
-      {
-        label: "Physical lines",
-        value: totals.lines.toLocaleString(),
-        title: "Physical lines = code + comments + blanks",
-      },
-      { label: "Comments", value: totals.comments.toLocaleString() },
-      { label: "Blanks", value: totals.blanks.toLocaleString() },
+      stat(
+        "Text lines",
+        text,
+        "Non-blank prose lines in Markdown, MDX, Djot, and plain text files",
+        "text-lines",
+      ),
+      stat(
+        "Physical lines",
+        totals.lines,
+        "Physical lines = code + comments + blanks",
+      ),
+      stat("Comments", totals.comments),
+      stat("Blanks", totals.blanks),
     ],
     commit,
     snapshotSize,
-    sizeTitle: `Total size of the files at commit ${commit}, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.`,
+    sizeTitle: `${exactBytes(coverage.totalBytes)}. Total size of the files at commit ${commit}, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.`,
     cloneSize:
       historyBytes === undefined
         ? undefined
-        : `≈ ${formatBytes(coverage.totalBytes + historyBytes)}`,
+        : `≈ ${bytes(coverage.totalBytes + historyBytes)}`,
     cloneTitle:
       historyBytes === undefined
         ? undefined
-        : `The ${snapshotSize} of files plus the ${formatBytes(historyBytes)} of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.`,
+        : `Approximately ${exactBytes(coverage.totalBytes + historyBytes)}. The ${snapshotSize} of files plus the ${bytes(historyBytes)} of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.`,
     intro: [
       [`Default branch ${resolution.defaultBranch}`, `commit ${commit}`],
       [
@@ -176,19 +224,28 @@ export function resultView(
       ],
     ],
     codeSummary: [
-      `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines`,
-      `${files(codeLanguages)} files`,
+      `${count(codeLanguages.reduce((sum, row) => sum + row.code, 0))} code lines`,
+      `${count(files(codeLanguages))} files`,
     ],
+    codeSummaryTitle: exact(
+      `${codeLanguages.reduce((sum, row) => sum + row.code, 0).toLocaleString()} code lines, ${files(codeLanguages).toLocaleString()} files`,
+    ),
     codeRows,
     textSummary: [
-      `${text.toLocaleString()} text lines`,
-      `${files(textLanguages)} files`,
+      `${count(text)} text lines`,
+      `${count(files(textLanguages))} files`,
     ],
+    textSummaryTitle: exact(
+      `${text.toLocaleString()} text lines, ${files(textLanguages).toLocaleString()} files`,
+    ),
     textRows,
     otherSummary: [
-      `${other.lines.toLocaleString()} lines`,
-      `${other.files.toLocaleString()} files`,
+      `${count(other.lines)} lines`,
+      `${count(other.files)} files`,
     ],
+    otherSummaryTitle: exact(
+      `${other.lines.toLocaleString()} lines, ${other.files.toLocaleString()} files`,
+    ),
     otherRows,
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,

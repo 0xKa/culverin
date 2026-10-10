@@ -30,7 +30,7 @@ const items: Record<
     unit: "lines of code",
   },
   files: { label: "Files", icon: Files, count: "1.2k", unit: "files" },
-  size: { label: "Size", icon: Database, count: "4.5 MB", unit: "" },
+  size: { label: "Size", icon: Database, count: "4.5 MiB", unit: "" },
 };
 
 type Direction = "up" | "down";

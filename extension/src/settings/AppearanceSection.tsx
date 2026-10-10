@@ -8,6 +8,7 @@ import {
 import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
 import { ThemeSample } from "./ThemeSample";
+import { NumberOptions } from "./NumberOptions";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -131,6 +132,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
             />
           </div>
         </div>
+        <NumberOptions />
         <ThemeSample />
       </Panel>
     </section>

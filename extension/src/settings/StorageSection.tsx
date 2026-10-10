@@ -9,7 +9,13 @@ import {
   type CacheOptions,
   type CachedResultSummary,
 } from "../github/cache";
-import { formatBytes } from "../ui/format";
+import {
+  defaultNumberFormats,
+  exactBytes,
+  formatBytes,
+  formatCount,
+} from "../ui/format";
+import { useNumberFormats } from "../appearance/useNumberFormats";
 import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
@@ -68,6 +74,8 @@ function CacheList({
   const list = useRef<HTMLDivElement>(null);
   const summary = useRef<HTMLParagraphElement>(null);
   const now = Date.now();
+  const [savedFormats] = useNumberFormats();
+  const formats = savedFormats ?? defaultNumberFormats;
 
   useEffect(() => {
     const load = () =>
@@ -131,8 +139,14 @@ function CacheList({
         >
           {cacheSummary(entries)}
         </p>
-        <span className="text-muted tabular text-sm">
-          {formatBytes(used)} of {formatBytes(options.bytes)} used
+        <span
+          {...tip(`${exactBytes(used)} of ${exactBytes(options.bytes)} used`, {
+            align: "end",
+          })}
+          className="text-muted tabular text-sm"
+        >
+          {formatBytes(used, undefined, formats.sizes)} of{" "}
+          {formatBytes(options.bytes, undefined, formats.sizes)} used
         </span>
       </div>
       <span
@@ -200,11 +214,27 @@ function CacheList({
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 font-mono pr-4 text-right align-top">
-                    {entry.codeLines.toLocaleString()}
+                  <td
+                    {...tip(
+                      formats.counts === "abbreviated"
+                        ? `${entry.codeLines.toLocaleString()} code lines`
+                        : undefined,
+                      { align: "end", side: "top" },
+                    )}
+                    className="py-2.5 font-mono pr-4 text-right align-top"
+                  >
+                    {formatCount(entry.codeLines, formats.counts)}
                   </td>
-                  <td className="py-2.5 font-mono pr-4 text-right align-top">
-                    {entry.files.toLocaleString()}
+                  <td
+                    {...tip(
+                      formats.counts === "abbreviated"
+                        ? `${entry.files.toLocaleString()} files`
+                        : undefined,
+                      { align: "end", side: "top" },
+                    )}
+                    className="py-2.5 font-mono pr-4 text-right align-top"
+                  >
+                    {formatCount(entry.files, formats.counts)}
                   </td>
                   <td
                     className="py-2.5 pr-4 align-top whitespace-nowrap"

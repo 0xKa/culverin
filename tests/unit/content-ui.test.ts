@@ -66,10 +66,10 @@ test("adds file count and size rows after a result", () => {
   });
   expect(size).toEqual({
     item: "size",
-    count: "4.5 MB",
+    count: "4.5 MiB",
     label: "",
     title:
-      "4.5 MB (4,718,592 bytes): total size of the files at the analyzed commit, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
+      "4.5 MiB (4,718,592 bytes): total size of the files at the analyzed commit, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
     action: "details",
   });
   const [, oneFile, oneByte] = resultViews({
@@ -101,7 +101,7 @@ test("shows only the chosen About items in the chosen order", () => {
       count,
     ]),
   ).toEqual([
-    ["size", "2 KB"],
+    ["size", "2 KiB"],
     ["lines", "10"],
   ]);
 });

@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-preact";
 import type { BreakdownRow } from "./view";
+import { tip } from "../ui/tooltip";
 
 const VISIBLE_ROWS = 10;
 
@@ -15,7 +16,7 @@ function Rows({
   return (
     <ul aria-label={label} className="mt-2.5 grid gap-2.5">
       {rows.map((row) => (
-        <li key={row.label}>
+        <li key={row.label} {...tip(row.title)}>
           <span className="sr-only">{row.label}</span>
           <div aria-hidden="true">
             <div className="flex items-baseline gap-2 text-xs">

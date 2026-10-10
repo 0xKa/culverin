@@ -3,6 +3,11 @@ import { createPopupController } from "../../extension/src/popup/controller";
 import type { PopupEvent } from "../../extension/src/popup/state";
 import { deferred, event, settle } from "./support/events";
 import { completedResult } from "./support/result";
+import {
+  COUNT_FORMAT_KEY,
+  SIZE_UNITS_KEY,
+} from "../../extension/src/appearance/numbers";
+import { initialView, reduce } from "../../extension/src/popup/state";
 
 const originalChrome = globalThis.chrome;
 let dispose: (() => void) | undefined;
@@ -21,6 +26,14 @@ function popup(
   const requests: Record<string, unknown>[] = [];
   const messages = event<(value: unknown) => void>();
   const disconnect = event<() => void>();
+  const changed =
+    event<
+      (
+        changes: Record<string, chrome.storage.StorageChange>,
+        area: string,
+      ) => void
+    >();
+  const activated = event<(info: { tabId: number }) => void>();
   globalThis.chrome = {
     runtime: {
       connect: () => {
@@ -58,12 +71,12 @@ function popup(
     tabs: {
       query,
       onUpdated: event(),
-      onActivated: event(),
+      onActivated: activated,
     },
     storage: {
       session: { get: async () => ({}) },
       sync: { get: async () => ({}) },
-      onChanged: event(),
+      onChanged: changed,
     },
   } as unknown as typeof chrome;
   const controller = createPopupController((value) => events.push(value));
@@ -81,6 +94,8 @@ function popup(
     requests,
     reply,
     disconnect,
+    changed,
+    activated,
     controller,
     connects: () => connects,
   };
@@ -141,6 +156,67 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
   });
   ui.reply(second, { type: "analysis.failed", code: "analysis_canceled" });
   await canceled;
+});
+
+test("reformats a retained result during reanalysis without requests or disclosure resets, then stops on navigation", async () => {
+  const ui = popup();
+  await settle();
+  const first = ui.controller.analyze();
+  const completed = await completedResult();
+  completed.result.totals = {
+    lines: 12_480,
+    code: 12_480,
+    files: 1,
+    comments: 0,
+    blanks: 0,
+  };
+  completed.result.languages = [
+    {
+      language: "TypeScript",
+      lines: 12_480,
+      code: 12_480,
+      files: 1,
+      comments: 0,
+      blanks: 0,
+    },
+  ];
+  completed.result.coverage = {
+    ...completed.result.coverage,
+    countedFiles: 1,
+    regularFiles: 1,
+    analyzedBytes: 1_572_864,
+    totalBytes: 1_572_864,
+  };
+  ui.reply(ui.requests.at(-1)!, completed);
+  await first;
+  let view = ui.events.reduce(reduce, initialView);
+  view = reduce(view, { type: "details", open: false });
+  const again = ui.controller.analyze(true);
+  const request = ui.requests.at(-1)!;
+  const requestCount = ui.requests.length;
+  const eventCount = ui.events.length;
+  ui.changed.emit(
+    {
+      [COUNT_FORMAT_KEY]: { newValue: "abbreviated" },
+      [SIZE_UNITS_KEY]: { newValue: "decimal" },
+    },
+    "sync",
+  );
+  view = ui.events.slice(eventCount).reduce(reduce, view);
+  expect(view.result?.codeTotal).toBe("12.5K");
+  expect(view.result?.snapshotSize).toBe("1.6 MB");
+  expect(view.detailsOpen).toBe(false);
+  expect(ui.requests).toHaveLength(requestCount);
+  ui.reply(request, { type: "analysis.failed", code: "network_unavailable" });
+  await again;
+  ui.activated.emit({ tabId: 2 });
+  const afterLeaving = ui.events.length;
+  ui.changed.emit({ [COUNT_FORMAT_KEY]: { newValue: "full" } }, "sync");
+  expect(ui.events).toHaveLength(afterLeaving);
+  ui.controller.dispose();
+  const afterDisposal = ui.events.length;
+  ui.changed.emit({ [SIZE_UNITS_KEY]: { newValue: "binary" } }, "sync");
+  expect(ui.events).toHaveLength(afterDisposal);
 });
 
 test("disposing during initialization suppresses late connections and publications", async () => {

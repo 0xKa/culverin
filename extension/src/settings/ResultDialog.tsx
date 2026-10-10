@@ -5,6 +5,7 @@ import { resultView } from "../popup/view";
 import { IconButton } from "../ui/IconButton";
 import { X } from "lucide-preact";
 import { StatusBadge } from "../ui/StatusBadge";
+import { useNumberFormats } from "../appearance/useNumberFormats";
 
 export function ResultDialog({
   entry,
@@ -17,9 +18,10 @@ export function ResultDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(true);
+  const [formats] = useNumberFormats();
   const result = useMemo(
-    () => resultView(entry.result, entry.resolution),
-    [entry],
+    () => resultView(entry.result, entry.resolution, formats),
+    [entry, formats],
   );
 
   useEffect(() => {

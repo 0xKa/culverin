@@ -77,11 +77,11 @@ test("formats repository and result details", () => {
   expect(view.commit).toBe("aaaaaaaaaaaa");
   expect(view.snapshotSize).toBe("30 B");
   expect(view.sizeTitle).toBe(
-    "Total size of the files at commit aaaaaaaaaaaa, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
+    "30 bytes. Total size of the files at commit aaaaaaaaaaaa, as checked out. Doesn't include Git history, so a cloned folder with its .git folder is larger.",
   );
-  expect(view.cloneSize).toBe("≈ 2 MB");
+  expect(view.cloneSize).toBe("≈ 2 MiB");
   expect(view.cloneTitle).toBe(
-    "The 30 B of files plus the 2 MB of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.",
+    "Approximately 2,097,182 bytes. The 30 B of files plus the 2 MiB of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.",
   );
   expect(view.codeTotal).toBe("3");
   expect(view.fileTotal).toBe("5");
@@ -162,7 +162,8 @@ test("links oversized paths to the counted commit and formats their sizes", () =
   expect(view.oversizedFiles).toEqual([
     {
       path,
-      size: "9 MB",
+      size: "9 MiB",
+      sizeTitle: "9,437,184 bytes",
       url: `https://github.com/culverin/sample/blob/${result.revision.commitSha}/src/large%20%23%3F%25%C3%A9.rs`,
     },
   ]);
@@ -188,6 +189,88 @@ test("links oversized paths to the counted commit and formats their sizes", () =
   expect(truncated.oversizedNote).toBe(
     "1 additional oversized file isn't listed.",
   );
+});
+
+test("formats every result section without changing exact labels, shares, limits, or source data", () => {
+  const source: AnalysisResultV2 = {
+    ...result,
+    totals: {
+      lines: 15_120,
+      code: 12_480,
+      comments: 2_016,
+      blanks: 624,
+      files: 1200,
+    },
+    languages: [
+      {
+        language: "TypeScript",
+        lines: 15_120,
+        code: 12_480,
+        comments: 2_016,
+        blanks: 624,
+        files: 1200,
+      },
+      {
+        language: "Markdown",
+        lines: 2500,
+        code: 0,
+        comments: 2500,
+        blanks: 0,
+        files: 100,
+      },
+    ],
+    otherFiles: {
+      files: 1000,
+      lines: 10_480,
+      extensions: [{ extension: ".golden", files: 1000, lines: 10_480 }],
+      moreExtensions: 0,
+    },
+    coverage: {
+      ...result.coverage,
+      regularFiles: 2301,
+      totalBytes: 1_572_864,
+      oversizedFiles: [{ path: "large.ts", bytes: 9_437_184 }],
+    },
+  };
+  const before = JSON.stringify(source);
+  const full = resultView(source, resolution);
+  const compact = resultView(source, resolution, {
+    counts: "abbreviated",
+    sizes: "decimal",
+  });
+  expect(compact.codeTotal).toBe("12.5K");
+  expect(compact.codeTitle).toBe("12,480 code lines");
+  expect(compact.fileTotal).toBe("2.3K");
+  expect(compact.fileTitle).toStartWith("2,301 files.");
+  expect(compact.stats.map((stat) => stat.value)).toEqual([
+    "2.5K",
+    "15.1K",
+    "2K",
+    "624",
+  ]);
+  expect(compact.stats[1]?.title).toStartWith("15,120 physical lines.");
+  expect(compact.codeSummary).toEqual(["12.5K code lines", "1.2K files"]);
+  expect(compact.codeSummaryTitle).toBe("12,480 code lines, 1,200 files");
+  expect(compact.textRows[0]?.value).toBe("2.5K");
+  expect(compact.otherRows[0]?.value).toBe("10.5K");
+  for (const key of ["codeRows", "textRows", "otherRows"] as const) {
+    expect(compact[key].map((row) => [row.label, row.share])).toEqual(
+      full[key].map((row) => [row.label, row.share]),
+    );
+    expect(compact[key][0]?.title).toBe(full[key][0]?.label);
+  }
+  expect(compact.snapshotSize).toBe("1.6 MB");
+  expect(full.snapshotSize).toBe("1.5 MiB");
+  expect(compact.sizeTitle).toStartWith("1,572,864 bytes.");
+  expect(compact.cloneSize).toBe("≈ 3.7 MB");
+  expect(compact.oversizedFiles[0]).toMatchObject({
+    size: "9.4 MB",
+    sizeTitle: "9,437,184 bytes",
+    url: full.oversizedFiles[0]?.url,
+  });
+  expect(compact.fileLimit).toBe(full.fileLimit);
+  expect(compact.coverage).toBe(full.coverage);
+  expect(JSON.stringify(source)).toBe(before);
 });
 
 test("orders languages by lines and retains all other file rows for display", () => {

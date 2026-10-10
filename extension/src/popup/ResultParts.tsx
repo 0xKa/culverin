@@ -11,14 +11,23 @@ export function Totals({
 }: {
   result: Pick<
     ResultView,
-    "codeTotal" | "fileTotal" | "fileLabel" | "fileTitle" | "stats"
+    | "codeTotal"
+    | "codeTitle"
+    | "fileTotal"
+    | "fileLabel"
+    | "fileTitle"
+    | "stats"
   >;
   idPrefix?: string;
 }) {
   return (
     <div className="rise-in border-divider bg-raised mt-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        <p id={`${idPrefix}code-lines`} className="m-0 flex flex-col">
+        <p
+          id={`${idPrefix}code-lines`}
+          {...tip(result.codeTitle)}
+          className="m-0 flex flex-col"
+        >
           <span
             className={`text-accent-text font-mono leading-none font-semibold ${result.codeTotal.length > 7 ? "text-[2rem] tracking-tight" : "text-display"}`}
           >
@@ -95,7 +104,10 @@ export function OversizedFiles({ result }: { result: ResultView }) {
           >
             {file.path}
           </ExternalLink>{" "}
-          <span className="text-muted ml-auto font-mono whitespace-nowrap">
+          <span
+            {...tip(file.sizeTitle, { align: "end" })}
+            className="text-muted ml-auto font-mono whitespace-nowrap"
+          >
             {file.size}
           </span>
         </li>
@@ -157,6 +169,7 @@ export function Details({
           <ResultSection
             title="Code"
             summary={result.codeSummary}
+            summaryTitle={result.codeSummaryTitle}
             summaryId="code-summary"
             rows={result.codeRows}
             label="Languages by code lines"
@@ -168,6 +181,7 @@ export function Details({
           <ResultSection
             title="Text"
             summary={result.textSummary}
+            summaryTitle={result.textSummaryTitle}
             summaryId="text-summary"
             rows={result.textRows}
             label="Text formats by text lines"
@@ -179,6 +193,7 @@ export function Details({
           <ResultSection
             title="Other files"
             summary={result.otherSummary}
+            summaryTitle={result.otherSummaryTitle}
             summaryId="other-summary"
             rows={result.otherRows}
             label="Other files by lines"

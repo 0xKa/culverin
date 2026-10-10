@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { theme, type Theme } from "../appearance/theme";
-import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
+import { SaveStatus, useSave } from "./SaveStatus";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -15,20 +15,17 @@ const options: { value: Theme; label: string; detail: string }[] = [
 
 export function AppearanceSection({ hidden }: { hidden: boolean }) {
   const [choice, setChoice] = useState<Theme>();
-  const [status, setStatus] = useState("");
+  const { state, save } = useSave();
 
   useEffect(() => {
     void theme.read().then(setChoice);
   }, []);
 
-  async function change(next: Theme): Promise<void> {
+  function change(next: Theme): void {
     setChoice(next);
-    try {
-      await theme.write(next);
-      setStatus("Saved.");
-    } catch {
-      setStatus("Couldn't save the setting. Try again.");
-    }
+    void save(() => theme.write(next), {
+      restore: () => void theme.read().then(setChoice),
+    });
   }
 
   return (
@@ -37,7 +34,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
         How the popup and settings look. GitHub repository pages keep your
         GitHub theme.
       </SectionHeader>
-      <Panel>
+      <Panel className="relative">
         <fieldset className="m-0 border-0 p-0">
           <legend className="text-md mb-3 p-0 font-semibold">Theme</legend>
           <div className="grid gap-2.5 sm:grid-cols-3">
@@ -52,7 +49,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
                   value={option.value}
                   className="size-4 translate-y-0.5"
                   checked={choice === option.value}
-                  onChange={() => void change(option.value)}
+                  onChange={() => change(option.value)}
                 />
                 <span className="font-medium">{option.label}</span>
                 <span className="text-muted col-start-2 text-sm">
@@ -62,12 +59,11 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
             ))}
           </div>
         </fieldset>
-        <Status
+        <SaveStatus
           id="appearance-status"
-          className="text-muted m-0 text-sm not-empty:mt-2"
-        >
-          {status}
-        </Status>
+          state={state}
+          className="absolute top-4 right-4 h-[1.375rem]"
+        />
       </Panel>
     </section>
   );

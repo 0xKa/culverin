@@ -16,8 +16,8 @@ import {
   type AboutLayout,
 } from "../repository-page/about-items";
 import { IconButton } from "../ui/IconButton";
-import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
+import { SaveStatus, useSave } from "./SaveStatus";
 
 const items: Record<
   AboutItem,
@@ -37,7 +37,7 @@ type Direction = "up" | "down";
 
 export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
   const [layout, setLayout] = useState<AboutLayout>();
-  const [status, setStatus] = useState("");
+  const { state, save } = useSave();
   const [focus, setFocus] = useState<{
     item: AboutItem;
     direction: Direction;
@@ -61,28 +61,26 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
     setFocus(undefined);
   }, [focus, layout]);
 
-  async function save(next: AboutLayout, message: string): Promise<void> {
+  function change(next: AboutLayout, message: string): void {
     setLayout(next);
-    try {
-      await aboutLayout.write(next);
-      setStatus(`${message} Saved.`);
-    } catch {
-      setStatus("Couldn't save the setting. Try again.");
-    }
+    void save(() => aboutLayout.write(next), {
+      message: `${message} Saved.`,
+      restore: () => void aboutLayout.read().then(setLayout),
+    });
   }
 
   function toggle(current: AboutLayout, item: AboutItem): void {
     const next = toggleItem(current, item);
     if (next === current) return;
     const shown = !next.hidden.includes(item);
-    void save(next, `${items[item].label} ${shown ? "shown" : "hidden"}.`);
+    change(next, `${items[item].label} ${shown ? "shown" : "hidden"}.`);
   }
 
   function move(current: AboutLayout, item: AboutItem, direction: Direction) {
     const next = moveItem(current, item, direction === "up" ? -1 : 1);
     if (next === current) return;
     setFocus({ item, direction });
-    void save(
+    change(
       next,
       `${items[item].label} moved to position ${next.order.indexOf(item) + 1}.`,
     );
@@ -95,7 +93,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
       <SectionHeader id="repository-page-heading" title="Repository page">
         What Culverin adds to the About list on GitHub repository pages.
       </SectionHeader>
-      <Panel>
+      <Panel className="relative">
         <fieldset className="m-0 border-0 p-0">
           <legend className="text-md mb-1 p-0 font-semibold">
             Show in the About list
@@ -153,12 +151,11 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
             })}
           </ul>
         </fieldset>
-        <Status
+        <SaveStatus
           id="repository-page-status"
-          className="text-muted m-0 text-sm not-empty:mt-2"
-        >
-          {status}
-        </Status>
+          state={state}
+          className="absolute top-4 right-4 h-[1.375rem]"
+        />
         <figure className="m-0 mt-4">
           <figcaption className="text-muted mb-2 text-xs font-medium">
             Preview

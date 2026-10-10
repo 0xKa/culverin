@@ -99,9 +99,57 @@ export async function runPagePopupLifetimes(
 
   await appearance.locator("#appearance-status").getByText("Saved.").waitFor();
 
+  const savedMark = appearance.locator("#appearance-status-mark");
+
+  await appearance
+    .locator('#appearance-status-mark[data-mark="done"]:not([data-faded])')
+    .waitFor();
+
+  assert.equal(await savedMark.textContent(), "Saved");
+
+  assert.equal(await savedMark.getAttribute("aria-hidden"), "true");
+
   await themed.waitForFunction(
     () => document.documentElement.dataset.theme === "light",
   );
+
+  await appearance.evaluate(() => {
+    const sync = chrome.storage.sync;
+    Object.assign(globalThis, { workingSet: sync.set });
+    sync.set = (() =>
+      Promise.reject(new Error("unavailable"))) as unknown as typeof sync.set;
+  });
+
+  await appearance.getByRole("radio", { name: /^Dark/ }).click();
+
+  await appearance
+    .locator('#appearance-status-mark[data-mark="failed"]')
+    .waitFor();
+
+  assert.equal(await savedMark.textContent(), "Couldn't save. Try again.");
+
+  await appearance
+    .locator("#appearance-status")
+    .getByText("Couldn't save. Try again.")
+    .waitFor();
+
+  await appearance.waitForFunction(
+    () =>
+      document.querySelector<HTMLInputElement>('input[value="light"]')?.checked,
+  );
+
+  assert.equal(
+    await themed.evaluate(() => document.documentElement.dataset.theme),
+    "light",
+  );
+
+  await appearance.evaluate(() => {
+    chrome.storage.sync.set = (
+      globalThis as typeof globalThis & {
+        workingSet: typeof chrome.storage.sync.set;
+      }
+    ).workingSet;
+  });
 
   assert.deepEqual(await palette(themed), [
     ...lightPalette.slice(0, 2),
@@ -121,6 +169,10 @@ export async function runPagePopupLifetimes(
   assert.deepEqual(await palette(themed), [...darkPalette.slice(0, 2), "dark"]);
 
   assert.deepEqual(await headerIcons(themed), ["none", "block"]);
+
+  await appearance
+    .locator('#appearance-status-mark[data-mark="done"][data-faded]')
+    .waitFor({ timeout: 5_000 });
 
   const reopened = await context.newPage();
 

@@ -4,8 +4,8 @@ import {
   writeCountTrigger,
   type CountTrigger,
 } from "../counting/trigger";
-import { Status } from "../ui/Status";
 import { Panel, SectionHeader } from "./layout";
+import { SaveStatus, useSave } from "./SaveStatus";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
@@ -24,26 +24,25 @@ const options: { value: CountTrigger; label: string; detail: string }[] = [
 
 export function CountingSection({ hidden }: { hidden: boolean }) {
   const [trigger, setTrigger] = useState<CountTrigger>();
-  const [status, setStatus] = useState("");
+  const { state, save } = useSave();
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
   }, []);
 
-  async function change(next: CountTrigger): Promise<void> {
+  function change(next: CountTrigger): void {
     setTrigger(next);
-    try {
-      await writeCountTrigger(next);
-      setStatus("Saved. Applies to repository pages you open from now on.");
-    } catch {
-      setStatus("Couldn't save the setting. Try again.");
-    }
+    void save(() => writeCountTrigger(next), {
+      restore: () => void readCountTrigger().then(setTrigger),
+    });
   }
 
   return (
     <section aria-labelledby="counting-heading" hidden={hidden}>
-      <SectionHeader id="counting-heading" title="Counting" />
-      <Panel>
+      <SectionHeader id="counting-heading" title="Counting">
+        Changes apply to repository pages you open from now on.
+      </SectionHeader>
+      <Panel className="relative">
         <fieldset className="m-0 border-0 p-0">
           <legend className="text-md mb-3 p-0 font-semibold">
             Count lines of code in a repository
@@ -60,7 +59,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
                   value={option.value}
                   className="size-4 translate-y-0.5"
                   checked={trigger === option.value}
-                  onChange={() => void change(option.value)}
+                  onChange={() => change(option.value)}
                 />
                 <span className="font-medium">{option.label}</span>
                 <span className="text-muted col-start-2 text-sm">
@@ -70,12 +69,11 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
             ))}
           </div>
         </fieldset>
-        <Status
+        <SaveStatus
           id="counting-status"
-          className="text-muted m-0 text-sm not-empty:mt-2"
-        >
-          {status}
-        </Status>
+          state={state}
+          className="absolute top-4 right-4 h-[1.375rem]"
+        />
       </Panel>
     </section>
   );

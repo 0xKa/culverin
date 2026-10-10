@@ -27,7 +27,10 @@ export async function runIgnoreAccess(
 
   await settingsPage.getByRole("button", { name: "Save" }).click();
 
-  await settingsPage.getByText(/^Saved\./).waitFor();
+  await settingsPage
+    .locator("#ignore-status")
+    .getByText(/^Saved\./)
+    .waitFor();
 
   assert.deepEqual(
     await settingsPage.evaluate(
@@ -40,6 +43,38 @@ export async function runIgnoreAccess(
     ),
     ["README"],
   );
+
+  assert.equal(
+    await settingsPage.locator("#ignore-status-mark").getAttribute("data-mark"),
+    "done",
+  );
+
+  await settingsPage.locator("#rules").pressSequentially("x");
+
+  await settingsPage
+    .locator("#ignore-status-mark")
+    .waitFor({ state: "detached" });
+
+  await settingsPage.locator("#rules").fill("README\n");
+
+  const firstGroup = settingsPage.locator("#groups input").first();
+
+  await firstGroup.uncheck();
+
+  await settingsPage
+    .locator('#ignore-groups-status-mark[data-mark="done"]')
+    .waitFor();
+
+  assert.equal(await settingsPage.locator("#ignore-status-mark").count(), 0);
+
+  await firstGroup.check();
+
+  await settingsPage.waitForFunction(async () => {
+    const stored = (await chrome.storage.sync.get("culverin.ignore"))[
+      "culverin.ignore"
+    ] as { disabledGroups?: string[] } | undefined;
+    return stored?.disabledGroups?.length === 0;
+  });
 
   await worker.evaluate(
     ({ bytes, sha }) => {
@@ -135,7 +170,10 @@ export async function runIgnoreAccess(
 
   await settingsPage.getByRole("button", { name: "Reset to defaults" }).click();
 
-  await settingsPage.getByText(/^Saved\./).waitFor();
+  await settingsPage
+    .locator("#ignore-status")
+    .getByText(/^Saved\./)
+    .waitFor();
 
   assert.equal(await settingsPage.locator("#rules").inputValue(), "");
 

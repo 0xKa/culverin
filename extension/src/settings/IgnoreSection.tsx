@@ -8,17 +8,15 @@ import {
 import { readIgnore, writeIgnore } from "../ignore/settings";
 import { Button } from "../ui/Button";
 import { Joined } from "../ui/Separator";
-import { Status } from "../ui/Status";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
-
-const savedMessage =
-  "Saved. New analyses use these rules; earlier results are kept and reused if you switch back.";
+import { SaveStatus, useSave } from "./SaveStatus";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
   const [settings, setSettings] = useState<IgnoreSettings>(defaultIgnore);
   const [rulesText, setRulesText] = useState("");
-  const [ignoreStatus, setIgnoreStatus] = useState("");
+  const groupsSave = useSave();
+  const rulesSave = useSave();
   const parsed = parseRules(rulesText);
 
   useEffect(() => {
@@ -33,36 +31,32 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
       ? settings.disabledGroups.filter((id) => id !== group)
       : [...settings.disabledGroups, group];
     setSettings({ ...settings, disabledGroups });
-    void (async () => {
-      const stored = await readIgnore();
-      try {
+    void groupsSave.save(
+      async () => {
+        const stored = await readIgnore();
         await writeIgnore({ ...stored, disabledGroups });
-        setIgnoreStatus(savedMessage);
-      } catch {
-        setIgnoreStatus("Couldn't save Culverin ignore. Try again.");
-      }
-    })();
+      },
+      { restore: () => void readIgnore().then(setSettings) },
+    );
   }
 
-  async function save(next: IgnoreSettings): Promise<void> {
-    try {
+  function save(next: IgnoreSettings): void {
+    void rulesSave.save(async () => {
       const stored = await writeIgnore(next);
       setSettings(stored);
       setRulesText(stored.exclusions.join("\n"));
-      setIgnoreStatus(savedMessage);
-    } catch {
-      setIgnoreStatus("Couldn't save Culverin ignore. Try again.");
-    }
+    });
   }
 
   return (
     <section aria-labelledby="ignore-heading" hidden={hidden}>
       <SectionHeader id="ignore-heading" title="Culverin ignore">
         Files that match these rules are skipped when counting lines. They still
-        count toward the "Files at …" size.
+        count toward the "Files at …" size. New analyses use your changes;
+        earlier results are kept and reused if you switch back.
       </SectionHeader>
       <div className="grid gap-4">
-        <Panel>
+        <Panel className="relative">
           <fieldset id="groups" className="m-0 border-0 p-0">
             <legend className="text-md mb-3 p-0 font-semibold">
               Built-in rules
@@ -114,6 +108,11 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               </dl>
             </div>
           </details>
+          <SaveStatus
+            id="ignore-groups-status"
+            state={groupsSave.state}
+            className="absolute top-4 right-4 h-[1.375rem]"
+          />
         </Panel>
         <Panel>
           <label for="rules" className="text-md mb-2 block font-semibold">
@@ -131,7 +130,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             value={rulesText}
             onInput={(event) => {
               setRulesText(event.currentTarget.value);
-              setIgnoreStatus("");
+              rulesSave.clear();
             }}
           />
           <p id="rules-usage" className="text-muted m-0 mt-2 text-sm">
@@ -172,7 +171,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               variant="primary"
               disabled={parsed.errors.length > 0}
               onClick={() =>
-                void save({
+                save({
                   disabledGroups: settings.disabledGroups,
                   exclusions: parsed.rules,
                 })
@@ -191,18 +190,13 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
                     "Reset Culverin ignore? All built-in rules are turned back on and your rules are removed.",
                   )
                 )
-                  void save(defaultIgnore);
+                  save(defaultIgnore);
               }}
             >
               Reset to defaults
             </Button>
+            <SaveStatus id="ignore-status" state={rulesSave.state} />
           </div>
-          <Status
-            id="ignore-status"
-            className="text-muted m-0 text-sm whitespace-pre-wrap not-empty:mt-2"
-          >
-            {ignoreStatus}
-          </Status>
         </Panel>
       </div>
     </section>

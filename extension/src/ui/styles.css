@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./dot-loader.css";
 @import "./status-badge.css";
+@import "./status-mark.css";
 @import "./tooltip.css";
 
 @custom-variant dark {

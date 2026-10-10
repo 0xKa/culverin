@@ -13,6 +13,7 @@ import { formatBytes } from "../ui/format";
 import { Separator } from "../ui/Separator";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
+import { tip } from "../ui/tooltip";
 import { Eye, Trash } from "lucide-preact";
 import { ResultDialog } from "./ResultDialog";
 import { Status } from "../ui/Status";
@@ -170,19 +171,20 @@ function CacheList({
                   </td>
                   <td
                     className="py-2.5 pr-4 align-top whitespace-nowrap"
-                    title={exact(entry.storedAt)}
+                    {...tip(exact(entry.storedAt), { side: "top" })}
                   >
                     {relativeTime(entry.storedAt, now)}
                   </td>
                   <td
                     className="py-2.5 pr-4 align-top whitespace-nowrap"
-                    title={exact(entry.lastAccess)}
+                    {...tip(exact(entry.lastAccess), { side: "top" })}
                   >
                     {relativeTime(entry.lastAccess, now)}
                   </td>
                   <td className="py-1.5 pr-2 text-right align-top whitespace-nowrap">
                     <IconButton
                       type="button"
+                      tip={{ side: "left" }}
                       label={`Show details for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
                       onClick={() => setInspected(entry)}
                     >
@@ -191,6 +193,7 @@ function CacheList({
                     <IconButton
                       type="button"
                       tone="danger"
+                      tip={{ side: "left" }}
                       label={`Delete result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
                       className="disabled:pointer-events-none disabled:opacity-50"
                       disabled={busy}

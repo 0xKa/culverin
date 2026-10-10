@@ -347,9 +347,37 @@ export async function runPopupResults(
 
   assert.equal(
     await badge.evaluate(
-      (element) => getComputedStyle(element, "::after").visibility,
+      (element) => getComputedStyle(element, "::after").display,
     ),
-    "visible",
+    "block",
+  );
+
+  const size = resumedPopup.locator("#snapshot-size");
+
+  assert.equal(
+    await size.evaluate(
+      (element) => getComputedStyle(element, "::after").display,
+    ),
+    "none",
+  );
+
+  await size.hover();
+
+  assert.deepEqual(
+    await size.evaluate((element) => ({
+      display: getComputedStyle(element, "::after").display,
+      content: getComputedStyle(element, "::after").content,
+      description: element.getAttribute("aria-description"),
+      title: element.getAttribute("title"),
+      tabIndex: (element as HTMLElement).tabIndex,
+    })),
+    {
+      display: "block",
+      content: `"${await size.getAttribute("data-tip")}"`,
+      description: await size.getAttribute("data-tip"),
+      title: null,
+      tabIndex: 0,
+    },
   );
 
   const accessibility = await context.newCDPSession(resumedPopup);
@@ -630,7 +658,8 @@ export async function runPopupResults(
   assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
 
   assert.match(
-    (await restartPopup.locator("#snapshot-size").getAttribute("title")) ?? "",
+    (await restartPopup.locator("#snapshot-size").getAttribute("data-tip")) ??
+      "",
     new RegExp(
       `^Total size of the files at commit ${fixtures.sha.slice(0, 12)},`,
     ),

@@ -45,38 +45,6 @@
   color: var(--color-error);
 }
 
-.status-badge::after {
-  content: attr(data-tip);
-  position: absolute;
-  z-index: 10;
-  top: calc(100% + 6px);
-  right: 0;
-  width: max-content;
-  max-width: 15rem;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-canvas);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  line-height: var(--text-xs--line-height);
-  text-align: start;
-  white-space: normal;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 120ms var(--ease-out-quick),
-    visibility 0s linear 120ms;
-}
-
-.status-badge:hover::after,
-.status-badge:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 120ms var(--ease-out-quick);
-}
-
 .status-mark {
   flex: none;
   width: 12px;
@@ -168,12 +136,6 @@
 @media (forced-colors: active) {
   .status-badge {
     border-color: CanvasText;
-  }
-
-  .status-badge::after {
-    border: 1px solid CanvasText;
-    background: Canvas;
-    color: CanvasText;
   }
 }
 

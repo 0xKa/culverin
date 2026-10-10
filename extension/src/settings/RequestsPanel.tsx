@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { DotLoader } from "../ui/DotLoader";
 import { formatClockTime } from "../ui/format";
 import { IconButton } from "../ui/IconButton";
+import { tip } from "../ui/tooltip";
 import { RotateCw } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
@@ -88,7 +89,7 @@ export function RequestsPanel() {
                 id="api-usage-check"
                 type="button"
                 size="sm"
-                title={FREE}
+                {...tip(FREE)}
                 disabled={checking}
                 aria-busy={checking}
                 onClick={() => void check()}

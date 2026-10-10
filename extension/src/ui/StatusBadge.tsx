@@ -23,6 +23,7 @@ export function StatusBadge({
       data-tone={tone}
       data-mark={mark}
       data-tip={detail}
+      data-tip-align="end"
       className={`status-badge ${className ?? ""}`.trim()}
     >
       <svg

@@ -11,6 +11,7 @@ import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
 import { DotLoader } from "../ui/DotLoader";
 import { IconButton } from "../ui/IconButton";
+import { tip } from "../ui/tooltip";
 import { Settings } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -31,7 +32,7 @@ function Header({ view }: { view: PopupView }) {
         <span
           id="api-limit"
           hidden={!view.apiLimit}
-          title={view.apiLimit?.title}
+          {...tip(view.apiLimit?.title, { align: "end" })}
           className="text-muted tabular flex flex-col items-end px-1 text-2xs"
         >
           <span className="text-ink flex items-center gap-1.5 text-xs font-medium">

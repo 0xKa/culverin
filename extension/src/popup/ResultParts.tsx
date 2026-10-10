@@ -1,6 +1,7 @@
 import { Callout } from "../ui/Callout";
 import { ExternalLink } from "../ui/ExternalLink";
 import { Joined } from "../ui/Separator";
+import { tip } from "../ui/tooltip";
 import { ResultSection } from "./ResultSection";
 import type { ResultView } from "./view";
 
@@ -18,7 +19,7 @@ export function Totals({ result }: { result: ResultView }) {
         </p>
         <p
           id="file-count"
-          title={result.fileTitle}
+          {...tip(result.fileTitle, { align: "end" })}
           className="m-0 ml-auto flex flex-col items-end"
         >
           <span className="font-mono text-2xl leading-none font-semibold tracking-tight">
@@ -31,8 +32,12 @@ export function Totals({ result }: { result: ResultView }) {
         id="metrics"
         className="border-divider mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3"
       >
-        {result.stats.map((stat) => (
-          <div key={stat.label} title={stat.title} className="flex flex-col">
+        {result.stats.map((stat, index) => (
+          <div
+            key={stat.label}
+            {...tip(stat.title, { align: index % 2 ? "end" : "start" })}
+            className="flex flex-col"
+          >
             <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
             <dd id={stat.id} className="m-0 font-mono text-sm font-semibold">
               {stat.value}
@@ -51,7 +56,7 @@ export function Sizes({ result }: { result: ResultView }) {
         <dt className="text-muted break-words">Size</dt>
         <dd
           id="snapshot-size"
-          title={result.sizeTitle}
+          {...tip(result.sizeTitle, { align: "end" })}
           className="m-0 font-mono font-medium whitespace-nowrap"
         >
           {result.snapshotSize}
@@ -124,7 +129,7 @@ export function Details({
         {result?.cloneSize && (
           <p
             id="clone-size"
-            title={result.cloneTitle}
+            {...tip(result.cloneTitle, { side: "top" })}
             className="text-muted m-0 mt-1.5 text-xs"
           >
             Estimated clone size {result.cloneSize}

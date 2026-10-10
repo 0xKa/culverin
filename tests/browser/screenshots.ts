@@ -164,6 +164,17 @@ try {
     fullPage: true,
   });
   await popup.emulateMedia({ forcedColors: "none" });
+  for (const [name, selector] of [
+    ["size", "#snapshot-size"],
+    ["files", "#file-count"],
+    ["stat", "#metrics > div:nth-child(2)"],
+    ["clone", "#clone-size"],
+    ["settings", "#settings"],
+  ] as const) {
+    await popup.locator(selector).hover();
+    await shoot(popup, `popup-tip-${name}`, false);
+  }
+  await popup.mouse.move(0, 0);
   await popup.locator("#details > summary").click();
   await popup.waitForTimeout(400);
   await shoot(popup, "popup-collapsed");
@@ -226,6 +237,13 @@ try {
   }
   await settings.goto(`${extensionUrl}/settings.html#storage`);
   await settings.reload();
+  await settings.locator("tbody td[data-tip]").first().hover();
+  await shoot(settings, "settings-tip-date", false);
+  await settings
+    .getByRole("button", { name: /^Delete result for / })
+    .first()
+    .hover();
+  await shoot(settings, "settings-tip-delete", false);
   await settings
     .getByRole("button", { name: /^Show details for / })
     .first()

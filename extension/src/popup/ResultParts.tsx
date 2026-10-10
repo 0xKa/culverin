@@ -18,7 +18,7 @@ export function Totals({ result }: { result: ResultView }) {
         </p>
         <p
           id="file-count"
-          title="Files counted as code or text. Other, binary, and ignored files are listed in Analysis details."
+          title={result.fileTitle}
           className="m-0 ml-auto flex flex-col items-end"
         >
           <span className="font-mono text-2xl leading-none font-semibold tracking-tight">

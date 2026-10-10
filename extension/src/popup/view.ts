@@ -37,6 +37,7 @@ export type ResultView = {
   codeTotal: string;
   fileTotal: string;
   fileLabel: string;
+  fileTitle: string;
   stats: StatView[];
   snapshotSize: string;
   intro: string[][];
@@ -145,8 +146,9 @@ export function resultView(
   const unlisted = skipped.oversized_source - oversizedFiles.length;
   return {
     codeTotal: totals.code.toLocaleString(),
-    fileTotal: totals.files.toLocaleString(),
-    fileLabel: totals.files === 1 ? "file" : "files",
+    fileTotal: coverage.regularFiles.toLocaleString(),
+    fileLabel: coverage.regularFiles === 1 ? "file" : "files",
+    fileTitle: `All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other, binary, and ignored files are listed in Analysis details.`,
     stats: [
       {
         label: "Text lines",

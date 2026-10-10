@@ -79,8 +79,11 @@ test("formats repository and result details", () => {
   });
   const view = resultView(result, resolution);
   expect(view.codeTotal).toBe("3");
-  expect(view.fileTotal).toBe("2");
+  expect(view.fileTotal).toBe("5");
   expect(view.fileLabel).toBe("files");
+  expect(view.fileTitle).toBe(
+    "All files at this commit, 2 counted as code or text. Other, binary, and ignored files are listed in Analysis details.",
+  );
   expect(view.stats).toEqual([
     {
       label: "Text lines",

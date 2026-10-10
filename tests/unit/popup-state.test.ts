@@ -16,6 +16,7 @@ test("tracks repository, busy state, sizes, result and details", () => {
     codeTotal: "1",
     fileTotal: "1",
     fileLabel: "file",
+    fileTitle: "All files at this commit, 1 counted as code or text.",
     stats: [],
     snapshotSize: "20 B",
     intro: [],

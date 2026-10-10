@@ -46,8 +46,6 @@ const clearActions = {
 
 type ClearScope = keyof typeof clearActions;
 
-const ROW_EXIT_MS = 150;
-
 function CacheList({
   id,
   options,
@@ -63,7 +61,6 @@ function CacheList({
   const [used, setUsed] = useState(0);
   const [defaultHash, setDefaultHash] = useState<string>();
   const [inspected, setInspected] = useState<CachedResultSummary>();
-  const [leaving, setLeaving] = useState<string>();
   const [focusAfter, setFocusAfter] = useState<{
     removed: string;
     next?: string;
@@ -104,7 +101,6 @@ function CacheList({
     )
       return;
     setFocusAfter(undefined);
-    setLeaving(undefined);
     if (document.activeElement && document.activeElement !== document.body)
       return;
     const next =
@@ -117,10 +113,8 @@ function CacheList({
 
   function remove(entry: CachedResultSummary, index: number): void {
     const next = (entries?.[index + 1] ?? entries?.[index - 1])?.identity;
-    setLeaving(entry.identity);
     void onDelete(entry).then((deleted) => {
       if (deleted) setFocusAfter({ removed: entry.identity, next });
-      else setLeaving(undefined);
     });
   }
 
@@ -181,8 +175,7 @@ function CacheList({
               {entries.map((entry, index) => (
                 <tr
                   key={entry.identity}
-                  data-leaving={leaving === entry.identity || undefined}
-                  className="border-divider hover:bg-surface border-b transition-[background-color,opacity] duration-150 last:border-b-0 data-leaving:pointer-events-none data-leaving:opacity-0"
+                  className="border-divider hover:bg-surface border-b transition-colors duration-150 last:border-b-0"
                 >
                   <td className="py-2.5 pr-4 pl-4 align-top wrap-anywhere">
                     <ExternalLink
@@ -292,7 +285,6 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
     return act(
       scope,
       async () => {
-        await new Promise((resolve) => setTimeout(resolve, ROW_EXIT_MS));
         const reply = await sendSettings({
           type: "cache.delete",
           scope,
@@ -306,7 +298,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
         );
       },
       {
-        quiet: true,
+        label: "Deleted",
         message: `Deleted the result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}.`,
         failure: "Couldn't delete. Try again.",
       },

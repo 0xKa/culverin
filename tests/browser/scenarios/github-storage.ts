@@ -459,12 +459,28 @@ export async function runGithubStorage(
 
   await privateDelete.click();
 
-  await settingsPage
-    .locator("#private-list tr[data-leaving]")
-    .waitFor({ state: "attached" });
-
   await settingsPage.waitForFunction(
     () => typeof (globalThis as DeleteHold).failDelete === "function",
+  );
+
+  await settingsPage
+    .locator('#private-status-mark[data-mark="busy"]')
+    .waitFor();
+
+  const privateRow = settingsPage.locator("#private-list tbody tr");
+
+  assert.equal(await privateRow.getAttribute("data-leaving"), null);
+
+  assert.equal(
+    await privateRow.evaluate((row) => getComputedStyle(row).opacity),
+    "1",
+  );
+
+  assert.doesNotMatch(
+    await privateRow.evaluate(
+      (row) => getComputedStyle(row).transitionProperty,
+    ),
+    /opacity|all/,
   );
 
   await settingsPage.evaluate(() => {
@@ -482,9 +498,10 @@ export async function runGithubStorage(
     "Couldn't delete. Try again.",
   );
 
-  await settingsPage
-    .locator("#private-list tr[data-leaving]")
-    .waitFor({ state: "detached" });
+  assert.equal(
+    await privateRow.evaluate((row) => getComputedStyle(row).opacity),
+    "1",
+  );
 
   assert.deepEqual(await privateStorage(), { private: 1, public: 1 });
 
@@ -502,7 +519,14 @@ export async function runGithubStorage(
     () => document.activeElement?.id === "private-summary",
   );
 
-  assert.equal(await settingsPage.locator("#private-status-mark").count(), 0);
+  await settingsPage
+    .locator('#private-status-mark[data-mark="done"]:not([data-faded])')
+    .waitFor();
+
+  assert.equal(
+    await settingsPage.locator("#private-status-mark").textContent(),
+    "Deleted",
+  );
 
   assert.deepEqual(await privateStorage(), { private: 0, public: 1 });
 
@@ -590,6 +614,13 @@ export async function runGithubStorage(
     (identity) =>
       document.activeElement?.getAttribute("data-delete") === identity,
     remaining,
+  );
+
+  await settingsPage.locator('#status-mark[data-mark="done"]').waitFor();
+
+  assert.equal(
+    await settingsPage.locator("#status-mark").textContent(),
+    "Deleted",
   );
 
   await settingsPage.evaluate(() => {

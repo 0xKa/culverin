@@ -6,6 +6,7 @@ import { runPageCounting } from "./scenarios/page-counting";
 import { runPagePopupLifetimes } from "./scenarios/page-popup-lifetimes";
 import { runPartialResults } from "./scenarios/partial-results";
 import { runPopupResults } from "./scenarios/popup-results";
+import { runStatusMarkMotion } from "./scenarios/status-mark";
 import { runSetup } from "./scenarios/setup";
 import { inspectPackage } from "./support/package";
 import { closeBrowserSession, createBrowserSession } from "./support/session";
@@ -22,6 +23,7 @@ export async function runProductSuite(directory: string): Promise<void> {
     await scenario("denied diagnostic capabilities", () =>
       runDeniedDiagnostics(step0),
     );
+    await scenario("status mark motion", () => runStatusMarkMotion(session));
     const step1 = await scenario("page-popup-lifetimes", () =>
       runPagePopupLifetimes(step0),
     );

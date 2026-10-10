@@ -17,7 +17,7 @@ import {
 } from "../repository-page/about-items";
 import { IconButton } from "../ui/IconButton";
 import { Panel, SectionHeader } from "./layout";
-import { SaveStatus, useSave } from "./SaveStatus";
+import { ActionStatus, useAction } from "./ActionStatus";
 
 const items: Record<
   AboutItem,
@@ -37,7 +37,7 @@ type Direction = "up" | "down";
 
 export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
   const [layout, setLayout] = useState<AboutLayout>();
-  const { state, save } = useSave();
+  const { state, run } = useAction();
   const [focus, setFocus] = useState<{
     item: AboutItem;
     direction: Direction;
@@ -63,7 +63,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
 
   function change(next: AboutLayout, message: string): void {
     setLayout(next);
-    void save(() => aboutLayout.write(next), {
+    void run(() => aboutLayout.write(next), {
       message: `${message} Saved.`,
       restore: () => void aboutLayout.read().then(setLayout),
     });
@@ -151,7 +151,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
             })}
           </ul>
         </fieldset>
-        <SaveStatus
+        <ActionStatus
           id="repository-page-status"
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"

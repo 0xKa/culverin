@@ -10,13 +10,13 @@ import { Button } from "../ui/Button";
 import { Joined } from "../ui/Separator";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
-import { SaveStatus, useSave } from "./SaveStatus";
+import { ActionStatus, useAction } from "./ActionStatus";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
   const [settings, setSettings] = useState<IgnoreSettings>(defaultIgnore);
   const [rulesText, setRulesText] = useState("");
-  const groupsSave = useSave();
-  const rulesSave = useSave();
+  const groupsSave = useAction();
+  const rulesSave = useAction();
   const parsed = parseRules(rulesText);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
       ? settings.disabledGroups.filter((id) => id !== group)
       : [...settings.disabledGroups, group];
     setSettings({ ...settings, disabledGroups });
-    void groupsSave.save(
+    void groupsSave.run(
       async () => {
         const stored = await readIgnore();
         await writeIgnore({ ...stored, disabledGroups });
@@ -41,7 +41,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
   }
 
   function save(next: IgnoreSettings): void {
-    void rulesSave.save(async () => {
+    void rulesSave.run(async () => {
       const stored = await writeIgnore(next);
       setSettings(stored);
       setRulesText(stored.exclusions.join("\n"));
@@ -108,7 +108,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               </dl>
             </div>
           </details>
-          <SaveStatus
+          <ActionStatus
             id="ignore-groups-status"
             state={groupsSave.state}
             className="absolute top-4 right-4 h-[1.375rem]"
@@ -195,7 +195,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             >
               Reset to defaults
             </Button>
-            <SaveStatus id="ignore-status" state={rulesSave.state} />
+            <ActionStatus id="ignore-status" state={rulesSave.state} />
           </div>
         </Panel>
       </div>

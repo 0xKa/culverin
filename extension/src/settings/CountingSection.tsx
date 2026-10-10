@@ -5,7 +5,7 @@ import {
   type CountTrigger,
 } from "../counting/trigger";
 import { Panel, SectionHeader } from "./layout";
-import { SaveStatus, useSave } from "./SaveStatus";
+import { ActionStatus, useAction } from "./ActionStatus";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
@@ -24,7 +24,7 @@ const options: { value: CountTrigger; label: string; detail: string }[] = [
 
 export function CountingSection({ hidden }: { hidden: boolean }) {
   const [trigger, setTrigger] = useState<CountTrigger>();
-  const { state, save } = useSave();
+  const { state, run } = useAction();
 
   useEffect(() => {
     void readCountTrigger().then(setTrigger);
@@ -32,7 +32,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
 
   function change(next: CountTrigger): void {
     setTrigger(next);
-    void save(() => writeCountTrigger(next), {
+    void run(() => writeCountTrigger(next), {
       restore: () => void readCountTrigger().then(setTrigger),
     });
   }
@@ -69,7 +69,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
             ))}
           </div>
         </fieldset>
-        <SaveStatus
+        <ActionStatus
           id="counting-status"
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"

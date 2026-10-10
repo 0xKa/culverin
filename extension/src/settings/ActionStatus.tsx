@@ -2,47 +2,67 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Status } from "../ui/Status";
 import { StatusMark } from "../ui/StatusMark";
 
-export const SAVED_VISIBLE_MS = 3000;
+export const DONE_VISIBLE_MS = 3000;
 
-const failedMessage = "Couldn't save. Try again.";
-
-export type SaveState = {
+export type ActionState = {
   id: number;
-  result: "saving" | "saved" | "failed";
+  result: "busy" | "done" | "failed";
+  label?: string;
   message: string;
   faded: boolean;
 };
 
-export function useSave() {
-  const [state, setState] = useState<SaveState>();
+export type ActionOptions = {
+  label?: string;
+  message?: string;
+  failure?: string;
+  quiet?: boolean;
+  restore?: () => void;
+};
+
+export function useAction() {
+  const [state, setState] = useState<ActionState>();
   const latest = useRef(0);
 
   useEffect(() => {
-    if (state?.result !== "saved" || state.faded) return;
+    if (state?.result !== "done" || state.faded) return;
     const timer = setTimeout(
       () => setState({ ...state, faded: true }),
-      SAVED_VISIBLE_MS,
+      DONE_VISIBLE_MS,
     );
     return () => clearTimeout(timer);
   }, [state]);
 
-  async function save(
-    write: () => Promise<unknown>,
+  async function run(
+    action: () => Promise<unknown>,
     {
+      label = "Saved",
       message = "Saved.",
+      failure = "Couldn't save. Try again.",
+      quiet = false,
       restore,
-    }: { message?: string; restore?: () => void } = {},
-  ): Promise<void> {
+    }: ActionOptions = {},
+  ): Promise<boolean> {
     const id = ++latest.current;
-    setState({ id, result: "saving", message: "", faded: false });
+    const shown = quiet ? undefined : label;
+    setState({ id, result: "busy", label: shown, message: "", faded: false });
     try {
-      await write();
+      await action();
       if (id === latest.current)
-        setState({ id, result: "saved", message, faded: false });
+        setState({ id, result: "done", label: shown, message, faded: false });
+      return true;
     } catch {
-      if (id !== latest.current) return;
-      restore?.();
-      setState({ id, result: "failed", message: failedMessage, faded: false });
+      if (id === latest.current) {
+        restore?.();
+        setState({
+          id,
+          result: "failed",
+          label: failure,
+          message: failure,
+          faded: false,
+        });
+      }
+      return false;
     }
   }
 
@@ -51,25 +71,26 @@ export function useSave() {
     setState(undefined);
   }
 
-  return { state, save, clear };
+  return { state, run, clear };
 }
 
-export function SaveStatus({
+export function ActionStatus({
   id,
   state,
   className,
 }: {
   id: string;
-  state?: SaveState;
+  state?: ActionState;
   className?: string;
 }) {
   return (
     <>
-      {state && (
-        <SaveMark
+      {state?.label && (
+        <ActionMark
           key={state.id}
           id={`${id}-mark`}
           state={state}
+          label={state.label}
           className={className}
         />
       )}
@@ -80,21 +101,22 @@ export function SaveStatus({
   );
 }
 
-function SaveMark({
+function ActionMark({
   id,
   state,
+  label,
   className,
 }: {
   id: string;
-  state: SaveState;
+  state: ActionState;
+  label: string;
   className?: string;
 }) {
   const mark = useRef<HTMLSpanElement>(null);
-  const failed = state.result === "failed";
   const tone =
-    state.result === "saving"
+    state.result === "busy"
       ? "text-muted"
-      : failed
+      : state.result === "failed"
         ? "text-error"
         : "text-ok-text";
 
@@ -107,17 +129,15 @@ function SaveMark({
       ref={mark}
       id={id}
       aria-hidden="true"
-      data-mark={
-        state.result === "saving" ? "busy" : failed ? "failed" : "done"
-      }
+      data-mark={state.result}
       data-faded={state.faded || undefined}
       className={`inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap transition-[color,opacity] duration-200 data-faded:opacity-0 ${tone} ${className ?? ""}`}
     >
       <StatusMark />
       <span
-        className={`transition-opacity duration-200 ${state.result === "saving" ? "opacity-0" : ""}`}
+        className={`transition-opacity duration-200 ${state.result === "busy" ? "opacity-0" : ""}`}
       >
-        {failed ? failedMessage : "Saved"}
+        {label}
       </span>
     </span>
   );

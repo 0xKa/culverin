@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { theme, type Theme } from "../appearance/theme";
 import { Panel, SectionHeader } from "./layout";
-import { SaveStatus, useSave } from "./SaveStatus";
+import { ActionStatus, useAction } from "./ActionStatus";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -15,7 +15,7 @@ const options: { value: Theme; label: string; detail: string }[] = [
 
 export function AppearanceSection({ hidden }: { hidden: boolean }) {
   const [choice, setChoice] = useState<Theme>();
-  const { state, save } = useSave();
+  const { state, run } = useAction();
 
   useEffect(() => {
     void theme.read().then(setChoice);
@@ -23,7 +23,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
 
   function change(next: Theme): void {
     setChoice(next);
-    void save(() => theme.write(next), {
+    void run(() => theme.write(next), {
       restore: () => void theme.read().then(setChoice),
     });
   }
@@ -59,7 +59,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
             ))}
           </div>
         </fieldset>
-        <SaveStatus
+        <ActionStatus
           id="appearance-status"
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"

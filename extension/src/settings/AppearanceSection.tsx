@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { theme, type Theme } from "../appearance/theme";
 import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { ThemeSample } from "./ThemeSample";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -64,6 +65,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"
         />
+        <ThemeSample />
       </Panel>
     </section>
   );

@@ -5,11 +5,20 @@ import { tip } from "../ui/tooltip";
 import { ResultSection } from "./ResultSection";
 import type { ResultView } from "./view";
 
-export function Totals({ result }: { result: ResultView }) {
+export function Totals({
+  result,
+  idPrefix = "",
+}: {
+  result: Pick<
+    ResultView,
+    "codeTotal" | "fileTotal" | "fileLabel" | "fileTitle" | "stats"
+  >;
+  idPrefix?: string;
+}) {
   return (
     <div className="rise-in border-divider bg-raised mt-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        <p id="code-lines" className="m-0 flex flex-col">
+        <p id={`${idPrefix}code-lines`} className="m-0 flex flex-col">
           <span
             className={`text-accent-text font-mono leading-none font-semibold ${result.codeTotal.length > 7 ? "text-[2rem] tracking-tight" : "text-display"}`}
           >
@@ -18,7 +27,7 @@ export function Totals({ result }: { result: ResultView }) {
           <span className="text-muted mt-1 text-xs">code lines</span>
         </p>
         <p
-          id="file-count"
+          id={`${idPrefix}file-count`}
           {...tip(result.fileTitle, { align: "end" })}
           className="m-0 ml-auto flex flex-col items-end"
         >
@@ -29,7 +38,7 @@ export function Totals({ result }: { result: ResultView }) {
         </p>
       </div>
       <dl
-        id="metrics"
+        id={`${idPrefix}metrics`}
         className="border-divider mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t pt-3"
       >
         {result.stats.map((stat, index) => (
@@ -39,7 +48,10 @@ export function Totals({ result }: { result: ResultView }) {
             className="flex flex-col"
           >
             <dt className="text-muted text-2xs">{stat.label}</dt>{" "}
-            <dd id={stat.id} className="m-0 font-mono text-sm font-semibold">
+            <dd
+              id={stat.id ? `${idPrefix}${stat.id}` : undefined}
+              className="m-0 font-mono text-sm font-semibold"
+            >
               {stat.value}
             </dd>
           </div>
@@ -49,13 +61,19 @@ export function Totals({ result }: { result: ResultView }) {
   );
 }
 
-export function Sizes({ result }: { result: ResultView }) {
+export function Sizes({
+  result,
+  idPrefix = "",
+}: {
+  result: Pick<ResultView, "snapshotSize" | "sizeTitle">;
+  idPrefix?: string;
+}) {
   return (
-    <dl id="sizes" className="mt-3 grid gap-1 text-xs">
+    <dl id={`${idPrefix}sizes`} className="mt-3 grid gap-1 text-xs">
       <div className="flex justify-between gap-3">
         <dt className="text-muted break-words">Size</dt>
         <dd
-          id="snapshot-size"
+          id={`${idPrefix}snapshot-size`}
           {...tip(result.sizeTitle, { align: "end" })}
           className="m-0 font-mono font-medium whitespace-nowrap"
         >

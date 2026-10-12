@@ -5,7 +5,7 @@ import {
   type PublicRequest,
   type SummaryUpdate,
 } from "../github/public-protocol";
-import { pageRepository, sameRepository } from "../github/repository";
+import { sameRepository, tabRepository } from "../github/repository";
 import type { createPublicAnalysis } from "./analysis";
 import type { BackgroundResources } from "./resources";
 import { popupOwner, publicReply } from "./senders";
@@ -177,7 +177,7 @@ export function createPopupJobs(
           active: true,
           windowId: tab.windowId,
         });
-      const repository = pageRepository(tab.url ?? "");
+      const repository = tabRepository(tab.url ?? "");
       if (
         activeTab?.id !== tabId ||
         !repository ||
@@ -285,7 +285,7 @@ export function createPopupJobs(
     });
     chrome.tabs.onUpdated.addListener((tabId, _change, tab) => {
       const job = popupJobs.get(tabId);
-      if (job && !sameRepository(pageRepository(tab.url ?? ""), job.repository))
+      if (job && !sameRepository(tabRepository(tab.url ?? ""), job.repository))
         endPopupJob(tabId, "navigation");
     });
   }

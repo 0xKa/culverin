@@ -354,6 +354,45 @@ export async function runPagePopupLifetimes(
 
   assert.equal(fixtures.archiveRequests, 1);
 
+  const overviewRoot = await page
+    .locator("[data-culverin-root]")
+    .elementHandle();
+
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture?tab=readme-ov-file");
+  });
+
+  await page.waitForTimeout(500);
+
+  assert.equal(
+    await page.evaluate((root) => root.isConnected, overviewRoot),
+    true,
+  );
+
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture/tree/main");
+  });
+
+  await page.waitForFunction((root) => !root.isConnected, overviewRoot);
+
+  await page.getByText("Analyze with Culverin").waitFor();
+
+  assert.equal(await page.locator("[data-culverin-root]").count(), 1);
+
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture/tree/feature");
+  });
+
+  await page.locator("[data-culverin-root]").waitFor({ state: "detached" });
+
+  await page.evaluate(() => {
+    history.replaceState({}, "", "/culverin/bootstrap-fixture");
+  });
+
+  await page.getByText("Analyze with Culverin").waitFor();
+
+  assert.equal(fixtures.archiveRequests, 1);
+
   const originalRoot = await page
     .locator("[data-culverin-root]")
     .elementHandle();
@@ -573,6 +612,26 @@ export async function runPagePopupLifetimes(
   });
 
   await page.locator("[data-culverin-root]").waitFor({ state: "detached" });
+
+  await page.waitForTimeout(500);
+
+  assert.equal(
+    await navigatingPopup
+      .getByText("The active tab changed. Reopen the popup to analyze it.")
+      .count(),
+    0,
+  );
+
+  const subPagePopupJobs = await harness.evaluate(async () => {
+    const state = await chrome.storage.session.get("github.job");
+    return state["github.job"] as { owner: string }[] | undefined;
+  });
+
+  assert.equal(subPagePopupJobs?.length, 1);
+
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-other");
+  });
 
   await navigatingPopup
     .getByText("The active tab changed. Reopen the popup to analyze it.")

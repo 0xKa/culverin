@@ -1,8 +1,8 @@
 import { effectiveRulesHash, isDefaultIgnore } from "../counter/rules";
 import { describeIgnore, readIgnore } from "../ignore/settings";
 import {
-  pageRepository,
   sameRepository,
+  tabRepository,
   type PageRepository,
 } from "../github/repository";
 import { failureMessages, limitNote } from "../github/failure-messages";
@@ -378,7 +378,7 @@ export function createPopupController(
       target &&
       tabId === target.tabId &&
       changeInfo.url &&
-      !sameRepository(pageRepository(changeInfo.url), target.repository)
+      !sameRepository(tabRepository(changeInfo.url), target.repository)
     )
       leaveRepository();
   }
@@ -436,7 +436,7 @@ export function createPopupController(
         setStatus(statuses.notRepository);
         return;
       }
-      const repository = pageRepository(tab.url);
+      const repository = tabRepository(tab.url);
       if (!repository) {
         setStatus(statuses.notRepository);
         return;

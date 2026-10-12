@@ -34,6 +34,8 @@ function popup(
       ) => void
     >();
   const activated = event<(info: { tabId: number }) => void>();
+  const updated =
+    event<(tabId: number, changeInfo: { url?: string }) => void>();
   globalThis.chrome = {
     runtime: {
       connect: () => {
@@ -70,7 +72,7 @@ function popup(
     },
     tabs: {
       query,
-      onUpdated: event(),
+      onUpdated: updated,
       onActivated: activated,
     },
     storage: {
@@ -96,6 +98,7 @@ function popup(
     disconnect,
     changed,
     activated,
+    updated,
     controller,
     connects: () => connects,
   };
@@ -217,6 +220,29 @@ test("reformats a retained result during reanalysis without requests or disclosu
   const afterDisposal = ui.events.length;
   ui.changed.emit({ [SIZE_UNITS_KEY]: { newValue: "binary" } }, "sync");
   expect(ui.events).toHaveLength(afterDisposal);
+});
+
+test("follows a repository across its sub pages and leaves it elsewhere", async () => {
+  for (const [url, left] of [
+    ["https://github.com/culverin/sample/releases", false],
+    ["https://github.com/culverin/sample?tab=readme-ov-file", false],
+    ["https://github.com/Culverin/Sample/tree/main/src", false],
+    ["https://github.com/culverin/other/issues", true],
+    ["https://github.com/settings/profile", true],
+  ] as const) {
+    const ui = popup(async () => [
+      { id: 1, url: "https://github.com/culverin/sample/issues?q=is%3Aopen" },
+    ]);
+    await settle();
+    expect(ui.events).toContainEqual({
+      type: "repository",
+      value: "culverin/sample",
+    });
+    expect(ui.connects()).toBe(1);
+    ui.updated.emit(1, { url });
+    expect(ui.events.some((value) => value.type === "left")).toBe(left);
+    ui.controller.dispose();
+  }
 });
 
 test("disposing during initialization suppresses late connections and publications", async () => {

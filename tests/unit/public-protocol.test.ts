@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import { pageContext } from "../../extension/src/content/repository";
 import {
   pageRepository,
+  pageRoute,
   sameRepository,
+  tabRepository,
 } from "../../extension/src/github/repository";
 import {
   publicFailure,
@@ -40,20 +42,75 @@ test("accepts only GitHub repository overview routes", () => {
     "https://github.com/owner/repo#readme",
     "https://github.com/owner/repo/#usage",
     "https://github.com/owner/repo#",
-  ])
+    "https://github.com/owner/repo?tab=readme-ov-file",
+    "https://github.com/owner/repo?tab=contributing-ov-file#readme",
+  ]) {
     expect(pageRepository(url)).toEqual({ owner: "owner", name: "repo" });
+    expect(pageRoute(url)).toEqual({
+      repository: { owner: "owner", name: "repo" },
+    });
+  }
+  for (const [url, ref] of [
+    ["https://github.com/owner/repo/tree/main", "main"],
+    ["https://github.com/owner/repo/tree/main/", "main"],
+    [
+      "https://github.com/owner/repo/tree/release/1.x?tab=readme",
+      "release/1.x",
+    ],
+    ["https://github.com/owner/repo/tree/caf%C3%A9", "café"],
+  ] as const)
+    expect(pageRoute(url)).toEqual({
+      repository: { owner: "owner", name: "repo" },
+      ref,
+    });
   for (const url of [
     "https://github.com/owner/repo/issues",
     "https://github.com/owner/repo/issues#readme",
-    "https://github.com/owner/repo/tree/main",
+    "https://github.com/owner/repo/tree",
+    "https://github.com/owner/repo/tree/",
+    "https://github.com/owner/repo/tree/a//b",
+    "https://github.com/owner/repo/tree/%E0%A4%A",
+    "https://github.com/owner/repo/blob/main/README.md",
     "https://github.com/owner/repo/pulls",
-    "https://github.com/owner/repo?tab=code",
     "https://github.com/owner//repo",
     "https://evil.example/owner/repo",
+    "https://user@github.com/owner/repo",
     "https://github.com/owner/..",
     "https://github.com/owner",
+    "https://github.com/settings/profile",
   ])
     expect(pageRepository(url)).toBeUndefined();
+});
+
+test("recognizes every page inside a repository for the toolbar popup", () => {
+  for (const url of [
+    "https://github.com/owner/repo",
+    "https://github.com/owner/repo?tab=readme-ov-file",
+    "https://github.com/owner/repo/issues",
+    "https://github.com/owner/repo/releases/",
+    "https://github.com/owner/repo/graphs/contributors?from=7%2F11%2F2026",
+    "https://github.com/owner/repo/tree/main/src",
+    "https://github.com/owner/repo/blob/main/README.md#L4",
+    "https://github.com/Settings-fan/repo/pulls",
+  ])
+    expect(tabRepository(url)?.name).toBe("repo");
+  for (const url of [
+    "https://github.com/owner",
+    "https://github.com/owner?tab=repositories",
+    "https://github.com/settings/profile",
+    "https://github.com/Settings/profile",
+    "https://github.com/orgs/owner/people",
+    "https://github.com/marketplace/actions/checkout",
+    "https://github.com/topics/rust",
+    "https://github.com/trending/rust?since=daily",
+    "https://github.com/sponsors/owner",
+    "https://github.com/users/owner/projects/1",
+    "https://github.com/user-attachments/assets/1",
+    "https://github.com/owner//repo/issues",
+    "https://gist.github.com/owner/repo",
+    "https://evil.example/owner/repo/issues",
+  ])
+    expect(tabRepository(url)).toBeUndefined();
 });
 
 test("anchors the summary after the visible About forks row", () => {
@@ -114,6 +171,78 @@ test("anchors the summary after the visible About forks row", () => {
       page([link("/owner/repo/forks", loaded)]),
     )?.anchor,
   ).toBe(loaded);
+});
+
+test("shows the summary on the default branch overview only", () => {
+  const forks = {
+    checkVisibility: () => true,
+    closest: () => null,
+  } as unknown as Element;
+  const link = {
+    parentElement: forks,
+    getAttribute: () => "/owner/repo/forks",
+  } as unknown as Element;
+  const embedded = (...texts: string[]) =>
+    texts.map((textContent) => ({ textContent }) as unknown as Element);
+  const page = (scripts: Element[]) =>
+    ({
+      querySelectorAll(selector: string) {
+        if (selector === ".mt-2 > a[href]") return [link];
+        return selector ===
+          'script[type="application/json"][data-target="react-app.embeddedData"]'
+          ? scripts
+          : [];
+      },
+      querySelector: () => null,
+    }) as unknown as Document;
+  const data = (owner: string, name: string, defaultBranch: string) =>
+    JSON.stringify({
+      payload: {
+        codeViewLayoutRoute: {
+          repo: { id: 1, defaultBranch, name, ownerLogin: owner },
+        },
+      },
+    });
+  const context = {
+    repository: { owner: "owner", name: "repo" },
+    anchor: forks,
+  };
+  const current = page(embedded(data("Owner", "Repo", "main")));
+  expect(
+    pageContext("https://github.com/owner/repo?tab=readme-ov-file", current),
+  ).toEqual(context);
+  expect(
+    pageContext("https://github.com/owner/repo/tree/main", current),
+  ).toEqual(context);
+  expect(pageContext("https://github.com/owner/repo", page([]))).toEqual(
+    context,
+  );
+  for (const url of [
+    "https://github.com/owner/repo/tree/feature",
+    "https://github.com/owner/repo/tree/main/src",
+    "https://github.com/owner/repo/tree/Main",
+  ])
+    expect(pageContext(url, current)).toBeUndefined();
+  for (const scripts of [
+    [],
+    embedded('{"payload":'),
+    embedded(data("other", "repo", "main")),
+    embedded(JSON.stringify({ repo: { defaultBranch: "main" } })),
+  ])
+    expect(
+      pageContext("https://github.com/owner/repo/tree/main", page(scripts)),
+    ).toBeUndefined();
+  expect(
+    pageContext(
+      "https://github.com/owner/repo/tree/release/1.x",
+      page(
+        embedded(
+          data("other", "repo", "main"),
+          data("owner", "repo", "release/1.x"),
+        ),
+      ),
+    ),
+  ).toEqual(context);
 });
 
 test("starts from the repository marker and waits for GitHub hydration", () => {

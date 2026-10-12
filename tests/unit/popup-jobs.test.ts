@@ -8,6 +8,7 @@ async function lookup(
   focusedId?: number,
   windowActiveId = 1,
   senderTab?: chrome.tabs.Tab,
+  url = "https://github.com/culverin/sample",
 ) {
   const query = jest.fn(async (options: chrome.tabs.QueryInfo) =>
     options.windowId !== undefined
@@ -23,7 +24,7 @@ async function lookup(
         get: async () => ({
           id: 1,
           windowId: 7,
-          url: "https://github.com/culverin/sample",
+          url,
         }),
       },
     },
@@ -69,6 +70,28 @@ test("toolbar fallback rejects another active tab in the requested window", asyn
       code: "invalid_repository",
     }),
   );
+});
+
+test("accepts the repository from any of its pages and rejects other pages", async () => {
+  for (const url of [
+    "https://github.com/culverin/sample/issues",
+    "https://github.com/culverin/sample?tab=readme-ov-file",
+    "https://github.com/culverin/sample/graphs/contributors?from=7%2F11%2F2026",
+  ]) {
+    const ui = await lookup(undefined, 1, undefined, url);
+    expect(ui.run).toHaveBeenCalledTimes(1);
+    expect(ui.postMessage).not.toHaveBeenCalled();
+  }
+  for (const url of [
+    "https://github.com/culverin/other/issues",
+    "https://github.com/settings/profile",
+  ]) {
+    const ui = await lookup(undefined, 1, undefined, url);
+    expect(ui.run).not.toHaveBeenCalled();
+    expect(ui.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "invalid_repository" }),
+    );
+  }
 });
 
 test("another focused tab and popup documents in tabs retain the original gate", async () => {

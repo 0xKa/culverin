@@ -49,7 +49,7 @@ let hydration: { app: Element; stop: () => void } | undefined;
 const hydrated = new WeakSet<Element>();
 
 function routeUrl(): string {
-  return location.origin + location.pathname + location.search;
+  return location.origin + location.pathname;
 }
 
 function currentView(candidate: View): boolean {

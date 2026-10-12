@@ -3,6 +3,7 @@ import type {
   ResolutionEnvelope,
 } from "../github/public-protocol";
 import type { StatusMark, StatusTone } from "../ui/badge";
+import { refView } from "../ui/ref";
 
 export type PopupStatus = {
   label: string;
@@ -126,7 +127,11 @@ export function readyStatus(
   resolution: ResolutionEnvelope,
   rulesChanged: boolean,
 ): PopupStatus {
-  const detail = `Ready to analyze ${resolution.defaultBranch} at ${resolution.sha.slice(0, 12)}. ${rulesChanged ? "Culverin ignore changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`;
+  const ref = refView(resolution);
+  const target = ref.commit
+    ? `commit ${resolution.sha.slice(0, 12)}`
+    : `${ref.name} at ${resolution.sha.slice(0, 12)}`;
+  const detail = `Ready to analyze ${target}. ${rulesChanged ? "Culverin ignore changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`;
   return rulesChanged
     ? status("Rules changed", "warning", "idle", detail)
     : status("Not counted", "neutral", "idle", detail);

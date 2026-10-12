@@ -17,6 +17,8 @@ import {
 } from "../ui/format";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import { Separator } from "../ui/Separator";
+import { RefName } from "../ui/RefName";
+import { refUrl, refView } from "../ui/ref";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { tip } from "../ui/tooltip";
@@ -193,12 +195,14 @@ function CacheList({
                 >
                   <td className="py-2.5 pr-4 pl-4 align-top wrap-anywhere">
                     <ExternalLink
-                      href={`https://github.com/${entry.owner}/${entry.name}`}
+                      href={refUrl(entry.resolution)}
                       className="font-medium no-underline hover:underline"
                     >
                       {entry.owner}/{entry.name}
                     </ExternalLink>
                     <div className="text-muted mt-0.5 text-xs">
+                      <RefName view={refView(entry.resolution)} />
+                      <Separator />
                       <span className="font-mono">{entry.sha.slice(0, 7)}</span>
                       {entry.topLanguage && (
                         <>
@@ -252,7 +256,7 @@ function CacheList({
                     <IconButton
                       type="button"
                       tip={{ side: "left" }}
-                      label={`Show details for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
+                      label={`Show details for ${entry.owner}/${entry.name}${entry.resolution.ref === undefined ? "" : ` (${entry.resolution.ref})`} at ${entry.sha.slice(0, 7)}`}
                       onClick={() => setInspected(entry)}
                     >
                       <Eye />
@@ -261,7 +265,7 @@ function CacheList({
                       type="button"
                       tone="danger"
                       tip={{ side: "left" }}
-                      label={`Delete result for ${entry.owner}/${entry.name} at ${entry.sha.slice(0, 7)}`}
+                      label={`Delete result for ${entry.owner}/${entry.name}${entry.resolution.ref === undefined ? "" : ` (${entry.resolution.ref})`} at ${entry.sha.slice(0, 7)}`}
                       className="disabled:pointer-events-none disabled:opacity-50"
                       data-delete={entry.identity}
                       disabled={busy}

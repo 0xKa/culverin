@@ -10,6 +10,7 @@ import {
   formatCount,
   type NumberFormats,
 } from "../ui/format";
+import { refView, type RefView } from "../ui/ref";
 import { isTextLanguage, textLines } from "./text-lines";
 
 export type ApiLimitView = {
@@ -48,7 +49,7 @@ export type ResultView = {
   sizeTitle: string;
   cloneSize?: string;
   cloneTitle?: string;
-  intro: string[];
+  revision: RefView;
   codeSummary: string[];
   codeSummaryTitle?: string;
   codeRows: BreakdownRow[];
@@ -239,7 +240,7 @@ export function resultView(
       historyBytes === undefined
         ? undefined
         : `Approximately ${exactBytes(coverage.totalBytes + historyBytes)}. The ${snapshotSize} of files plus the ${bytes(historyBytes)} of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.`,
-    intro: [`Default branch ${resolution.defaultBranch}`, `commit ${commit}`],
+    revision: refView(resolution),
     codeSummary: [
       `${count(codeLanguages.reduce((sum, row) => sum + row.code, 0))} code lines`,
       `${count(files(codeLanguages))} files`,

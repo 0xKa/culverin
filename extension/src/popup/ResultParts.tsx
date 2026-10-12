@@ -1,6 +1,7 @@
 import { Callout } from "../ui/Callout";
 import { ExternalLink } from "../ui/ExternalLink";
-import { Joined } from "../ui/Separator";
+import { RefName } from "../ui/RefName";
+import { Separator } from "../ui/Separator";
 import { tip } from "../ui/tooltip";
 import { ResultSection } from "./ResultSection";
 import { TEXT_LINES_TITLE, type ResultView } from "./view";
@@ -151,8 +152,21 @@ export function Details({
       <summary className="text-sm">Analysis details</summary>
       <div id="detail-content" className="pt-1">
         {result && (
-          <p className="text-muted m-0 mt-1.5 text-xs">
-            <Joined parts={result.intro} />
+          <p id="revision" className="text-muted m-0 mt-1.5 text-xs">
+            {result.revision.commit ? (
+              <RefName
+                view={{
+                  name: `commit ${result.commit}`,
+                  note: result.revision.note,
+                }}
+              />
+            ) : (
+              <>
+                <RefName view={result.revision} />
+                <Separator />
+                commit {result.commit}
+              </>
+            )}
           </p>
         )}
         {result?.cloneSize && (

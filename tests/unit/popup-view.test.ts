@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
 import { resultView } from "../../extension/src/popup/view";
+import { readyStatus } from "../../extension/src/popup/status";
+import { refUrl, refView } from "../../extension/src/ui/ref";
 
 const resolution: ResolutionEnvelope = {
   repositoryId: "1",
@@ -126,7 +128,7 @@ test("formats repository and result details", () => {
       files: "1 file",
     },
   ]);
-  expect(view.intro).toEqual(["Default branch main", "commit aaaaaaaaaaaa"]);
+  expect(view.revision).toEqual({ name: "main", commit: false });
   expect(view.coverage).toBe(
     "Counted 2 of 5 files. Skipped 2 other, 1 oversized.",
   );
@@ -359,4 +361,37 @@ test("handles zero lines and absent languages without invalid percentages", () =
   expect(JSON.stringify(view)).not.toMatch(/NaN|Infinity/);
   expect(view.cloneSize).toBeUndefined();
   expect(view.cloneTitle).toBeUndefined();
+});
+
+test("labels the counted branch, tag, or commit and flags non-default ones", () => {
+  expect(refView(resolution)).toEqual({ name: "main", commit: false });
+  expect(refView({ ...resolution, ref: "ding-dong" })).toEqual({
+    name: "ding-dong",
+    note: "Not the default branch (main)",
+    commit: false,
+  });
+  expect(refView({ ...resolution, ref: "AAAAAAA" })).toEqual({
+    name: "commit",
+    note: "A specific commit, not the latest on the default branch (main)",
+    commit: true,
+  });
+  expect(refView({ ...resolution, ref: "abcdef1" }).commit).toBe(false);
+  expect(resultView(result, { ...resolution, ref: "v1.0" }).revision).toEqual({
+    name: "v1.0",
+    note: "Not the default branch (main)",
+    commit: false,
+  });
+  expect(readyStatus(resolution, false).detail).toStartWith(
+    "Ready to analyze main at aaaaaaaaaaaa.",
+  );
+  expect(
+    readyStatus({ ...resolution, ref: "feature/x" }, false).detail,
+  ).toStartWith("Ready to analyze feature/x at aaaaaaaaaaaa.");
+  expect(
+    readyStatus({ ...resolution, ref: "aaaaaaa" }, false).detail,
+  ).toStartWith("Ready to analyze commit aaaaaaaaaaaa.");
+  expect(refUrl(resolution)).toBe("https://github.com/culverin/sample");
+  expect(refUrl({ ...resolution, ref: "feature/a b" })).toBe(
+    "https://github.com/culverin/sample/tree/feature/a%20b",
+  );
 });

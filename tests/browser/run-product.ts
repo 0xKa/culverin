@@ -1,4 +1,5 @@
 import { runAcquisitionLifetimes } from "./scenarios/acquisition-lifetimes";
+import { runBranchCounting } from "./scenarios/branch-counting";
 import { runGithubStorage } from "./scenarios/github-storage";
 import { runIgnoreAccess } from "./scenarios/ignore-access";
 import { runLivePublic } from "./scenarios/live-public";
@@ -36,7 +37,12 @@ export async function runProductSuite(directory: string): Promise<void> {
       runAcquisitionLifetimes(step4),
     );
     const step6 = await scenario("live-public", () => runLivePublic(step5));
-    const step7 = await scenario("page-counting", () => runPageCounting(step6));
+    const branches = await scenario("branch-counting", () =>
+      runBranchCounting(step6),
+    );
+    const step7 = await scenario("page-counting", () =>
+      runPageCounting(branches),
+    );
     await scenario("github-storage", () => runGithubStorage(step7));
   } finally {
     await closeBrowserSession(session);

@@ -20,7 +20,7 @@ test("tracks repository, busy state, result and details", () => {
     commit: "abc",
     snapshotSize: "20 B",
     sizeTitle: "Total size of the files at commit abc, as checked out.",
-    intro: [],
+    revision: { name: "main", commit: false },
     codeSummary: [],
     codeRows: [],
     textSummary: [],

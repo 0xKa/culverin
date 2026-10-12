@@ -1,60 +1,8 @@
 import {
   definePreference,
+  type Preference,
   type PreferenceStorage,
 } from "../preferences/define";
-
-export const LANGUAGE_COLOR_MODES = ["language", "single"] as const;
-
-export type LanguageColorMode = (typeof LANGUAGE_COLOR_MODES)[number];
-
-export const LANGUAGE_COLORS_KEY = "culverin.languageColors";
-
-export function parseLanguageColors(
-  value: unknown,
-): LanguageColorMode | undefined {
-  return LANGUAGE_COLOR_MODES.includes(value as LanguageColorMode)
-    ? (value as LanguageColorMode)
-    : undefined;
-}
-
-export const languageColors = definePreference<LanguageColorMode>({
-  key: LANGUAGE_COLORS_KEY,
-  fallback: "language",
-  parse: parseLanguageColors,
-  isDefault: (value) => value === "language",
-});
-
-export function applyLanguageColors(
-  mode: LanguageColorMode,
-  root: { dataset: DOMStringMap } = document.documentElement,
-): void {
-  if (mode === "single") root.dataset.languageColors = "single";
-  else delete root.dataset.languageColors;
-}
-
-export function readRememberedLanguageColors(
-  storage: Pick<Storage, "getItem"> = localStorage,
-): LanguageColorMode {
-  try {
-    return (
-      parseLanguageColors(storage.getItem(LANGUAGE_COLORS_KEY)) ?? "language"
-    );
-  } catch {
-    return "language";
-  }
-}
-
-export function rememberLanguageColors(
-  mode: LanguageColorMode,
-  storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
-): void {
-  try {
-    if (mode === "single") storage.setItem(LANGUAGE_COLORS_KEY, mode);
-    else storage.removeItem(LANGUAGE_COLORS_KEY);
-  } catch {
-    return;
-  }
-}
 
 type Dependencies = {
   storage: PreferenceStorage;
@@ -64,40 +12,118 @@ type Dependencies = {
   >;
 };
 
-export function subscribeLanguageColors(
-  publish: (mode: LanguageColorMode) => void,
-  dependencies: Dependencies = {
-    storage: chrome.storage.sync,
-    changes: chrome.storage.onChanged,
-  },
-): () => void {
-  let disposed = false;
-  let changed = false;
-  const listener = (
-    changes: Record<string, chrome.storage.StorageChange>,
-    area: string,
-  ) => {
-    if (disposed || area !== "sync" || !(LANGUAGE_COLORS_KEY in changes))
-      return;
-    changed = true;
-    publish(
-      parseLanguageColors(changes[LANGUAGE_COLORS_KEY]?.newValue) ?? "language",
-    );
+type Root = { dataset: DOMStringMap };
+
+export type RootChoice<T extends string> = Preference<T> & {
+  values: readonly T[];
+  parse(value: unknown): T | undefined;
+  apply(value: T, root?: Root): void;
+  readRemembered(storage?: Pick<Storage, "getItem">): T;
+  remember(value: T, storage?: Pick<Storage, "setItem" | "removeItem">): void;
+  subscribe(
+    publish: (value: T) => void,
+    dependencies?: Dependencies,
+  ): () => void;
+  follow(): void;
+};
+
+function defineRootChoice<T extends string>({
+  key,
+  values,
+  fallback,
+  attribute,
+}: {
+  key: string;
+  values: readonly T[];
+  fallback: T;
+  attribute: string;
+}): RootChoice<T> {
+  const parse = (value: unknown) =>
+    values.includes(value as T) ? (value as T) : undefined;
+  const choice: RootChoice<T> = {
+    ...definePreference<T>({
+      key,
+      fallback,
+      parse,
+      isDefault: (value) => value === fallback,
+    }),
+    values,
+    parse,
+    apply(value, root = document.documentElement) {
+      if (value === fallback) delete root.dataset[attribute];
+      else root.dataset[attribute] = value;
+    },
+    readRemembered(storage = localStorage) {
+      try {
+        return parse(storage.getItem(key)) ?? fallback;
+      } catch {
+        return fallback;
+      }
+    },
+    remember(value, storage = localStorage) {
+      try {
+        if (value === fallback) storage.removeItem(key);
+        else storage.setItem(key, value);
+      } catch {
+        return;
+      }
+    },
+    subscribe(
+      publish,
+      dependencies = {
+        storage: chrome.storage.sync,
+        changes: chrome.storage.onChanged,
+      },
+    ) {
+      let disposed = false;
+      let changed = false;
+      const listener = (
+        changes: Record<string, chrome.storage.StorageChange>,
+        area: string,
+      ) => {
+        if (disposed || area !== "sync" || !(key in changes)) return;
+        changed = true;
+        publish(parse(changes[key]?.newValue) ?? fallback);
+      };
+      dependencies.changes.addListener(listener);
+      void choice.read(dependencies.storage).then((value) => {
+        if (!disposed && !changed) publish(value);
+      });
+      return () => {
+        disposed = true;
+        dependencies.changes.removeListener(listener);
+      };
+    },
+    follow() {
+      choice.apply(choice.readRemembered());
+      choice.subscribe((value) => {
+        choice.apply(value);
+        choice.remember(value);
+      });
+    },
   };
-  dependencies.changes.addListener(listener);
-  void languageColors.read(dependencies.storage).then((mode) => {
-    if (!disposed && !changed) publish(mode);
-  });
-  return () => {
-    disposed = true;
-    dependencies.changes.removeListener(listener);
-  };
+  return choice;
 }
 
+export type LanguageColorMode = "language" | "single";
+
+export type LanguageMarker = "square" | "circle" | "none";
+
+export const languageColors = defineRootChoice<LanguageColorMode>({
+  key: "culverin.languageColors",
+  values: ["language", "single"],
+  fallback: "language",
+  attribute: "languageColors",
+});
+
+export const languageMarkers = defineRootChoice<LanguageMarker>({
+  key: "culverin.languageMarker",
+  values: ["square", "circle", "none"],
+  fallback: "square",
+  attribute: "languageMarker",
+});
+
 export function followLanguageColors(): void {
-  applyLanguageColors(readRememberedLanguageColors());
-  subscribeLanguageColors((mode) => {
-    applyLanguageColors(mode);
-    rememberLanguageColors(mode);
-  });
+  languageColors.follow();
+  languageMarkers.follow();
 }

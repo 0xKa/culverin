@@ -24,7 +24,7 @@ function Rows({
             <div aria-hidden="true">
               <div className="flex items-baseline gap-2 text-xs">
                 {color.swatch && (
-                  <span className="language-swatch size-2 shrink-0 self-center rounded-full forced-colors:bg-[CanvasText]" />
+                  <span className="language-swatch size-2 shrink-0 self-center forced-colors:bg-[CanvasText]" />
                 )}
                 <span className="min-w-0 font-medium wrap-anywhere">
                   {row.name}

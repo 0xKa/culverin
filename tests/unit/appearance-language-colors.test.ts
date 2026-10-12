@@ -1,13 +1,9 @@
 import { expect, test } from "bun:test";
 import {
-  applyLanguageColors,
   followLanguageColors,
-  LANGUAGE_COLORS_KEY,
   languageColors,
-  readRememberedLanguageColors,
-  rememberLanguageColors,
-  subscribeLanguageColors,
-  type LanguageColorMode,
+  languageMarkers,
+  type RootChoice,
 } from "../../extension/src/appearance/language-colors";
 import {
   highContrast,
@@ -52,113 +48,140 @@ type Listener = (
   area: string,
 ) => void;
 
-test("defaults to language colors, saves single color independently, and removes the default", async () => {
+const choices = [
+  {
+    choice: languageColors as RootChoice<string>,
+    other: "single",
+    attribute: "languageColors",
+  },
+  {
+    choice: languageMarkers as RootChoice<string>,
+    other: "circle",
+    attribute: "languageMarker",
+  },
+];
+
+test("defaults to language colors with square markers", () => {
+  expect(languageColors.fallback).toBe("language");
+  expect(languageColors.values).toEqual(["language", "single"]);
+  expect(languageMarkers.fallback).toBe("square");
+  expect(languageMarkers.values).toEqual(["square", "circle", "none"]);
+});
+
+test("saves each choice independently and removes defaults", async () => {
   const storage = memoryStorage({ [HIGH_CONTRAST_KEY]: true });
   expect(await languageColors.read(storage)).toBe("language");
+  expect(await languageMarkers.read(storage)).toBe("square");
   await languageColors.write("single", storage);
+  await languageMarkers.write("none", storage);
   expect(await languageColors.read(storage)).toBe("single");
-  expect(await highContrast.read(storage)).toBe(true);
+  expect(await languageMarkers.read(storage)).toBe("none");
   await languageColors.write("language", storage);
+  expect(await languageMarkers.read(storage)).toBe("none");
+  expect(await highContrast.read(storage)).toBe(true);
+  await languageMarkers.write("square", storage);
   expect(Object.fromEntries(storage.values)).toEqual({
     [HIGH_CONTRAST_KEY]: true,
   });
 });
 
-test("uses language colors for invalid or unavailable synced storage", async () => {
-  for (const value of ["Single", "accent", true, 1, null, undefined]) {
+for (const { choice, other, attribute } of choices) {
+  test(`${choice.key} falls back for invalid or unavailable synced storage`, async () => {
+    for (const value of ["Square", "accent", true, 1, null, undefined]) {
+      expect(await choice.read(memoryStorage({ [choice.key]: value }))).toBe(
+        choice.fallback,
+      );
+    }
     expect(
-      await languageColors.read(
-        memoryStorage({ [LANGUAGE_COLORS_KEY]: value }),
-      ),
-    ).toBe("language");
-  }
-  expect(
-    await languageColors.read({
-      ...memoryStorage(),
-      get: async () => {
+      await choice.read({
+        ...memoryStorage(),
+        get: async () => {
+          throw new Error("unavailable");
+        },
+      }),
+    ).toBe(choice.fallback);
+    expect(choice.parse(other)).toBe(other);
+  });
+
+  test(`${choice.key} is applied and remembered locally and tolerates unavailable storage`, () => {
+    const storage = rememberedStorage();
+    const root = { dataset: { theme: "dark" } as DOMStringMap };
+    expect(choice.readRemembered(storage)).toBe(choice.fallback);
+    choice.remember(other, storage);
+    choice.apply(choice.readRemembered(storage), root);
+    expect(root.dataset).toEqual({ theme: "dark", [attribute]: other });
+    choice.remember(choice.fallback, storage);
+    choice.apply(choice.readRemembered(storage), root);
+    expect(root.dataset).toEqual({ theme: "dark" });
+    expect(storage.values.has(choice.key)).toBe(false);
+    storage.values.set(choice.key, "invalid");
+    expect(choice.readRemembered(storage)).toBe(choice.fallback);
+    const broken = {
+      getItem: (): string | null => {
         throw new Error("unavailable");
       },
-    }),
-  ).toBe("language");
-});
-
-test("applies and remembers single color locally and tolerates unavailable storage", () => {
-  const storage = rememberedStorage();
-  const root = { dataset: { theme: "dark" } as DOMStringMap };
-  expect(readRememberedLanguageColors(storage)).toBe("language");
-  rememberLanguageColors("single", storage);
-  applyLanguageColors(readRememberedLanguageColors(storage), root);
-  expect(root.dataset).toEqual({ theme: "dark", languageColors: "single" });
-  rememberLanguageColors("language", storage);
-  applyLanguageColors(readRememberedLanguageColors(storage), root);
-  expect(root.dataset).toEqual({ theme: "dark" });
-  expect(storage.values.has(LANGUAGE_COLORS_KEY)).toBe(false);
-  storage.values.set(LANGUAGE_COLORS_KEY, "invalid");
-  expect(readRememberedLanguageColors(storage)).toBe("language");
-  const broken = {
-    getItem: (): string | null => {
-      throw new Error("unavailable");
-    },
-    setItem: () => {
-      throw new Error("unavailable");
-    },
-    removeItem: () => {
-      throw new Error("unavailable");
-    },
-  };
-  expect(readRememberedLanguageColors(broken)).toBe("language");
-  expect(() => rememberLanguageColors("single", broken)).not.toThrow();
-});
-
-test("subscription keeps newer changes ahead of a stale read, ignores unrelated events, and cleans up", async () => {
-  const reading = deferred<Record<string, unknown>>();
-  const changes = event<Listener>();
-  const published: LanguageColorMode[] = [];
-  const unsubscribe = subscribeLanguageColors((mode) => published.push(mode), {
-    storage: { ...memoryStorage(), get: () => reading.promise },
-    changes,
+      setItem: () => {
+        throw new Error("unavailable");
+      },
+      removeItem: () => {
+        throw new Error("unavailable");
+      },
+    };
+    expect(choice.readRemembered(broken)).toBe(choice.fallback);
+    expect(() => choice.remember(other, broken)).not.toThrow();
   });
-  changes.emit({ [LANGUAGE_COLORS_KEY]: { newValue: "single" } }, "sync");
-  reading.resolve({});
-  await settle();
-  expect(published).toEqual(["single"]);
-  changes.emit({ [HIGH_CONTRAST_KEY]: { newValue: true } }, "sync");
-  changes.emit({ [LANGUAGE_COLORS_KEY]: { newValue: "language" } }, "local");
-  expect(published).toEqual(["single"]);
-  changes.emit({ [LANGUAGE_COLORS_KEY]: {} }, "sync");
-  expect(published).toEqual(["single", "language"]);
-  unsubscribe();
-  expect(changes.listeners.size).toBe(0);
-  changes.emit({ [LANGUAGE_COLORS_KEY]: { newValue: "single" } }, "sync");
-  expect(published).toEqual(["single", "language"]);
-});
 
-test("subscription publishes the stored mode and ignores a read finishing after cleanup", async () => {
-  const published: LanguageColorMode[] = [];
-  const changes = event<Listener>();
-  subscribeLanguageColors((mode) => published.push(mode), {
-    storage: memoryStorage({ [LANGUAGE_COLORS_KEY]: "single" }),
-    changes,
+  test(`${choice.key} subscription keeps newer changes ahead of a stale read, ignores unrelated events, and cleans up`, async () => {
+    const reading = deferred<Record<string, unknown>>();
+    const changes = event<Listener>();
+    const published: string[] = [];
+    const unsubscribe = choice.subscribe((value) => published.push(value), {
+      storage: { ...memoryStorage(), get: () => reading.promise },
+      changes,
+    });
+    changes.emit({ [choice.key]: { newValue: other } }, "sync");
+    reading.resolve({});
+    await settle();
+    expect(published).toEqual([other]);
+    changes.emit({ [HIGH_CONTRAST_KEY]: { newValue: true } }, "sync");
+    changes.emit({ [choice.key]: { newValue: choice.fallback } }, "local");
+    expect(published).toEqual([other]);
+    changes.emit({ [choice.key]: {} }, "sync");
+    expect(published).toEqual([other, choice.fallback]);
+    unsubscribe();
+    expect(changes.listeners.size).toBe(0);
+    changes.emit({ [choice.key]: { newValue: other } }, "sync");
+    expect(published).toEqual([other, choice.fallback]);
   });
-  await settle();
-  expect(published).toEqual(["single"]);
-  const reading = deferred<Record<string, unknown>>();
-  const late: LanguageColorMode[] = [];
-  subscribeLanguageColors((mode) => late.push(mode), {
-    storage: { ...memoryStorage(), get: () => reading.promise },
-    changes,
-  })();
-  reading.resolve({ [LANGUAGE_COLORS_KEY]: "single" });
-  await settle();
-  expect(late).toEqual([]);
-});
 
-test("applies the remembered mode at startup and follows live changes", async () => {
+  test(`${choice.key} subscription publishes the stored value and ignores a read finishing after cleanup`, async () => {
+    const published: string[] = [];
+    const changes = event<Listener>();
+    choice.subscribe((value) => published.push(value), {
+      storage: memoryStorage({ [choice.key]: other }),
+      changes,
+    });
+    await settle();
+    expect(published).toEqual([other]);
+    const reading = deferred<Record<string, unknown>>();
+    const late: string[] = [];
+    choice.subscribe((value) => late.push(value), {
+      storage: { ...memoryStorage(), get: () => reading.promise },
+      changes,
+    })();
+    reading.resolve({ [choice.key]: other });
+    await settle();
+    expect(late).toEqual([]);
+  });
+}
+
+test("applies both remembered choices at startup and follows live changes", async () => {
   const reading = deferred<Record<string, unknown>>();
   const changes = event<Listener>();
   const root = { dataset: {} as DOMStringMap };
   const storage = rememberedStorage();
-  rememberLanguageColors("single", storage);
+  languageColors.remember("single", storage);
+  languageMarkers.remember("circle", storage);
   const restore = [
     replaceGlobal("document", { documentElement: root }),
     replaceGlobal("localStorage", storage),
@@ -168,14 +191,23 @@ test("applies the remembered mode at startup and follows live changes", async ()
   ];
   try {
     followLanguageColors();
-    expect(root.dataset).toEqual({ languageColors: "single" });
-    reading.resolve({});
+    expect(root.dataset).toEqual({
+      languageColors: "single",
+      languageMarker: "circle",
+    });
+    reading.resolve({ [languageMarkers.key]: "circle" });
     await settle();
-    expect(root.dataset).toEqual({});
-    expect(storage.values.has(LANGUAGE_COLORS_KEY)).toBe(false);
-    changes.emit({ [LANGUAGE_COLORS_KEY]: { newValue: "single" } }, "sync");
+    expect(root.dataset).toEqual({ languageMarker: "circle" });
+    expect(storage.values.has(languageColors.key)).toBe(false);
+    changes.emit({ [languageMarkers.key]: { newValue: "none" } }, "sync");
+    changes.emit({ [languageColors.key]: { newValue: "single" } }, "sync");
+    expect(root.dataset).toEqual({
+      languageColors: "single",
+      languageMarker: "none",
+    });
+    expect(languageMarkers.readRemembered(storage)).toBe("none");
+    changes.emit({ [languageMarkers.key]: {} }, "sync");
     expect(root.dataset).toEqual({ languageColors: "single" });
-    expect(readRememberedLanguageColors(storage)).toBe("single");
   } finally {
     for (const reset of restore.reverse()) reset();
   }

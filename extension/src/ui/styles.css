@@ -281,7 +281,12 @@
   );
 }
 
-:root[data-language-colors="single"] .language-swatch {
+:root[data-language-marker="circle"] .language-swatch {
+  border-radius: 9999px;
+}
+
+:root:is([data-language-colors="single"], [data-language-marker="none"])
+  .language-swatch {
   display: none;
 }
 

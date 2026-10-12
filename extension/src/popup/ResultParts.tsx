@@ -3,7 +3,7 @@ import { ExternalLink } from "../ui/ExternalLink";
 import { Joined } from "../ui/Separator";
 import { tip } from "../ui/tooltip";
 import { ResultSection } from "./ResultSection";
-import type { ResultView } from "./view";
+import { TEXT_LINES_TITLE, type ResultView } from "./view";
 
 export function Totals({
   result,
@@ -151,11 +151,11 @@ export function Details({
     >
       <summary className="text-sm">Analysis details</summary>
       <div id="detail-content" className="pt-1">
-        {result?.intro.map((line) => (
-          <p key={line.join()} className="text-muted m-0 mt-1.5 text-xs">
-            <Joined parts={line} />
+        {result && (
+          <p className="text-muted m-0 mt-1.5 text-xs">
+            <Joined parts={result.intro} />
           </p>
-        ))}
+        )}
         {result?.cloneSize && (
           <p
             id="clone-size"
@@ -168,6 +168,7 @@ export function Details({
         {result && result.codeRows.length > 0 && (
           <ResultSection
             title="Code"
+            titleTip="Lines of source code, not counting comments or blank lines. Code blocks in Markdown count toward their language."
             summary={result.codeSummary}
             summaryTitle={result.codeSummaryTitle}
             summaryId="code-summary"
@@ -180,6 +181,7 @@ export function Details({
         {result && result.textRows.length > 0 && (
           <ResultSection
             title="Text"
+            titleTip={TEXT_LINES_TITLE}
             summary={result.textSummary}
             summaryTitle={result.textSummaryTitle}
             summaryId="text-summary"
@@ -192,6 +194,7 @@ export function Details({
         {result && result.otherRows.length > 0 && (
           <ResultSection
             title="Other files"
+            titleTip="Not recognized as a programming or text language. Their lines aren't included in code or text lines."
             summary={result.otherSummary}
             summaryTitle={result.otherSummaryTitle}
             summaryId="other-summary"
@@ -200,18 +203,17 @@ export function Details({
             moreLabel="More other files by lines"
             id="more-other-files"
             muted
-          >
-            <p className="text-muted m-0 mt-1 text-xs">
-              Not recognized as a programming or text language. Their lines are
-              not included in code or text lines.
-            </p>
-          </ResultSection>
+          ></ResultSection>
         )}
         {result?.noLanguages && (
           <p className="text-muted m-0 mt-3 text-xs">{result.noLanguages}</p>
         )}
         {result && (
-          <p className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs">
+          <p
+            id="coverage"
+            {...tip(result.coverageTitle, { side: "top" })}
+            className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs"
+          >
             {result.coverage}
           </p>
         )}

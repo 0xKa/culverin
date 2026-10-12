@@ -117,9 +117,9 @@ export async function runIgnoreAccess(
     .waitFor({ timeout: 15_000 });
 
   await ignorePopup
-    .getByText(
-      /Source profile coverage: 1 of 14 regular files counted; 13 skipped \(1 excluded by Culverin ignore, 12 other files,/,
-    )
+    .getByText("Counted 1 of 14 files. Skipped 1 ignored, 12 other.", {
+      exact: true,
+    })
     .waitFor();
 
   assert.equal(await ignorePopup.locator("#text-lines").textContent(), "0");

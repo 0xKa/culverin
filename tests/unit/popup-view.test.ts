@@ -87,7 +87,7 @@ test("formats repository and result details", () => {
   expect(view.fileTotal).toBe("5");
   expect(view.fileLabel).toBe("files");
   expect(view.fileTitle).toBe(
-    "All files at this commit, 2 counted as code or text. Other, binary, and ignored files are listed in Analysis details.",
+    "All files at this commit, 2 counted as code or text. Other files are listed in Analysis details.",
   );
   expect(view.stats).toEqual([
     {
@@ -126,8 +126,9 @@ test("formats repository and result details", () => {
       files: "1 file",
     },
   ]);
-  expect(view.coverage).toContain(
-    "3 skipped (0 excluded by Culverin ignore, 2 other files, 0 binary",
+  expect(view.intro).toEqual(["Default branch main", "commit aaaaaaaaaaaa"]);
+  expect(view.coverage).toBe(
+    "Counted 2 of 5 files. Skipped 2 other, 1 oversized.",
   );
   expect(view.otherRows.map((row) => row.label)).toEqual([
     ".golden: 30 lines, 1 files",
@@ -342,6 +343,16 @@ test("handles zero lines and absent languages without invalid percentages", () =
   };
   const view = resultView(empty, { ...resolution, sizeKb: null });
   expect(view.noLanguages).toBe("No language totals.");
+  expect(view.coverage).toBe("No files to count.");
+  expect(
+    resultView(
+      {
+        ...empty,
+        coverage: { ...empty.coverage, countedFiles: 1, regularFiles: 1 },
+      },
+      resolution,
+    ).coverage,
+  ).toBe("Counted all 1 file.");
   expect(view.codeRows).toEqual([]);
   expect(view.textRows).toEqual([]);
   expect(view.codeSummary).toEqual(["0 code lines", "0 files"]);

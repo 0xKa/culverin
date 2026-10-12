@@ -210,9 +210,7 @@ export async function runPopupResults(
   assert.equal(await resumedPopup.locator("#analysis-loader").count(), 0);
 
   await resumedPopup
-    .getByText(
-      /Source profile coverage: 2 of 14 regular files counted; 12 skipped \(0 excluded by Culverin ignore, 12 other files,/,
-    )
+    .getByText("Counted 2 of 14 files. Skipped 12 other.", { exact: true })
     .waitFor();
 
   assert.equal(

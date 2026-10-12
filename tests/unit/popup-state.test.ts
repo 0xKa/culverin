@@ -29,6 +29,7 @@ test("tracks repository, busy state, result and details", () => {
     otherRows: [],
     noLanguages: "No language totals.",
     coverage: "",
+    coverageTitle: "",
     fileLimit: "The per-file limit is 8 MiB.",
     oversizedFiles: [],
   };

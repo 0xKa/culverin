@@ -48,7 +48,7 @@ export type ResultView = {
   sizeTitle: string;
   cloneSize?: string;
   cloneTitle?: string;
-  intro: string[][];
+  intro: string[];
   codeSummary: string[];
   codeSummaryTitle?: string;
   codeRows: BreakdownRow[];
@@ -60,6 +60,7 @@ export type ResultView = {
   otherRows: BreakdownRow[];
   noLanguages?: string;
   coverage: string;
+  coverageTitle: string;
   warning?: string;
   fileLimit: string;
   oversizedFiles: {
@@ -79,6 +80,33 @@ const bySize = <T extends { files: number; language: string }>(
     b.files - a.files ||
     (a.language < b.language ? -1 : a.language > b.language ? 1 : 0);
 };
+
+export const TEXT_LINES_TITLE =
+  "Non-blank prose lines in Markdown, MDX, Djot, and plain text files";
+
+function coverageText(coverage: AnalysisResultV2["coverage"]): string {
+  const total = coverage.regularFiles.toLocaleString();
+  if (coverage.regularFiles === 0) return "No files to count.";
+  if (coverage.skippedFiles === 0)
+    return `Counted all ${total} ${coverage.regularFiles === 1 ? "file" : "files"}.`;
+  const skipped = coverage.skippedByReason;
+  const reasons = [
+    [skipped.excluded_by_rule, "ignored"],
+    [skipped.unsupported_language, "other"],
+    [skipped.binary_content, "binary"],
+    [
+      skipped.unsupported_notebook,
+      skipped.unsupported_notebook === 1
+        ? "unsupported notebook"
+        : "unsupported notebooks",
+    ],
+    [skipped.oversized_source, "oversized"],
+  ] as const;
+  const listed = reasons
+    .filter(([value]) => value > 0)
+    .map(([value, label]) => `${value.toLocaleString()} ${label}`);
+  return `Counted ${coverage.countedFiles.toLocaleString()} of ${total} files. Skipped ${listed.join(", ")}.`;
+}
 
 const share = (part: number, whole: number) =>
   whole === 0 ? 0 : (part / whole) * 100;
@@ -190,14 +218,9 @@ export function resultView(
     codeTitle: exact(`${totals.code.toLocaleString()} code lines`),
     fileTotal: count(coverage.regularFiles),
     fileLabel: coverage.regularFiles === 1 ? "file" : "files",
-    fileTitle: `${formats.counts === "abbreviated" ? `${coverage.regularFiles.toLocaleString()} ${coverage.regularFiles === 1 ? "file" : "files"}. ` : ""}All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other, binary, and ignored files are listed in Analysis details.`,
+    fileTitle: `${formats.counts === "abbreviated" ? `${coverage.regularFiles.toLocaleString()} ${coverage.regularFiles === 1 ? "file" : "files"}. ` : ""}All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other files are listed in Analysis details.`,
     stats: [
-      stat(
-        "Text lines",
-        text,
-        "Non-blank prose lines in Markdown, MDX, Djot, and plain text files",
-        "text-lines",
-      ),
+      stat("Text lines", text, TEXT_LINES_TITLE, "text-lines"),
       stat(
         "Physical lines",
         totals.lines,
@@ -217,12 +240,7 @@ export function resultView(
       historyBytes === undefined
         ? undefined
         : `Approximately ${exactBytes(coverage.totalBytes + historyBytes)}. The ${snapshotSize} of files plus the ${bytes(historyBytes)} of Git history that GitHub reports. GitHub updates its number only occasionally, so a real clone may differ.`,
-    intro: [
-      [`Default branch ${resolution.defaultBranch}`, `commit ${commit}`],
-      [
-        "Repository source was downloaded directly from GitHub and analyzed in your browser.",
-      ],
-    ],
+    intro: [`Default branch ${resolution.defaultBranch}`, `commit ${commit}`],
     codeSummary: [
       `${count(codeLanguages.reduce((sum, row) => sum + row.code, 0))} code lines`,
       `${count(files(codeLanguages))} files`,
@@ -249,7 +267,8 @@ export function resultView(
     otherRows,
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
-    coverage: `Source profile coverage: ${coverage.countedFiles.toLocaleString()} of ${coverage.regularFiles.toLocaleString()} regular files counted; ${coverage.skippedFiles.toLocaleString()} skipped (${skipped.excluded_by_rule.toLocaleString()} excluded by Culverin ignore, ${skipped.unsupported_language.toLocaleString()} other files, ${skipped.binary_content.toLocaleString()} binary, ${skipped.unsupported_notebook.toLocaleString()} unsupported notebook, ${skipped.oversized_source.toLocaleString()} oversized).`,
+    coverage: coverageText(coverage),
+    coverageTitle: "Skipped files aren't included in code or text lines.",
     warning: skipped.oversized_source
       ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} too large to count and ${skipped.oversized_source === 1 ? "is" : "are"} not included in these totals.`
       : undefined,

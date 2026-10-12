@@ -2,6 +2,16 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.5 - 2026-10-12
+
+- Counts the branch, tag, or commit a GitHub page names. Branch overviews such as `/tree/feature` get the About row, and the popup counts the ref shown on tree, blob, blame, commits, commit, and release tag pages. For a folder or file path, Culverin asks GitHub for each leading part of the path until one is a branch, at most five times.
+- Labels each result with the branch, tag, or commit it counted, in the popup's analysis details and in Settings → Storage. Refs other than the default branch are highlighted, with a tooltip naming the default branch, and Storage links them to their page. Long names end in an ellipsis with the full name in the tooltip.
+- Adds the About row on overview pages with a query string such as `?tab=readme-ov-file`, and on the default branch's `/tree` page. The popup recognizes a repository on any of its pages.
+- Colors each language row in the popup, saved results, and the Appearance preview by language. Appearance has a By language or Single color choice, and a marker choice of Square, Circle, or None.
+- Makes the API request meter in the popup optional and off by default. Turn on Show API requests in the popup in the GitHub requests panel to see it.
+- Clarifies the label for a repository your GitHub connection can't read. The popup badge says Not shared, and the About row says Culverin can't access this repo.
+- Keeps using results saved by 0.1.4.
+
 ## 0.1.4 - 2026-10-12
 
 - Adds Appearance settings for System, Light, and Dark themes, with a live preview and a High contrast option.

@@ -36,10 +36,10 @@ test("restores the saved toolbar accent on worker start, browser startup, and in
   const stop = followToolbarAccent(api.browser);
   await settle();
   expect(api.calls).toEqual([{ path: toolbarIconPaths("teal") }]);
-  api.values[accent.key] = "violet";
+  api.values[accent.key] = "purple";
   api.startup.emit();
   await settle();
-  expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("violet") });
+  expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("purple") });
   delete api.values[accent.key];
   api.installed.emit();
   await settle();
@@ -64,6 +64,19 @@ test("newer accent changes win over a stale startup read", async () => {
   stop();
 });
 
+test("legacy accents restore and update the toolbar using the current Purple images", async () => {
+  for (const oldValue of ["indigo", "violet"]) {
+    const api = fixture({ [accent.key]: oldValue });
+    const stop = followToolbarAccent(api.browser);
+    await settle();
+    expect(api.calls).toEqual([{ path: toolbarIconPaths("purple") }]);
+    api.changes.emit({ [accent.key]: { newValue: oldValue } }, "sync");
+    await settle();
+    expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("purple") });
+    stop();
+  }
+});
+
 test("serializes icon updates and keeps only the latest pending choice", async () => {
   const pending = deferred<void>();
   const api = fixture({ [accent.key]: "teal" });
@@ -73,7 +86,7 @@ test("serializes icon updates and keeps only the latest pending choice", async (
   };
   const stop = followToolbarAccent(api.browser);
   await settle();
-  for (const newValue of ["indigo", "pink", "slate"])
+  for (const newValue of ["copper", "pink", "slate"])
     api.changes.emit({ [accent.key]: { newValue } }, "sync");
   expect(api.calls).toHaveLength(1);
   pending.resolve();
@@ -86,7 +99,7 @@ test("serializes icon updates and keeps only the latest pending choice", async (
 });
 
 test("ignores unrelated storage changes and restores blue for deleted or invalid accents", async () => {
-  const api = fixture({ [accent.key]: "violet" });
+  const api = fixture({ [accent.key]: "purple" });
   const stop = followToolbarAccent(api.browser);
   await settle();
   api.changes.emit({ [accent.key]: { newValue: "pink" } }, "local");
@@ -109,11 +122,11 @@ test("a failed icon update leaves later changes working", async () => {
   };
   const stop = followToolbarAccent(api.browser);
   await settle();
-  api.changes.emit({ [accent.key]: { newValue: "indigo" } }, "sync");
+  api.changes.emit({ [accent.key]: { newValue: "copper" } }, "sync");
   await settle();
   expect(api.calls).toEqual([
     { path: toolbarIconPaths("blue") },
-    { path: toolbarIconPaths("indigo") },
+    { path: toolbarIconPaths("copper") },
   ]);
   stop();
 });

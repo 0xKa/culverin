@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-- Adds an Accent color choice under Appearance: Blue, Indigo, Violet, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.
+- Adds an Accent color choice under Appearance: Blue, Copper, Purple, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.
 - Makes the Culverin mark in the popup and settings follow your accent color. The Chrome toolbar icon uses the same accent on its square background with a white symbol, and restores your choice after restarting Chrome.
 
 ## 0.1.5 - 2026-10-12

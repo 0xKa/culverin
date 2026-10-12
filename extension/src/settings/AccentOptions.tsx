@@ -4,8 +4,8 @@ import { useRootChoice } from "./useRootChoice";
 
 const options: { value: Accent; label: string }[] = [
   { value: "blue", label: "Blue" },
-  { value: "indigo", label: "Indigo" },
-  { value: "violet", label: "Violet" },
+  { value: "copper", label: "Copper" },
+  { value: "purple", label: "Purple" },
   { value: "pink", label: "Pink" },
   { value: "teal", label: "Teal" },
   { value: "slate", label: "Slate" },

@@ -293,14 +293,14 @@
   --accent-c: 1;
 }
 
-[data-accent="indigo"] {
-  --accent-h: 278;
+[data-accent="copper"] {
+  --accent-h: 55;
   --accent-c: 1;
 }
 
-[data-accent="violet"] {
-  --accent-h: 305;
-  --accent-c: 1;
+[data-accent="purple"] {
+  --accent-h: 310;
+  --accent-c: 1.4;
 }
 
 [data-accent="pink"] {

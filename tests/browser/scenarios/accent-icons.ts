@@ -64,14 +64,52 @@ export async function runAccentIcons(
     assert.equal(colors.hidden, "true");
   }
 
-  try {
-    for (const value of [...accent.values.slice(1), accent.fallback]) {
-      await worker.evaluate(() => {
-        const scope = globalThis as IconScope;
-        scope.nextIcon = new Promise((resolve) => {
-          scope.iconChanged = resolve;
-        });
+  async function watchToolbarUpdate() {
+    await worker.evaluate(() => {
+      const scope = globalThis as IconScope;
+      scope.nextIcon = new Promise((resolve) => {
+        scope.iconChanged = resolve;
       });
+    });
+  }
+
+  try {
+    for (const oldValue of ["indigo", "violet"]) {
+      await watchToolbarUpdate();
+      await settings.evaluate(
+        (oldValue) => chrome.storage.sync.set({ "culverin.accent": oldValue }),
+        oldValue,
+      );
+      for (const target of [settings, popup])
+        await target.waitForFunction(
+          () => document.documentElement.dataset.accent === "purple",
+        );
+      const applied = await worker.evaluate(
+        () => (globalThis as IconScope).nextIcon,
+      );
+      assert.deepEqual(applied, { path: toolbarIconPaths("purple") });
+      await settings.evaluate(
+        (oldValue) => localStorage.setItem("culverin.accent", oldValue),
+        oldValue,
+      );
+      await settings.reload();
+      await settings.waitForFunction(
+        () =>
+          localStorage.getItem("culverin.accent") === "purple" &&
+          document.querySelector<HTMLInputElement>(
+            'input[name="accent"][value="purple"]',
+          )?.checked,
+      );
+      assert.equal(
+        await settings
+          .getByRole("radio", { name: "Purple", exact: true })
+          .isChecked(),
+        true,
+      );
+      await checkHeader(settings);
+    }
+    for (const value of [...accent.values.slice(1), accent.fallback]) {
+      await watchToolbarUpdate();
       await settings.locator(`input[name="accent"][value="${value}"]`).check();
       for (const page of [settings, popup])
         await page.waitForFunction(

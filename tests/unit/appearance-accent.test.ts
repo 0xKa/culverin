@@ -53,8 +53,8 @@ test("defaults to blue and offers the curated accents", () => {
   expect(accent.fallback).toBe("blue");
   expect(accent.values).toEqual([
     "blue",
-    "indigo",
-    "violet",
+    "copper",
+    "purple",
     "pink",
     "teal",
     "slate",
@@ -64,16 +64,71 @@ test("defaults to blue and offers the curated accents", () => {
 test("saves a chosen accent, removes the default, and rejects unknown values", async () => {
   const storage = memoryStorage({ [HIGH_CONTRAST_KEY]: true });
   expect(await accent.read(storage)).toBe("blue");
-  await accent.write("violet", storage);
-  expect(await accent.read(storage)).toBe("violet");
+  await accent.write("purple", storage);
+  expect(await accent.read(storage)).toBe("purple");
   await accent.write("blue", storage);
   expect(Object.fromEntries(storage.values)).toEqual({
     [HIGH_CONTRAST_KEY]: true,
   });
-  for (const value of ["Violet", "red", "#ff0000", true, 1, null]) {
+  for (const value of [
+    "Purple",
+    "red",
+    "#ff0000",
+    "constructor",
+    "toString",
+    "__proto__",
+    true,
+    1,
+    null,
+  ]) {
     expect(await accent.read(memoryStorage({ [accent.key]: value }))).toBe(
       "blue",
     );
+  }
+});
+
+test("reads old Indigo and Violet preferences as Purple and saves new choices by their current names", async () => {
+  for (const oldValue of ["indigo", "violet"]) {
+    const sync = memoryStorage({ [accent.key]: oldValue });
+    const remembered = rememberedStorage();
+    remembered.values.set(accent.key, oldValue);
+    expect(await accent.read(sync)).toBe("purple");
+    expect(accent.readRemembered(remembered)).toBe("purple");
+    expect(accent.parse(oldValue)).toBe("purple");
+    expect(accent.values).not.toContain(oldValue);
+    await accent.write("copper", sync);
+    expect(sync.values.get(accent.key)).toBe("copper");
+    await accent.write("purple", sync);
+    expect(sync.values.get(accent.key)).toBe("purple");
+  }
+});
+
+test("uses the current Purple attribute at startup and normalizes remembered legacy values", async () => {
+  const reading = deferred<Record<string, unknown>>();
+  const changes = event<Listener>();
+  const root = { dataset: { theme: "dark" } as DOMStringMap };
+  const storage = rememberedStorage();
+  storage.values.set(accent.key, "violet");
+  const restore = [
+    replaceGlobal("document", { documentElement: root }),
+    replaceGlobal("localStorage", storage),
+    replaceGlobal("chrome", {
+      storage: { sync: { get: () => reading.promise }, onChanged: changes },
+    }),
+  ];
+  try {
+    followAccent();
+    expect(root.dataset).toEqual({ theme: "dark", accent: "purple" });
+    reading.resolve({ [accent.key]: "indigo" });
+    await settle();
+    expect(storage.values.get(accent.key)).toBe("purple");
+    changes.emit({ [accent.key]: { newValue: "violet" } }, "sync");
+    expect(root.dataset.accent).toBe("purple");
+    changes.emit({ [accent.key]: { newValue: "copper" } }, "sync");
+    expect(root.dataset).toEqual({ theme: "dark", accent: "copper" });
+    expect(storage.values.get(accent.key)).toBe("copper");
+  } finally {
+    for (const reset of restore.reverse()) reset();
   }
 });
 

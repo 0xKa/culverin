@@ -32,14 +32,20 @@ export function defineRootChoice<T extends string>({
   values,
   fallback,
   attribute,
+  aliases,
 }: {
   key: string;
   values: readonly T[];
   fallback: T;
   attribute: string;
+  aliases?: Readonly<Record<string, T>>;
 }): RootChoice<T> {
-  const parse = (value: unknown) =>
-    values.includes(value as T) ? (value as T) : undefined;
+  const parse = (value: unknown): T | undefined => {
+    if (values.includes(value as T)) return value as T;
+    if (typeof value === "string" && aliases && Object.hasOwn(aliases, value))
+      return aliases[value];
+    return undefined;
+  };
   const choice: RootChoice<T> = {
     ...definePreference<T>({
       key,

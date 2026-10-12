@@ -9,6 +9,7 @@ import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
 import { ThemeSample } from "./ThemeSample";
 import { NumberOptions } from "./NumberOptions";
+import { LanguageColorOptions } from "./LanguageColorOptions";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -133,6 +134,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
           </div>
         </div>
         <NumberOptions />
+        <LanguageColorOptions />
         <ThemeSample />
       </Panel>
     </section>

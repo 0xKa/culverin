@@ -78,7 +78,12 @@
 }
 
 :root {
+  --language-min-l: 0;
+  --language-max-l: 0.54;
+
   @variant dark {
+    --language-min-l: 0.67;
+    --language-max-l: 1;
     --color-canvas: oklch(0.185 0.015 255);
     --color-surface: oklch(0.225 0.018 255);
     --color-raised: oklch(0.245 0.02 255);
@@ -120,8 +125,11 @@
   --color-warning-text: oklch(0.38 0.09 65);
   --color-error: oklch(0.4 0.15 25);
   --color-track: oklch(0.85 0.014 255);
+  --language-max-l: 0.4;
 
   @variant dark {
+    --language-min-l: 0.9;
+    --language-max-l: 1;
     --color-divider: oklch(0.56 0.02 255);
     --color-border: oklch(0.66 0.024 255);
     --color-control: oklch(0.76 0.025 255);
@@ -256,6 +264,31 @@
     @starting-style {
       scale: 0 1;
     }
+  }
+}
+
+.language-color {
+  --language-color: oklch(
+    clamp(var(--language-min-l), var(--language-l), var(--language-max-l))
+      var(--language-c) var(--language-h)
+  );
+}
+
+.language-color[data-subdued] {
+  --language-color: oklch(
+    clamp(var(--language-min-l), var(--language-l), var(--language-max-l))
+      calc(var(--language-c) * 0.4) var(--language-h)
+  );
+}
+
+:root[data-language-colors="single"] .language-swatch {
+  display: none;
+}
+
+@media not (forced-colors: active) {
+  :root:not([data-language-colors="single"]) .language-color .language-fill,
+  .language-swatch {
+    background-color: var(--language-color);
   }
 }
 

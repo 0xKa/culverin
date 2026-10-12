@@ -175,6 +175,7 @@ export function Details({
             label="Languages by code lines"
             moreLabel="More languages by code lines"
             id="more-code-languages"
+            kind="code"
           ></ResultSection>
         )}
         {result && result.textRows.length > 0 && (
@@ -188,6 +189,7 @@ export function Details({
             label="Text formats by text lines"
             moreLabel="More text formats by text lines"
             id="more-text-formats"
+            kind="text"
           ></ResultSection>
         )}
         {result && result.otherRows.length > 0 && (
@@ -201,7 +203,7 @@ export function Details({
             label="Other files by lines"
             moreLabel="More other files by lines"
             id="more-other-files"
-            muted
+            kind="other"
           ></ResultSection>
         )}
         {result?.noLanguages && (

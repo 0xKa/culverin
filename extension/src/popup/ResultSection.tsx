@@ -1,6 +1,7 @@
 import type { BreakdownRow } from "./view";
 import { Joined } from "../ui/Separator";
 import { ResultRows } from "./ResultRows";
+import type { BreakdownKind } from "./breakdown";
 import { tip } from "../ui/tooltip";
 
 export function ResultSection({
@@ -9,7 +10,7 @@ export function ResultSection({
   summary,
   summaryTitle,
   summaryId,
-  muted,
+  kind,
   ...rows
 }: {
   title: string;
@@ -21,7 +22,7 @@ export function ResultSection({
   label: string;
   moreLabel: string;
   id: string;
-  muted?: boolean;
+  kind: BreakdownKind;
 }) {
   return (
     <section className="mt-4">
@@ -37,7 +38,7 @@ export function ResultSection({
           <Joined parts={summary} />
         </p>
       </div>
-      <ResultRows {...rows} muted={muted} />
+      <ResultRows {...rows} kind={kind} />
     </section>
   );
 }

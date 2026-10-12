@@ -107,6 +107,7 @@ export function ThemeSample() {
             label="Sample languages by code lines"
             moreLabel="More sample languages by code lines"
             id="theme-sample-more-languages"
+            kind="code"
           />
         </div>
       </div>

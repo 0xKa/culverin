@@ -26,7 +26,7 @@ export function ResultSection({
   return (
     <section className="mt-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 {...tip(titleTip)} className="m-0 text-sm font-semibold">
+        <h2 {...tip(titleTip)} className="text-md m-0 font-semibold">
           {title}
         </h2>
         <p

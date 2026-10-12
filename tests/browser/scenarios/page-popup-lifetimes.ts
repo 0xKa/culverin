@@ -51,24 +51,22 @@ export async function runPagePopupLifetimes(
       return [style.backgroundColor, style.color, style.colorScheme];
     });
 
-  const headerIcons = (target: typeof popup) =>
+  const headerColor = (target: typeof popup) =>
     target
-      .locator("header img")
-      .evaluateAll((icons) =>
-        icons.map((icon) => getComputedStyle(icon).display),
-      );
+      .locator("header .culverin-icon")
+      .evaluate((icon) => getComputedStyle(icon).backgroundColor);
 
   await popup.emulateMedia({ colorScheme: "light" });
 
   const lightPalette = await palette(popup);
-
-  assert.deepEqual(await headerIcons(popup), ["block", "none"]);
+  const lightHeaderColor = await headerColor(popup);
+  assert.match(lightHeaderColor, /^oklch\(/);
 
   await popup.emulateMedia({ colorScheme: "dark" });
 
   const darkPalette = await palette(popup);
-
-  assert.deepEqual(await headerIcons(popup), ["none", "block"]);
+  const darkHeaderColor = await headerColor(popup);
+  assert.notEqual(darkHeaderColor, lightHeaderColor);
 
   assert.notDeepEqual(lightPalette.slice(0, 2), darkPalette.slice(0, 2));
 
@@ -156,7 +154,7 @@ export async function runPagePopupLifetimes(
     "light",
   ]);
 
-  assert.deepEqual(await headerIcons(themed), ["block", "none"]);
+  assert.equal(await headerColor(themed), lightHeaderColor);
 
   await themed.emulateMedia({ colorScheme: "light" });
 
@@ -168,7 +166,7 @@ export async function runPagePopupLifetimes(
 
   assert.deepEqual(await palette(themed), [...darkPalette.slice(0, 2), "dark"]);
 
-  assert.deepEqual(await headerIcons(themed), ["none", "block"]);
+  assert.equal(await headerColor(themed), darkHeaderColor);
 
   await appearance
     .locator('#appearance-status-mark[data-mark="done"][data-faded]')

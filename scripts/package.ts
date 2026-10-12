@@ -10,6 +10,7 @@ import {
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { crc32, deflateRawSync } from "node:zlib";
+import { toolbarIconFiles } from "../extension/src/appearance/icons";
 
 const root = resolve(import.meta.dirname, "..");
 const source = resolve(root, "extension/dist");
@@ -29,7 +30,6 @@ const ROOT_FILES = [
   "settings.html",
   "settings.js",
 ];
-const ICONS = ["icon-128.png", "icon-16.png", "icon-32.png", "icon-48.png"];
 const ASSET = /^[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.(js|css|wasm)$/;
 const ORIGINS = new Set([
   "https://github.com",
@@ -80,7 +80,7 @@ check(
   `unexpected top-level files: ${readdirSync(source).sort().join(", ")}`,
 );
 check(
-  same(readdirSync(resolve(source, "icons")).sort(), ICONS),
+  same(readdirSync(resolve(source, "icons")).sort(), toolbarIconFiles),
   "unexpected icon files",
 );
 const assets = readdirSync(resolve(source, "assets"));

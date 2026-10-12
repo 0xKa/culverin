@@ -22,7 +22,8 @@ export function AccentOptions() {
             Accent color
           </legend>
           <p className="text-muted m-0 mb-3 text-sm">
-            Used for highlights, links, buttons, and single-color language bars.
+            Used for the Culverin icon, highlights, links, buttons, and
+            single-color language bars.
           </p>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2.5">
             {options.map((option) => (

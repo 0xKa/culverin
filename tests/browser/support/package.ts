@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { toolbarIconFiles } from "../../../extension/src/appearance/icons";
 export function inspectPackage(directory: string, diagnostic = false): void {
   assert.deepEqual(readdirSync(directory).sort(), [
     "THIRD_PARTY_NOTICES.txt",
@@ -16,21 +17,19 @@ export function inspectPackage(directory: string, diagnostic = false): void {
     "settings.html",
     "settings.js",
   ]);
-  assert.deepEqual(readdirSync(resolve(directory, "icons")).sort(), [
-    "icon-128.png",
-    "icon-16.png",
-    "icon-32.png",
-    "icon-48.png",
-  ]);
+  assert.deepEqual(
+    readdirSync(resolve(directory, "icons")).sort(),
+    toolbarIconFiles,
+  );
   assert.deepEqual(
     readdirSync(resolve(directory, "assets"))
       .map((name) => name.replace(/-[A-Za-z0-9_-]+(?=\.)/, "-HASH"))
       .sort(),
     diagnostic
       ? [
+          "accent-HASH.js",
           "archive-HASH.js",
           "culverin_counter_bg-HASH.wasm",
-          "numbers-HASH.js",
           "numbers-HASH.js",
           "preact-HASH.js",
           "protocol-HASH.js",
@@ -41,8 +40,8 @@ export function inspectPackage(directory: string, diagnostic = false): void {
           "worker-HASH.js",
         ]
       : [
+          "accent-HASH.js",
           "culverin_counter_bg-HASH.wasm",
-          "numbers-HASH.js",
           "numbers-HASH.js",
           "preact-HASH.js",
           "result-HASH.js",

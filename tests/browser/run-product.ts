@@ -9,6 +9,7 @@ import { runPartialResults } from "./scenarios/partial-results";
 import { runPopupResults } from "./scenarios/popup-results";
 import { runStatusMarkMotion } from "./scenarios/status-mark";
 import { runSetup } from "./scenarios/setup";
+import { runAccentIcons } from "./scenarios/accent-icons";
 import { inspectPackage } from "./support/package";
 import { closeBrowserSession, createBrowserSession } from "./support/session";
 
@@ -21,6 +22,7 @@ export async function runProductSuite(directory: string): Promise<void> {
   const session = await createBrowserSession(directory);
   try {
     const step0 = await scenario("setup", () => runSetup(session));
+    await scenario("accent icons", () => runAccentIcons(step0));
     await scenario("denied diagnostic capabilities", () =>
       runDeniedDiagnostics(step0),
     );

@@ -18,7 +18,7 @@ export function refView(resolution: {
     };
   return {
     name: ref,
-    note: `Not the default branch (${defaultBranch})`,
+    note: `${ref} is not the default branch (${defaultBranch})`,
     commit: false,
   };
 }

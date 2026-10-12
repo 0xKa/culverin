@@ -152,7 +152,10 @@ export function Details({
       <summary className="text-sm">Analysis details</summary>
       <div id="detail-content" className="pt-1">
         {result && (
-          <p id="revision" className="text-muted m-0 mt-1.5 text-xs">
+          <p
+            id="revision"
+            className="text-muted m-0 mt-1.5 flex items-baseline text-xs"
+          >
             {result.revision.commit ? (
               <RefName
                 view={{
@@ -164,7 +167,9 @@ export function Details({
               <>
                 <RefName view={result.revision} />
                 <Separator />
-                commit {result.commit}
+                <span className="shrink-0 whitespace-nowrap">
+                  commit {result.commit}
+                </span>
               </>
             )}
           </p>

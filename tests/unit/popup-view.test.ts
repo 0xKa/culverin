@@ -367,7 +367,7 @@ test("labels the counted branch, tag, or commit and flags non-default ones", () 
   expect(refView(resolution)).toEqual({ name: "main", commit: false });
   expect(refView({ ...resolution, ref: "ding-dong" })).toEqual({
     name: "ding-dong",
-    note: "Not the default branch (main)",
+    note: "ding-dong is not the default branch (main)",
     commit: false,
   });
   expect(refView({ ...resolution, ref: "AAAAAAA" })).toEqual({
@@ -378,7 +378,7 @@ test("labels the counted branch, tag, or commit and flags non-default ones", () 
   expect(refView({ ...resolution, ref: "abcdef1" }).commit).toBe(false);
   expect(resultView(result, { ...resolution, ref: "v1.0" }).revision).toEqual({
     name: "v1.0",
-    note: "Not the default branch (main)",
+    note: "v1.0 is not the default branch (main)",
     commit: false,
   });
   expect(readyStatus(resolution, false).detail).toStartWith(

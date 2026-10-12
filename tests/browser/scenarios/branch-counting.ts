@@ -17,10 +17,12 @@ export async function runBranchCounting(
     summary,
   } = state;
   const branchSha = "b".repeat(40);
+  const longBranch = "add-a-very-long-oauth-login-flow-for-enterprise-accounts";
+  const longSha = "c".repeat(40);
 
   await clearPublicCache();
   fixtures.mode = "ok";
-  fixtures.branches = { feature: branchSha };
+  fixtures.branches = { feature: branchSha, [longBranch]: longSha };
 
   const worker =
     context.serviceWorkers()[0] ??
@@ -51,7 +53,7 @@ export async function runBranchCounting(
     },
     {
       bytes: [...readFileSync("tests/fixtures/archive-source.tar.gz")],
-      shas: [publicSha, branchSha],
+      shas: [publicSha, branchSha, longSha],
     },
   );
   const archives = () =>
@@ -85,7 +87,7 @@ export async function runBranchCounting(
   assert.match((await revision.textContent()) ?? "", /^feature, commit b{12}$/);
   assert.equal(
     await revision.locator("[data-tip]").getAttribute("data-tip"),
-    "Not the default branch (main)",
+    "feature is not the default branch (main)",
   );
   await branchPopup.close();
 
@@ -126,6 +128,33 @@ export async function runBranchCounting(
   );
   await page.getByText(/ lines? of code$/).waitFor();
 
+  const mainRoot = await summary.elementHandle();
+  await page.evaluate(
+    (branch) =>
+      history.pushState({}, "", `/culverin/bootstrap-fixture/tree/${branch}`),
+    longBranch,
+  );
+  await page.waitForFunction((root) => !root?.isConnected, mainRoot);
+  await page.getByText("Analyze with Culverin").click();
+  await page.getByText(/ lines? of code$/).waitFor();
+  assert.deepEqual(await archives(), [branchSha, publicSha, longSha]);
+  const singleLine = (element: Element) => {
+    const line = parseFloat(getComputedStyle(element).lineHeight);
+    return element.getBoundingClientRect().height < line * 1.5;
+  };
+  const cut = (element: Element) => element.scrollWidth > element.clientWidth;
+  const longPopup = await openPopup(page);
+  const longRevision = longPopup.locator("#revision");
+  await longRevision.waitFor({ state: "visible" });
+  assert.equal(await longRevision.evaluate(singleLine), true);
+  assert.equal(await longRevision.locator("[data-tip]").evaluate(cut), true);
+  assert.equal(
+    await longRevision.locator("[data-tip]").getAttribute("data-tip"),
+    `${longBranch} is not the default branch (main)`,
+  );
+  assert.match((await longRevision.textContent()) ?? "", /, commit c{12}$/);
+  await longPopup.close();
+
   const storage = await context.newPage();
   await storage.goto(`${extensionUrl}/settings.html#storage`);
   const branchLink = storage.locator(
@@ -135,11 +164,28 @@ export async function runBranchCounting(
   const branchRow = storage.locator("#cache-list tr", { has: branchLink });
   assert.match(
     (await branchRow.locator("td").first().textContent()) ?? "",
-    /^culverin\/bootstrap-fixturefeature, b{7}, mostly /,
+    /^culverin\/bootstrap-fixturefeatureb{7}, mostly /,
   );
   assert.equal(
     await branchRow.locator("td [data-tip]").first().getAttribute("data-tip"),
-    "Not the default branch (main)",
+    "feature is not the default branch (main)",
+  );
+  const longRow = storage.locator("#cache-list tr", {
+    has: storage.locator(
+      `a[href="https://github.com/culverin/bootstrap-fixture/tree/${longBranch}"]`,
+    ),
+  });
+  const longCell = longRow.locator("td").first();
+  assert.equal(await longCell.locator("a").evaluate(singleLine), true);
+  assert.equal(
+    await longCell.locator("div").first().evaluate(singleLine),
+    true,
+  );
+  assert.equal(await longCell.locator("div").nth(1).evaluate(singleLine), true);
+  assert.equal(await longCell.locator("[data-tip]").evaluate(cut), true);
+  assert.equal(
+    await longCell.locator("[data-tip]").getAttribute("data-tip"),
+    `${longBranch} is not the default branch (main)`,
   );
   const defaultRow = storage.locator("#cache-list tr", {
     has: storage.locator(
@@ -148,7 +194,11 @@ export async function runBranchCounting(
   });
   assert.match(
     (await defaultRow.locator("td").first().textContent()) ?? "",
-    /^culverin\/bootstrap-fixturemain, [0-9a-f]{7}, mostly /,
+    /^culverin\/bootstrap-fixture[0-9a-f]{7}, mostly /,
+  );
+  assert.equal(
+    await defaultRow.locator("td").first().locator("div").count(),
+    1,
   );
   await storage.close();
 
@@ -162,7 +212,12 @@ export async function runBranchCounting(
   );
   await page.waitForFunction((root) => !root?.isConnected, defaultRoot);
   await page.getByText(/ lines? of code$/).waitFor();
-  assert.deepEqual(await archives(), [branchSha, publicSha, branchSha]);
+  assert.deepEqual(await archives(), [
+    branchSha,
+    publicSha,
+    longSha,
+    branchSha,
+  ]);
   const tabId = state.repositoryTabId;
   assert.ok(typeof tabId === "number");
   const pushTotal = (ref: string, total: number) =>

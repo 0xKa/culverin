@@ -200,9 +200,12 @@ function CacheList({
                     >
                       {entry.owner}/{entry.name}
                     </ExternalLink>
+                    {entry.resolution.ref !== undefined && (
+                      <div className="mt-0.5 flex text-xs">
+                        <RefName view={refView(entry.resolution)} />
+                      </div>
+                    )}
                     <div className="text-muted mt-0.5 text-xs">
-                      <RefName view={refView(entry.resolution)} />
-                      <Separator />
                       <span className="font-mono">{entry.sha.slice(0, 7)}</span>
                       {entry.topLanguage && (
                         <>

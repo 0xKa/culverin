@@ -3,8 +3,8 @@ import {
   followLanguageColors,
   languageColors,
   languageMarkers,
-  type RootChoice,
 } from "../../extension/src/appearance/language-colors";
+import type { RootChoice } from "../../extension/src/preferences/root-choice";
 import {
   highContrast,
   HIGH_CONTRAST_KEY,

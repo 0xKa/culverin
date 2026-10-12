@@ -1,12 +1,11 @@
-import { useEffect, useState } from "preact/hooks";
 import {
   languageColors,
   languageMarkers,
   type LanguageColorMode,
   type LanguageMarker,
-  type RootChoice,
 } from "../appearance/language-colors";
-import { ActionStatus, useAction } from "./ActionStatus";
+import { ActionStatus, type useAction } from "./ActionStatus";
+import { useRootChoice } from "./useRootChoice";
 
 type Option<T> = { value: T; label: string; detail: string };
 
@@ -36,19 +35,6 @@ const markers: Option<LanguageMarker>[] = [
   },
   { value: "none", label: "None", detail: "Color only the bars." },
 ];
-
-function useChoice<T extends string>(choice: RootChoice<T>) {
-  const [value, setValue] = useState<T>();
-  const action = useAction();
-  useEffect(() => choice.subscribe(setValue), [choice]);
-  function change(next: T): void {
-    setValue(next);
-    void action.run(() => choice.write(next), {
-      restore: () => void choice.read().then(setValue),
-    });
-  }
-  return { value, change, state: action.state };
-}
 
 function Choice<T extends string>({
   legend,
@@ -105,8 +91,8 @@ function Choice<T extends string>({
 }
 
 export function LanguageColorOptions() {
-  const mode = useChoice(languageColors);
-  const marker = useChoice(languageMarkers);
+  const mode = useRootChoice(languageColors);
+  const marker = useRootChoice(languageMarkers);
 
   return (
     <div className="border-divider mt-5 grid gap-5 border-t pt-5">

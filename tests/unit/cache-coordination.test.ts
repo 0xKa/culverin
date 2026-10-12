@@ -11,6 +11,7 @@ import {
   PublicResultCache,
   PUBLIC_RESOLUTION_TTL,
   ResolutionCache,
+  RESOLUTION_ENTRIES,
   RESOLUTION_KEY,
   RESOLUTION_TTL,
   resolutionIdentity,
@@ -624,7 +625,7 @@ test("clearing resolutions ignores a load that was still pending", async () => {
 test("resolution cache evicts the oldest entry at its entry limit", async () => {
   const refs = new ResolutionCache();
   let calls = 0;
-  for (let index = 1; index <= 101; index++)
+  for (let index = 1; index <= RESOLUTION_ENTRIES + 1; index++)
     await refs.resolve(`public:owner/repo-${index}`, async () => {
       calls++;
       return resolution(String(index));
@@ -633,7 +634,30 @@ test("resolution cache evicts the oldest entry at its entry limit", async () => 
     calls++;
     return resolution("1");
   });
-  expect(calls).toBe(102);
+  expect(calls).toBe(RESOLUTION_ENTRIES + 2);
+});
+
+test("resolution cache keeps one lookup under each of its aliases", async () => {
+  const refs = new ResolutionCache();
+  let calls = 0;
+  const resolved = await refs.resolveWithStatus(
+    "public:owner/repo@main/src",
+    async () => {
+      calls++;
+      return resolution("1");
+    },
+    false,
+    () => ["public:owner/repo@main", "public:owner/repo"],
+  );
+  expect(resolved.fresh).toBe(true);
+  for (const key of [
+    "public:owner/repo@main/src",
+    "public:owner/repo@main",
+    "public:owner/repo",
+  ])
+    expect((await refs.peek(key))?.envelope).toEqual(resolved.envelope);
+  expect(await refs.peek("public:owner/repo@other")).toBeUndefined();
+  expect(calls).toBe(1);
 });
 
 test("coordinator reports progress phases only forward", () => {

@@ -65,6 +65,7 @@ const hiddenLookupFailures: PublicErrorCode[] = [
   "repository_unavailable",
   "repository_forbidden",
   "repository_empty",
+  "ref_unavailable",
 ];
 
 const connectLabels: Partial<Record<PublicErrorCode, string>> = {
@@ -106,6 +107,8 @@ export function failureState(
     };
   const connect = connectLabels[code];
   if (connect) return { kind: "connect", label: connect, detail };
+  if (code === "ref_unavailable")
+    return { kind: "notice", label: "Branch or tag not found", detail };
   if (sizeFailures.includes(code))
     return { kind: "notice", label: "Too large to count", detail };
   if (unsupportedFailures.includes(code))

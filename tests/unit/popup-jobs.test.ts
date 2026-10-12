@@ -94,6 +94,24 @@ test("accepts the repository from any of its pages and rejects other pages", asy
   }
 });
 
+test("passes the ref a repository page names to the analysis", async () => {
+  for (const [url, target] of [
+    ["https://github.com/culverin/sample", undefined],
+    [
+      "https://github.com/culverin/sample/tree/ding-dong/src",
+      { path: "ding-dong/src", exact: false },
+    ],
+    [
+      "https://github.com/culverin/sample/releases/tag/v1.0",
+      { path: "v1.0", exact: true },
+    ],
+  ] as const) {
+    const ui = await lookup(undefined, 1, undefined, url);
+    expect(ui.run).toHaveBeenCalledTimes(1);
+    expect(ui.run.mock.calls[0]?.[1]?.target).toEqual(target);
+  }
+});
+
 test("another focused tab and popup documents in tabs retain the original gate", async () => {
   for (const ui of [
     await lookup(2),

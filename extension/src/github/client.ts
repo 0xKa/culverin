@@ -1,4 +1,10 @@
-import { validLogin, validRepository } from "./repository";
+import {
+  refPrefixes,
+  validLogin,
+  validRepository,
+  REF_LIMIT,
+  type RefTarget,
+} from "./repository";
 import { ARCHIVE_LIMITS } from "../archive/limits";
 import { readRateLimit, readRateLimitBody, type RateLimit } from "./rate-limit";
 
@@ -15,13 +21,17 @@ export type Resolution = {
   visibility: "public" | "private";
   sha: string;
   sizeKb: number | null;
+  ref?: string;
 };
+
+const REF_ATTEMPTS = 5;
 
 export type AcquisitionErrorCode =
   | "invalid_repository"
   | "metadata_limit_exceeded"
   | "repository_unavailable"
   | "repository_empty"
+  | "ref_unavailable"
   | "authentication_invalid"
   | "repository_forbidden"
   | "rate_limited"
@@ -130,7 +140,7 @@ export async function boundedJson(response: Response): Promise<unknown> {
   }
 }
 
-async function apiResponse(
+async function apiRequest(
   fetcher: Fetcher,
   url: string,
   token: string | undefined,
@@ -148,6 +158,16 @@ async function apiResponse(
     await response.body?.cancel().catch(() => undefined);
     throw new AcquisitionError("network_unavailable");
   }
+  return response;
+}
+
+async function apiResponse(
+  fetcher: Fetcher,
+  url: string,
+  token: string | undefined,
+  signal: AbortSignal,
+): Promise<Response> {
+  const response = await apiRequest(fetcher, url, token, signal);
   if (!response.ok) throw apiFailure(response);
   return response;
 }
@@ -215,6 +235,7 @@ export async function resolveRepository(
   name: string,
   token: string | undefined,
   signal: AbortSignal,
+  target?: RefTarget,
 ): Promise<Resolution> {
   const metadata = record(
     await apiGet(fetcher, apiUrl(owner, name), token, signal),
@@ -242,33 +263,71 @@ export async function resolveRepository(
     throw new AcquisitionError("repository_empty");
   if (typeof branch !== "string" || branch.length > 255)
     throw new AcquisitionError("network_unavailable");
-  const commit = record(
-    await apiGet(
-      fetcher,
-      apiUrl(
-        canonicalOwner,
-        canonicalName,
-        `/commits/${encodeURIComponent(branch)}`,
-      ),
-      token,
-      signal,
-    ),
-  );
-  const sha = commit?.sha;
-  if (typeof sha !== "string" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(sha))
-    throw new AcquisitionError("network_unavailable");
+  const commitUrl = (ref: string) =>
+    apiUrl(
+      canonicalOwner,
+      canonicalName,
+      `/commits/${encodeURIComponent(ref)}`,
+    );
+  const shaOf = (value: unknown) => {
+    const sha = record(value)?.sha;
+    if (
+      typeof sha !== "string" ||
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(sha)
+    )
+      throw new AcquisitionError("network_unavailable");
+    return sha.toLowerCase();
+  };
+  let ref: string | undefined;
+  let sha: string | undefined;
+  if (target && !defaultTarget(target, branch)) {
+    for (const candidate of refCandidates(target, branch)) {
+      const response = await apiRequest(
+        fetcher,
+        commitUrl(candidate),
+        token,
+        signal,
+      );
+      if (response.status === 404 || response.status === 422) {
+        await response.body?.cancel().catch(() => undefined);
+        continue;
+      }
+      if (!response.ok) throw apiFailure(response);
+      sha = shaOf(await boundedJson(response));
+      ref = candidate;
+      break;
+    }
+    if (!sha) throw new AcquisitionError("ref_unavailable");
+  }
+  sha ??= shaOf(await apiGet(fetcher, commitUrl(branch), token, signal));
   return {
     repositoryId: String(id),
     owner: canonicalOwner,
     name: canonicalName,
     defaultBranch: branch,
     visibility,
-    sha: sha.toLowerCase(),
+    sha,
     sizeKb:
       Number.isSafeInteger(size) && (size as number) >= 0
         ? (size as number)
         : null,
+    ...(ref === undefined ? {} : { ref }),
   };
+}
+
+function defaultTarget(target: RefTarget, branch: string): boolean {
+  return (
+    target.path === branch ||
+    (!target.exact && target.path.startsWith(`${branch}/`))
+  );
+}
+
+export function refCandidates(target: RefTarget, branch: string): string[] {
+  if (defaultTarget(target, branch)) return [];
+  if (target.exact) return target.path.length <= REF_LIMIT ? [target.path] : [];
+  return refPrefixes(target.path)
+    .filter((candidate) => candidate.length <= REF_LIMIT)
+    .slice(0, REF_ATTEMPTS);
 }
 
 export async function openArchive(

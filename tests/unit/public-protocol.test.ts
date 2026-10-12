@@ -5,6 +5,7 @@ import {
   pageRoute,
   sameRepository,
   tabRepository,
+  tabRoute,
 } from "../../extension/src/github/repository";
 import {
   publicFailure,
@@ -82,6 +83,52 @@ test("accepts only GitHub repository overview routes", () => {
     expect(pageRepository(url)).toBeUndefined();
 });
 
+test("reads the branch, tag, or commit that a repository page names", () => {
+  const repository = { owner: "owner", name: "repo" };
+  for (const [url, target] of [
+    ["https://github.com/owner/repo", undefined],
+    ["https://github.com/owner/repo/issues", undefined],
+    ["https://github.com/owner/repo/pull/4/files", undefined],
+    [
+      "https://github.com/owner/repo/tree/ding-dong",
+      { path: "ding-dong", exact: false },
+    ],
+    [
+      "https://github.com/owner/repo/tree/ding-dong/src/",
+      { path: "ding-dong/src", exact: false },
+    ],
+    [
+      "https://github.com/owner/repo/blob/feature/x/README.md#L2",
+      { path: "feature/x/README.md", exact: false },
+    ],
+    [
+      "https://github.com/owner/repo/blame/v1.0/a.ts",
+      { path: "v1.0/a.ts", exact: false },
+    ],
+    [
+      "https://github.com/owner/repo/commits/main?author=octo",
+      { path: "main", exact: false },
+    ],
+    [
+      "https://github.com/owner/repo/commit/ABCDEF1",
+      { path: "ABCDEF1", exact: true },
+    ],
+    [
+      "https://github.com/owner/repo/releases/tag/v2.0%2Brc",
+      { path: "v2.0+rc", exact: true },
+    ],
+    ["https://github.com/owner/repo/commit/xyz", undefined],
+    ["https://github.com/owner/repo/tree/a//b", undefined],
+  ] as const)
+    expect(tabRoute(url)).toEqual(
+      target === undefined ? { repository } : { repository, target },
+    );
+  expect(
+    tabRoute(`https://github.com/owner/repo/tree/${"a/".repeat(600)}b`),
+  ).toEqual({ repository });
+  expect(tabRoute("https://github.com/settings/profile")).toBeUndefined();
+});
+
 test("recognizes every page inside a repository for the toolbar popup", () => {
   for (const url of [
     "https://github.com/owner/repo",
@@ -147,6 +194,7 @@ test("anchors the summary after the visible About forks row", () => {
   ]);
   expect(pageContext("https://github.com/owner/repo", document)).toEqual({
     repository: { owner: "owner", name: "repo" },
+    ref: "",
     anchor: forks,
   });
   expect(
@@ -173,7 +221,7 @@ test("anchors the summary after the visible About forks row", () => {
   ).toBe(loaded);
 });
 
-test("shows the summary on the default branch overview only", () => {
+test("shows the summary on branch overviews that have an About sidebar", () => {
   const forks = {
     checkVisibility: () => true,
     closest: () => null,
@@ -182,67 +230,48 @@ test("shows the summary on the default branch overview only", () => {
     parentElement: forks,
     getAttribute: () => "/owner/repo/forks",
   } as unknown as Element;
-  const embedded = (...texts: string[]) =>
-    texts.map((textContent) => ({ textContent }) as unknown as Element);
-  const page = (scripts: Element[]) =>
+  const page = (links: Element[], nwo?: string) =>
     ({
-      querySelectorAll(selector: string) {
-        if (selector === ".mt-2 > a[href]") return [link];
-        return selector ===
-          'script[type="application/json"][data-target="react-app.embeddedData"]'
-          ? scripts
-          : [];
-      },
-      querySelector: () => null,
+      querySelectorAll: (selector: string) =>
+        selector === ".mt-2 > a[href]" ? links : [],
+      querySelector: (selector: string) =>
+        nwo !== undefined &&
+        selector === 'meta[name="octolytics-dimension-repository_nwo"]'
+          ? ({ getAttribute: () => nwo } as unknown as Element)
+          : null,
     }) as unknown as Document;
-  const data = (owner: string, name: string, defaultBranch: string) =>
-    JSON.stringify({
-      payload: {
-        codeViewLayoutRoute: {
-          repo: { id: 1, defaultBranch, name, ownerLogin: owner },
-        },
-      },
-    });
-  const context = {
-    repository: { owner: "owner", name: "repo" },
-    anchor: forks,
-  };
-  const current = page(embedded(data("Owner", "Repo", "main")));
-  expect(
-    pageContext("https://github.com/owner/repo?tab=readme-ov-file", current),
-  ).toEqual(context);
-  expect(
-    pageContext("https://github.com/owner/repo/tree/main", current),
-  ).toEqual(context);
-  expect(pageContext("https://github.com/owner/repo", page([]))).toEqual(
-    context,
-  );
-  for (const url of [
-    "https://github.com/owner/repo/tree/feature",
-    "https://github.com/owner/repo/tree/main/src",
-    "https://github.com/owner/repo/tree/Main",
-  ])
-    expect(pageContext(url, current)).toBeUndefined();
-  for (const scripts of [
-    [],
-    embedded('{"payload":'),
-    embedded(data("other", "repo", "main")),
-    embedded(JSON.stringify({ repo: { defaultBranch: "main" } })),
-  ])
-    expect(
-      pageContext("https://github.com/owner/repo/tree/main", page(scripts)),
-    ).toBeUndefined();
+  const repository = { owner: "owner", name: "repo" };
   expect(
     pageContext(
-      "https://github.com/owner/repo/tree/release/1.x",
-      page(
-        embedded(
-          data("other", "repo", "main"),
-          data("owner", "repo", "release/1.x"),
-        ),
-      ),
+      "https://github.com/owner/repo?tab=readme-ov-file",
+      page([link]),
     ),
-  ).toEqual(context);
+  ).toEqual({ repository, ref: "", anchor: forks });
+  for (const [url, ref] of [
+    ["https://github.com/owner/repo/tree/main", "main"],
+    ["https://github.com/owner/repo/tree/ding-dong", "ding-dong"],
+    ["https://github.com/owner/repo/tree/feature/x?tab=readme", "feature/x"],
+    ["https://github.com/owner/repo/tree/v1.0", "v1.0"],
+  ] as const)
+    expect(pageContext(url, page([link]))).toEqual({
+      repository,
+      ref,
+      anchor: forks,
+    });
+  expect(
+    pageContext("https://github.com/owner/repo", page([], "owner/repo")),
+  ).toEqual({ repository, ref: "" });
+  for (const url of [
+    "https://github.com/owner/repo/tree/ding-dong",
+    "https://github.com/owner/repo/tree/main/src",
+  ])
+    expect(pageContext(url, page([], "owner/repo"))).toBeUndefined();
+  expect(
+    pageContext(
+      "https://github.com/owner/repo/blob/main/README.md",
+      page([link]),
+    ),
+  ).toBeUndefined();
 });
 
 test("starts from the repository marker and waits for GitHub hydration", () => {
@@ -264,7 +293,7 @@ test("starts from the repository marker and waits for GitHub hydration", () => {
     }) as unknown as Document;
   expect(
     pageContext("https://github.com/owner/repo", page([], "Owner/Repo")),
-  ).toEqual({ repository: { owner: "owner", name: "repo" } });
+  ).toEqual({ repository: { owner: "owner", name: "repo" }, ref: "" });
   for (const nwo of [undefined, "other/repo", "owner/repo-fork"])
     expect(
       pageContext("https://github.com/owner/repo", page([], nwo)),
@@ -284,6 +313,7 @@ test("starts from the repository marker and waits for GitHub hydration", () => {
     ),
   ).toEqual({
     repository: { owner: "owner", name: "repo" },
+    ref: "",
     anchor: row,
     hydrating,
   });
@@ -424,6 +454,8 @@ test("validates popup requests and compact page summary updates", () => {
     protocolVersion: 1,
     type: "summary.update",
     repository: { owner: "owner", name: "repo" },
+    ref: "",
+    defaultBranch: "main",
     totalCodeLines: 125,
     uncountedFiles: 0,
     totalFiles: 3,
@@ -446,6 +478,10 @@ test("validates popup requests and compact page summary updates", () => {
   delete withoutBytes.totalBytes;
   expect(validSummaryUpdate(withoutBytes)).toBe(false);
   expect(validSummaryUpdate({ ...update, token: "secret" })).toBe(false);
+  expect(validSummaryUpdate({ ...update, ref: "feature/x" })).toBe(true);
+  for (const ref of ["a//b", "a\u0000", undefined, 1])
+    expect(validSummaryUpdate({ ...update, ref })).toBe(false);
+  expect(validSummaryUpdate({ ...update, defaultBranch: "" })).toBe(false);
 });
 
 test("requires closed messages and repository identity", () => {
@@ -488,6 +524,9 @@ test("validates envelope, correlation, and safe errors", () => {
   expect(validEnvelope({ ...envelope, repositoryId: "0042" })).toBe(false);
   expect(validEnvelope({ ...envelope, resolvedAt: Infinity })).toBe(false);
   expect(validEnvelope({ ...envelope, sizeKb: null })).toBe(true);
+  expect(validEnvelope({ ...envelope, ref: "feature/x" })).toBe(true);
+  for (const ref of ["main", "", "a//b", "x".repeat(256), null])
+    expect(validEnvelope({ ...envelope, ref })).toBe(false);
   expect(validEnvelope({ ...envelope, sizeKb: 0 })).toBe(true);
   expect(validEnvelope({ ...envelope, sizeKb: -1 })).toBe(false);
   expect(validEnvelope({ ...envelope, sizeKb: 1.5 })).toBe(false);

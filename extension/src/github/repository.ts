@@ -1,4 +1,11 @@
 export type PageRepository = { owner: string; name: string };
+export type RefTarget = { path: string; exact: boolean };
+export type RepositoryRoute = {
+  repository: PageRepository;
+  target?: RefTarget;
+};
+
+export const REF_LIMIT = 255;
 
 const ownerPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const repositoryPattern = /^[A-Za-z0-9._-]{1,100}$/;
@@ -85,8 +92,51 @@ function repositoryPath(
   };
 }
 
+function refPath(value: string, limit: number): string | undefined {
+  let path: string;
+  try {
+    path = decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+  if (
+    path.length > limit ||
+    [...path].some((char) => char < " " || char === "\u007f") ||
+    path.split("/").some((part) => part === "" || part === "." || part === "..")
+  )
+    return undefined;
+  return path;
+}
+
+export function refPrefixes(path: string): string[] {
+  const parts = path.split("/");
+  return parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+}
+
+export function validRef(ref: unknown): ref is string {
+  return typeof ref === "string" && refPath(ref, REF_LIMIT) === ref;
+}
+
 export function tabRepository(url: string): PageRepository | undefined {
   return repositoryPath(url)?.repository;
+}
+
+export function tabRoute(url: string): RepositoryRoute | undefined {
+  const path = repositoryPath(url);
+  if (!path) return undefined;
+  const { repository, rest } = path;
+  const browse = /^(?:tree|blob|blame|commits)\/(.+)$/.exec(rest)?.[1];
+  const exact =
+    /^commit\/([0-9a-fA-F]{7,64})$/.exec(rest)?.[1] ??
+    /^releases\/tag\/(.+)$/.exec(rest)?.[1];
+  const target = browse
+    ? refPath(browse, 1024)
+    : exact
+      ? refPath(exact, REF_LIMIT)
+      : undefined;
+  return target
+    ? { repository, target: { path: target, exact: !browse } }
+    : { repository };
 }
 
 export function pageRoute(
@@ -96,12 +146,10 @@ export function pageRoute(
   if (!path) return undefined;
   if (!path.rest) return { repository: path.repository };
   const ref = /^tree\/(.+)$/.exec(path.rest)?.[1];
-  if (!ref || ref.includes("//")) return undefined;
-  try {
-    return { repository: path.repository, ref: decodeURIComponent(ref) };
-  } catch {
-    return undefined;
-  }
+  const decoded = ref === undefined ? undefined : refPath(ref, REF_LIMIT);
+  return decoded === undefined
+    ? undefined
+    : { repository: path.repository, ref: decoded };
 }
 
 export function pageRepository(url: string): PageRepository | undefined {

@@ -26,6 +26,7 @@ type View = {
   url: string;
   navigationId: string;
   repository: PageRepository;
+  ref: string;
   ui: SummaryUi;
   state?: RowState;
   items: AboutItem[];
@@ -262,11 +263,12 @@ function connect(current: View): void {
   });
 }
 
-function create(repository: PageRepository): View {
+function create(repository: PageRepository, ref: string): View {
   const current: View = {
     url: routeUrl(),
     navigationId: crypto.randomUUID(),
     repository,
+    ref,
     ui: createSummaryUi((action) => activate(current, action)),
     items: [...ABOUT_ITEMS],
     formats: { ...defaultPageNumberFormats },
@@ -291,7 +293,9 @@ function create(repository: PageRepository): View {
     }
     if (
       !validSummaryUpdate(message) ||
-      !sameRepository(message.repository, current.repository)
+      !sameRepository(message.repository, current.repository) ||
+      (current.ref !== message.ref &&
+        !(message.ref === "" && current.ref === message.defaultBranch))
     )
       return;
     if (requestId) stopAnalysis(current, requestId);
@@ -314,7 +318,7 @@ function mount(): void {
   const context = pageContext(location.href, document);
   if (!context) return;
   if (!view) {
-    view = create(context.repository);
+    view = create(context.repository, context.ref);
     refreshDisplay(view);
     void lookup(view);
   }

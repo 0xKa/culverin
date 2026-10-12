@@ -2,6 +2,7 @@ import type { createAuthService } from "./auth";
 import type { BackgroundResources } from "./resources";
 export type PublicClient = {
   repository: { owner: string; name: string };
+  target?: RefTarget;
   owner: string;
   prefix: string;
   page: boolean;
@@ -22,9 +23,12 @@ import { resolutionIdentity, type ResultCache } from "../github/cache";
 import { AcquisitionError, safeFailure } from "../github/client";
 import {
   publicFailure,
+  refLabel,
+  withRef,
   type PublicPayload,
   type PublicRequest,
 } from "../github/public-protocol";
+import { refPrefixes, type RefTarget } from "../github/repository";
 
 export function createPublicAnalysis(
   resources: BackgroundResources,
@@ -50,7 +54,7 @@ export function createPublicAnalysis(
     request: PublicRequest,
     client: PublicClient,
   ): void {
-    const { repository, owner } = client;
+    const { repository, owner, target } = client;
     const reply = (payload: PublicPayload) => client.reply(request, payload);
     void (async () => {
       await ready;
@@ -117,12 +121,14 @@ export function createPublicAnalysis(
           : undefined;
       if (pageLookup && trigger === "manual") {
         const hash = (await currentRules()).hash;
+        const has = (results: ResultCache) =>
+          (target
+            ? results.hasRef(repository, target.path, hash)
+            : results.hasRepository(repository, hash)
+          ).catch(() => true);
         const known =
-          (await cache.hasRepository(repository, hash).catch(() => true)) ||
-          (auth.token !== undefined &&
-            (await privateResults
-              .hasRepository(repository, hash)
-              .catch(() => true)));
+          (await has(cache)) ||
+          (auth.token !== undefined && (await has(privateResults)));
         if (!known) {
           if (!client.isAlive()) return;
           reply(limited() ?? { type: "repository.not_cached" });
@@ -133,22 +139,46 @@ export function createPublicAnalysis(
       if (request.type === "analysis.request")
         pending.set(owner, { requestId: request.requestId, controller });
       try {
-        const key = `${auth.token ? auth.generation : "anonymous"}:${repository.owner.toLowerCase()}/${repository.name.toLowerCase()}`;
+        const base = `${auth.token ? auth.generation : "anonymous"}:${repository.owner.toLowerCase()}/${repository.name.toLowerCase()}`;
+        const key = target ? `${base}@${target.path}` : base;
+        const keys =
+          target && !target.exact
+            ? [
+                ...new Set([
+                  ...refPrefixes(target.path).map(
+                    (prefix) => `${base}@${prefix}`,
+                  ),
+                  key,
+                ]),
+              ]
+            : [key];
+        const kept = async () => {
+          for (const each of keys) {
+            const hit = await refs.peek(each);
+            if (hit) return hit;
+          }
+          return undefined;
+        };
         const resolved =
           !client.page && request.type === "repository.lookup"
-            ? await refs.peek(key)
-            : await refs.resolveWithStatus(
+            ? await kept()
+            : (!client.force && keys.length > 1 && (await kept())) ||
+              (await refs.resolveWithStatus(
                 key,
                 async () => {
                   if (Date.now() < limitedUntil(limit))
                     throw new Error("rate_limited");
                   return {
-                    ...(await resolveFor(repository, auth)),
+                    ...(await resolveFor(repository, auth, target)),
                     resolvedAt: Date.now(),
                   };
                 },
                 client.force,
-              );
+                (envelope) => [
+                  `${base}@${refLabel(envelope)}`,
+                  ...(envelope.ref === undefined ? [base] : []),
+                ],
+              ));
         if (!resolved) {
           if (client.isAlive())
             reply(limited() ?? { type: "repository.not_cached" });
@@ -266,14 +296,15 @@ export function createPublicAnalysis(
                 });
                 return;
               }
-              await results.put(current, output.result).catch(() => undefined);
+              const labelled = withRef(current, envelope.ref);
+              await results.put(labelled, output.result).catch(() => undefined);
               if (
                 coordinator.isSubscribed(owner, request.requestId) &&
                 client.isAlive()
               )
                 reply({
                   type: "analysis.completed",
-                  resolution: current,
+                  resolution: labelled,
                   result: output.result,
                   fromCache: false,
                 });

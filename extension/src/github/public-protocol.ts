@@ -4,7 +4,7 @@ import {
   type AboutItem,
 } from "../repository-page/about-items";
 import type { Resolution } from "./client";
-import { validRepository } from "./repository";
+import { validRef, validRepository } from "./repository";
 import { validNumberFormats, type NumberFormats } from "../ui/format";
 
 export const PUBLIC_VERSION = 1;
@@ -36,6 +36,8 @@ export type SummaryUpdate = {
   protocolVersion: 1;
   type: "summary.update";
   repository: { owner: string; name: string };
+  ref: string;
+  defaultBranch: string;
   totalCodeLines: number;
   uncountedFiles: number;
   totalFiles: number;
@@ -44,12 +46,26 @@ export type SummaryUpdate = {
 };
 
 export type ResolutionEnvelope = Resolution & { resolvedAt: number };
+
+export function withRef(
+  resolution: ResolutionEnvelope,
+  ref: string | undefined,
+): ResolutionEnvelope {
+  const copy = { ...resolution };
+  delete copy.ref;
+  return ref === undefined ? copy : { ...copy, ref };
+}
+
+export function refLabel(resolution: Resolution): string {
+  return resolution.ref ?? resolution.defaultBranch;
+}
 export type PublicErrorCode =
   | "invalid_repository"
   | "unsupported_page"
   | "repository_unavailable"
   | "repository_empty"
   | "repository_forbidden"
+  | "ref_unavailable"
   | "rate_limited"
   | "archive_throttled"
   | "authentication_required"
@@ -205,6 +221,8 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
       "protocolVersion",
       "type",
       "repository",
+      "ref",
+      "defaultBranch",
       "totalCodeLines",
       "uncountedFiles",
       "totalFiles",
@@ -217,7 +235,9 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
     !exact(value.repository, ["owner", "name"]) ||
     typeof value.repository.owner !== "string" ||
     typeof value.repository.name !== "string" ||
-    !validRepository(value.repository.owner, value.repository.name)
+    !validRepository(value.repository.owner, value.repository.name) ||
+    (value.ref !== "" && !validRef(value.ref)) ||
+    !validRef(value.defaultBranch)
   )
     return false;
   return (
@@ -245,6 +265,7 @@ export function validEnvelope(value: unknown): value is ResolutionEnvelope {
       "sha",
       "sizeKb",
       "resolvedAt",
+      ...("ref" in value ? ["ref"] : []),
     ])
   )
     return false;
@@ -257,6 +278,8 @@ export function validEnvelope(value: unknown): value is ResolutionEnvelope {
     typeof value.defaultBranch === "string" &&
     value.defaultBranch.length > 0 &&
     value.defaultBranch.length <= 255 &&
+    (value.ref === undefined ||
+      (validRef(value.ref) && value.ref !== value.defaultBranch)) &&
     (value.visibility === "public" || value.visibility === "private") &&
     typeof value.sha === "string" &&
     /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.sha) &&
@@ -274,6 +297,7 @@ const codes: PublicErrorCode[] = [
   "repository_unavailable",
   "repository_empty",
   "repository_forbidden",
+  "ref_unavailable",
   "rate_limited",
   "archive_throttled",
   "authentication_required",

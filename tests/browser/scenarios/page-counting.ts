@@ -298,6 +298,8 @@ export async function runPageCounting(
       protocolVersion: 1,
       type: "summary.update",
       repository: { owner: "culverin", name: "bootstrap-fixture" },
+      ref: "",
+      defaultBranch: "main",
       totalCodeLines: 12_300,
       uncountedFiles: 0,
       totalFiles: 1_200,

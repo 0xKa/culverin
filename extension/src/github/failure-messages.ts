@@ -27,6 +27,8 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   repository_unavailable: "Repository unavailable or access is restricted.",
   repository_empty: "This repository has no default-branch commit to analyze.",
   repository_forbidden: "Repository unavailable or access is restricted.",
+  ref_unavailable:
+    "This branch, tag, or commit wasn't found on GitHub. It may have been deleted or renamed.",
   rate_limited: "GitHub rate limit reached.",
   archive_throttled:
     "GitHub is busy preparing this repository's source snapshot. Try again in a minute.",

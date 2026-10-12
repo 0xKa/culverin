@@ -49,15 +49,16 @@ export function createPublicTransport(
     sender: chrome.runtime.MessageSender,
     respond: (value: unknown) => void,
   ): boolean {
-    const repository = gates.page(sender);
+    const route = gates.page(sender);
     if (
-      !repository ||
+      !route ||
       !validPublicRequest(value) ||
       sender.tab?.id === undefined ||
       !sender.documentId
     )
       return false;
     const request = value;
+    const { repository } = route;
     const tabId = sender.tab.id;
     const documentId = sender.documentId;
     if (request.type === "popup.open") {
@@ -124,6 +125,9 @@ export function createPublicTransport(
         : undefined;
     analysis.run(request, {
       repository,
+      ...(route.ref === undefined
+        ? {}
+        : { target: { path: route.ref, exact: true } }),
       owner,
       prefix,
       page: true,

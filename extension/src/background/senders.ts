@@ -3,7 +3,7 @@ import {
   type PublicReply,
   type PublicRequest,
 } from "../github/public-protocol";
-import { pageRepository } from "../github/repository";
+import { pageRoute, type PageRepository } from "../github/repository";
 import { isPageUrl } from "./page-url";
 
 export function publicOwner(
@@ -44,9 +44,9 @@ export function createSenderGates(identity: {
   popupUrl: string;
 }) {
   const chrome = { runtime: { id: identity.id } };
-  function senderRepository(
+  function senderRoute(
     sender: chrome.runtime.MessageSender,
-  ): { owner: string; name: string } | undefined {
+  ): { repository: PageRepository; ref?: string } | undefined {
     if (
       sender.id !== chrome.runtime.id ||
       sender.frameId !== 0 ||
@@ -69,11 +69,11 @@ export function createSenderGates(identity: {
       source.password
     )
       return undefined;
-    return pageRepository(sender.tab.url);
+    return pageRoute(sender.tab.url);
   }
 
   return {
-    page: senderRepository,
+    page: senderRoute,
     settings: (sender: chrome.runtime.MessageSender) =>
       sender.id === identity.id &&
       isPageUrl(sender.url, identity.settingsUrl) &&

@@ -16,6 +16,7 @@ import {
   type Resolution,
 } from "../github/client";
 import { type PublicErrorCode } from "../github/public-protocol";
+import type { RefTarget } from "../github/repository";
 import {
   RATE_LIMIT_KEY,
   readRateLimit,
@@ -80,6 +81,7 @@ export function createAuthService(resources: BackgroundResources) {
   async function resolveFor(
     repository: { owner: string; name: string },
     auth: Auth,
+    target?: RefTarget,
   ): Promise<Resolution> {
     const anonymous = () =>
       resolveRepository(
@@ -88,6 +90,7 @@ export function createAuthService(resources: BackgroundResources) {
         repository.name,
         undefined,
         AbortSignal.timeout(10_000),
+        target,
       );
     if (!auth.token) return anonymous();
     try {
@@ -97,6 +100,7 @@ export function createAuthService(resources: BackgroundResources) {
         repository.name,
         auth.token,
         AbortSignal.timeout(10_000),
+        target,
       );
     } catch (error) {
       if (!(error instanceof AcquisitionError)) throw error;

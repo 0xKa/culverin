@@ -14,7 +14,7 @@ export const PUBLIC_CACHE_BYTES = 5 * 1024 * 1024;
 export const PRIVATE_CACHE_KEY = "culverin.private-results.v1";
 export const PRIVATE_CACHE_ENTRIES = 100;
 export const PRIVATE_CACHE_BYTES = 2 * 1024 * 1024;
-export const RESOLUTION_ENTRIES = 100;
+export const RESOLUTION_ENTRIES = 200;
 export const RESOLUTION_BYTES = 512 * 1024;
 export const RESOLUTION_TTL = 60_000;
 export const PUBLIC_RESOLUTION_TTL = 20 * 60_000;
@@ -377,6 +377,26 @@ export class ResultCache {
     );
   }
 
+  async hasRef(
+    repository: { owner: string; name: string },
+    ref: string,
+    rulesHash: string,
+  ): Promise<boolean> {
+    const owner = repository.owner.toLowerCase();
+    const name = repository.name.toLowerCase();
+    return this.serial(async () =>
+      (await this.load()).entries.some(
+        (entry) =>
+          !this.revoked.has(entry.resolution.repositoryId) &&
+          entry.resolution.owner.toLowerCase() === owner &&
+          entry.resolution.name.toLowerCase() === name &&
+          entry.result.engine.rulesHash === rulesHash &&
+          (entry.resolution.defaultBranch === ref ||
+            entry.resolution.ref === ref),
+      ),
+    );
+  }
+
   async purgeRepository(repositoryId: string): Promise<void> {
     return this.serial(async () => {
       this.revoked.add(repositoryId);
@@ -489,7 +509,7 @@ function validRefEntry(value: unknown): value is RefEntry {
     record(value) &&
     exact(value, ["key", "envelope", "lastAccess"]) &&
     typeof value.key === "string" &&
-    value.key.length <= 512 &&
+    value.key.length <= 2048 &&
     validEnvelope(value.envelope) &&
     validTime(value.lastAccess)
   );
@@ -581,6 +601,7 @@ export class ResolutionCache {
     key: string,
     fetcher: () => Promise<ResolutionEnvelope>,
     force = false,
+    aliases: (envelope: ResolutionEnvelope) => string[] = () => [],
   ): Promise<ResolvedReference> {
     await this.load();
     const now = this.now();
@@ -601,8 +622,14 @@ export class ResolutionCache {
     const task = fetcher().then((envelope) => {
       if (epoch !== this.epoch) throw new Error("analysis_interrupted");
       if (validEnvelope(envelope)) {
-        this.entries = this.entries.filter((entry) => entry.key !== key);
-        this.entries.push({ key, envelope, lastAccess: this.now() });
+        const keys = new Set([key, ...aliases(envelope)]);
+        this.entries = this.entries.filter((entry) => !keys.has(entry.key));
+        for (const each of keys)
+          this.entries.push({
+            key: each,
+            envelope,
+            lastAccess: this.now(),
+          });
         this.bound();
         this.persist();
       }

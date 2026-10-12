@@ -138,6 +138,7 @@ const failures: Record<PublicErrorCode, [string, StatusTone]> = {
   repository_unavailable: ["Unavailable", "error"],
   repository_empty: ["Empty", "neutral"],
   repository_forbidden: ["Unavailable", "error"],
+  ref_unavailable: ["Not found", "error"],
   rate_limited: ["Rate limited", "error"],
   archive_throttled: ["GitHub busy", "warning"],
   authentication_required: ["No access", "warning"],

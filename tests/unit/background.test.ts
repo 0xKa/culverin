@@ -63,6 +63,11 @@ function fixture() {
   const calls: string[] = [];
   const tokens: (string | undefined)[] = [];
   let visibility = "public";
+  const branches: Record<string, string> = {
+    "ding-dong": "b".repeat(40),
+    "feature/x": "c".repeat(40),
+    "same-as-main": "a".repeat(40),
+  };
   let rateLimitStatus = 200;
   const authorizations: (string | null)[] = [];
   const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -99,10 +104,18 @@ function fixture() {
       Object.defineProperty(response, "url", { value: url });
       return response;
     }
+    const ref = url.includes("/commits/")
+      ? decodeURIComponent(url.split("/commits/")[1]!)
+      : undefined;
+    if (ref !== undefined && ref !== "main" && !(ref in branches)) {
+      const missing = new Response("{}", { status: 422 });
+      Object.defineProperty(missing, "url", { value: url });
+      return missing;
+    }
     const response = new Response(
       JSON.stringify(
-        url.includes("/commits/")
-          ? { sha: "a".repeat(40) }
+        ref !== undefined
+          ? { sha: ref === "main" ? "a".repeat(40) : branches[ref] }
           : {
               id: 42,
               owner: { login: "culverin" },
@@ -120,7 +133,7 @@ function fixture() {
   const resources = createBackgroundResources(browser, fetcher, async (job) => {
     tokens.push(job.token);
     return {
-      result: await result("42"),
+      result: await result("42", job.resolution.sha),
       transport: { compressedBytes: 0, decompressedBytes: 0 },
       wasmLinearMemoryBytes: 0,
     };
@@ -131,6 +144,7 @@ function fixture() {
     type: PublicRequest["type"],
     page: boolean,
     force = false,
+    target?: { path: string; exact: boolean },
   ): Promise<PublicPayload> {
     const request: PublicRequest = {
       protocolVersion: 1,
@@ -142,6 +156,7 @@ function fixture() {
     return new Promise((resolve) =>
       analysis.run(request, {
         repository: request.repository!,
+        ...(target ? { target } : {}),
         owner: `p:1:document:${request.navigationId}`,
         prefix: "p:1:document:",
         page,
@@ -257,6 +272,113 @@ test("same-commit forced analysis refreshes metadata and reuses results; private
       (await api.resources.currentRules()).hash,
     ),
   ).toBe(false);
+});
+
+test("branch pages resolve their own commit, share results by commit, and keep the most recent label", async () => {
+  const api = fixture();
+  const page = (path: string) => ({ path, exact: true });
+  const browse = (path: string) => ({ path, exact: false });
+  expect(
+    await api.run("repository.lookup", true, false, page("ding-dong")),
+  ).toEqual({ type: "repository.not_cached" });
+  expect(api.calls).toHaveLength(0);
+  expect(await api.run("analysis.request", false)).toMatchObject({
+    type: "analysis.completed",
+    resolution: { defaultBranch: "main", sha: "a".repeat(40) },
+  });
+  expect(api.calls).toHaveLength(2);
+  expect(
+    await api.run("repository.lookup", true, false, page("ding-dong")),
+  ).toEqual({ type: "repository.not_cached" });
+  expect(
+    await api.run("repository.lookup", true, false, page("main")),
+  ).toMatchObject({
+    type: "repository.cache_hit",
+    resolution: { sha: "a".repeat(40) },
+  });
+  expect(
+    await api.run("repository.lookup", false, false, browse("main/src/app.ts")),
+  ).toMatchObject({ type: "repository.cache_hit" });
+  expect(api.calls).toHaveLength(2);
+  const branch = await api.run(
+    "analysis.request",
+    false,
+    false,
+    browse("ding-dong/src"),
+  );
+  expect(branch).toMatchObject({
+    type: "analysis.completed",
+    fromCache: false,
+    resolution: { ref: "ding-dong", sha: "b".repeat(40) },
+  });
+  expect(api.calls.slice(2)).toEqual([
+    "https://api.github.com/repos/culverin/sample",
+    "https://api.github.com/repos/culverin/sample/commits/ding-dong",
+  ]);
+  expect(
+    await api.run("repository.lookup", true, false, page("ding-dong")),
+  ).toMatchObject({
+    type: "repository.cache_hit",
+    resolution: { ref: "ding-dong" },
+    result: { revision: { commitSha: "b".repeat(40) } },
+  });
+  expect(
+    await api.run("repository.lookup", false, false, browse("ding-dong/docs")),
+  ).toMatchObject({ type: "repository.cache_hit" });
+  expect(await api.run("repository.lookup", false)).toMatchObject({
+    type: "repository.cache_hit",
+    result: { revision: { commitSha: "a".repeat(40) } },
+  });
+  expect(api.calls).toHaveLength(4);
+  expect(
+    await api.run(
+      "analysis.request",
+      false,
+      false,
+      browse("feature/x/README.md"),
+    ),
+  ).toMatchObject({ resolution: { ref: "feature/x" } });
+  expect(api.calls.slice(4)).toEqual([
+    "https://api.github.com/repos/culverin/sample",
+    "https://api.github.com/repos/culverin/sample/commits/feature",
+    "https://api.github.com/repos/culverin/sample/commits/feature%2Fx",
+  ]);
+  expect(
+    await api.run("analysis.request", false, false, page("same-as-main")),
+  ).toMatchObject({
+    type: "analysis.completed",
+    fromCache: true,
+    resolution: { ref: "same-as-main" },
+  });
+  const hash = (await api.resources.currentRules()).hash;
+  const labels = async () =>
+    Object.fromEntries(
+      (
+        api.local.values["culverin.public-results.v1"] as {
+          entries: { resolution: { ref?: string; sha: string } }[];
+        }
+      ).entries.map((entry) => [entry.resolution.sha[0], entry.resolution.ref]),
+    );
+  expect(await labels()).toEqual({
+    a: "same-as-main",
+    b: "ding-dong",
+    c: "feature/x",
+  });
+  expect(
+    await api.resources.cache.hasRef(
+      { owner: "culverin", name: "sample" },
+      "main",
+      hash,
+    ),
+  ).toBe(true);
+  expect(await api.run("repository.lookup", true)).toMatchObject({
+    type: "repository.cache_hit",
+  });
+  expect((await labels()).a).toBeUndefined();
+  expect(
+    await api.run("analysis.request", false, false, page("deleted")),
+  ).toEqual({ type: "analysis.failed", code: "ref_unavailable" });
+  expect(api.tokens).toHaveLength(3);
 });
 
 test("trusted analysis keeps its authorized public archive policy and strict sender gate", async () => {

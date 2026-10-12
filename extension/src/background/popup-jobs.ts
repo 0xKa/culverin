@@ -3,9 +3,10 @@ import {
   validPopupPublicRequest,
   type PublicPayload,
   type PublicRequest,
+  type ResolutionEnvelope,
   type SummaryUpdate,
 } from "../github/public-protocol";
-import { sameRepository, tabRepository } from "../github/repository";
+import { sameRepository, tabRepository, tabRoute } from "../github/repository";
 import type { createPublicAnalysis } from "./analysis";
 import type { BackgroundResources } from "./resources";
 import { popupOwner, publicReply } from "./senders";
@@ -78,6 +79,7 @@ export function createPopupJobs(
   async function updateSummary(
     tabId: number,
     repository: { owner: string; name: string },
+    resolution: ResolutionEnvelope,
     result: AnalysisResultV2,
   ): Promise<void> {
     if (result.engine.rulesHash !== (await currentRules()).hash) return;
@@ -85,6 +87,8 @@ export function createPopupJobs(
       protocolVersion: 1,
       type: "summary.update",
       repository,
+      ref: resolution.ref ?? "",
+      defaultBranch: resolution.defaultBranch,
       totalCodeLines: result.totals.code,
       uncountedFiles: result.coverage.skippedByReason.oversized_source,
       totalFiles: result.coverage.regularFiles,
@@ -113,7 +117,12 @@ export function createPopupJobs(
     popupJobs.delete(tabId);
     if (job.viewer) postToPopup(job.viewer.port, job.viewer.request, payload);
     if (payload.type === "analysis.completed")
-      void updateSummary(tabId, job.repository, payload.result);
+      void updateSummary(
+        tabId,
+        job.repository,
+        payload.resolution,
+        payload.result,
+      );
   }
 
   function endPopupJob(tabId: number, reason: string): void {
@@ -177,7 +186,9 @@ export function createPopupJobs(
           active: true,
           windowId: tab.windowId,
         });
-      const repository = tabRepository(tab.url ?? "");
+      const route = tabRoute(tab.url ?? "");
+      const repository = route?.repository;
+      const target = route?.target;
       if (
         activeTab?.id !== tabId ||
         !repository ||
@@ -224,6 +235,7 @@ export function createPopupJobs(
       if (publicRequest.type === "repository.lookup") {
         analysis.run(publicRequest, {
           repository,
+          target,
           owner,
           prefix: `u:${tabId}:`,
           page: false,
@@ -231,7 +243,12 @@ export function createPopupJobs(
           reply: (current, payload) => {
             postToPopup(port, current, payload);
             if (payload.type === "repository.cache_hit")
-              void updateSummary(tabId, repository, payload.result);
+              void updateSummary(
+                tabId,
+                repository,
+                payload.resolution,
+                payload.result,
+              );
           },
           progress: () => undefined,
         });
@@ -246,6 +263,7 @@ export function createPopupJobs(
       popupJobs.set(tabId, next);
       analysis.run(publicRequest, {
         repository,
+        target,
         owner,
         prefix: `u:${tabId}:`,
         page: false,

@@ -4,6 +4,7 @@ import {
   AcquisitionError,
   ARCHIVE_LIMIT,
   downloadArchive,
+  refCandidates,
   resolveRepository,
   safeFailure,
   type Fetcher,
@@ -77,6 +78,88 @@ test("resolves canonical identity and SHA with bounded no-store requests", async
     requests.every((r) => !(r.init.headers as Headers).has("Authorization")),
   ).toBe(true);
   expect(requests.some((r) => r.url.includes("tarball"))).toBe(false);
+});
+
+test("resolves the branch, tag, or commit a page names with the fewest requests", async () => {
+  const other = "b".repeat(40);
+  const resolve = async (
+    target: { path: string; exact: boolean },
+    refs: Record<string, number> = {},
+  ) => {
+    const urls: string[] = [];
+    const fetcher = (async (url: string) => {
+      urls.push(url);
+      if (urls.length === 1)
+        return response(
+          metadata(),
+          "https://api.github.com/repos/owner/canonical",
+        );
+      const ref = decodeURIComponent(url.split("/commits/")[1] ?? "");
+      if (ref === "main") return response(JSON.stringify({ sha }), url);
+      const status = refs[ref];
+      return status === 200
+        ? response(JSON.stringify({ sha: other.toUpperCase() }), url)
+        : response("{}", url, status ?? 422);
+    }) as Fetcher;
+    try {
+      const result = await resolveRepository(
+        fetcher,
+        "owner",
+        "repo",
+        undefined,
+        controller.signal,
+        target,
+      );
+      return { urls: urls.slice(1), sha: result.sha, ref: result.ref };
+    } catch (error) {
+      return { urls: urls.slice(1), code: (error as AcquisitionError).code };
+    }
+  };
+  const commits = "https://api.github.com/repos/owner/canonical/commits/";
+  expect(await resolve({ path: "main", exact: true })).toEqual({
+    urls: [`${commits}main`],
+    sha,
+    ref: undefined,
+  });
+  expect(await resolve({ path: "main/src/app.ts", exact: false })).toEqual({
+    urls: [`${commits}main`],
+    sha,
+    ref: undefined,
+  });
+  expect(
+    await resolve(
+      { path: "ding-dong/src", exact: false },
+      { "ding-dong": 200 },
+    ),
+  ).toEqual({ urls: [`${commits}ding-dong`], sha: other, ref: "ding-dong" });
+  expect(
+    await resolve(
+      { path: "feature/x/README.md", exact: false },
+      { feature: 404, "feature/x": 200 },
+    ),
+  ).toEqual({
+    urls: [`${commits}feature`, `${commits}feature%2Fx`],
+    sha: other,
+    ref: "feature/x",
+  });
+  expect(
+    await resolve({ path: "feature/x", exact: true }, { "feature/x": 200 }),
+  ).toEqual({ urls: [`${commits}feature%2Fx`], sha: other, ref: "feature/x" });
+  const missing = await resolve({ path: "a/b/c/d/e/f/g", exact: false });
+  expect(missing.code).toBe("ref_unavailable");
+  expect(missing.urls).toHaveLength(5);
+  expect(
+    (await resolve({ path: "gone", exact: true }, { gone: 404 })).code,
+  ).toBe("ref_unavailable");
+  expect(
+    (await resolve({ path: "limited", exact: true }, { limited: 403 })).code,
+  ).toBe("repository_forbidden");
+  expect(refCandidates({ path: "x".repeat(256), exact: true }, "main")).toEqual(
+    [],
+  );
+  expect((await resolve({ path: "x".repeat(256), exact: true })).code).toBe(
+    "ref_unavailable",
+  );
 });
 
 test("keeps resolving when GitHub omits or malforms the repository size", async () => {

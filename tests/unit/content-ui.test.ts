@@ -194,6 +194,7 @@ test("maps failures to retryable, blocked, and hidden states", () => {
     "repository_unavailable",
     "repository_forbidden",
     "repository_empty",
+    "ref_unavailable",
   ] as const)
     expect(lookupFailureState(code)).toEqual({ kind: "hidden" });
   expect(lookupFailureState("authentication_required")).toMatchObject({
@@ -216,6 +217,9 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   expect(rowView(failureState("repository_unavailable"))).toMatchObject({
     label: "Couldn't analyze · Retry",
     action: "analyze",
+  });
+  expect(rowView(failureState("ref_unavailable"))).toMatchObject({
+    label: "Branch or tag not found",
   });
   expect(lookupFailureState("network_unavailable")).toEqual({ kind: "idle" });
   expect(lookupFailureState("rate_limited")).toMatchObject({

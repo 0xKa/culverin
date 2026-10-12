@@ -34,8 +34,11 @@ export function QuestionsPanel() {
           <p>
             The first asks for the repository's details: its default branch, its
             size, and whether it's still public. The second asks for the latest
-            commit on that branch, which tells Culverin whether a saved count is
-            still current. Downloading the source doesn't use any of them.
+            commit on that branch, or on the branch or tag the page shows, which
+            tells Culverin whether a saved count is still current. On a folder
+            or file page of a branch whose name contains a slash, finding the
+            branch can take one more request per part of its name. Downloading
+            the source doesn't use any of them.
           </p>
         </Question>
         <Question summary="What uses requests, and what doesn't?">

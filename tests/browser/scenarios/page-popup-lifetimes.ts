@@ -379,8 +379,20 @@ export async function runPagePopupLifetimes(
 
   assert.equal(await page.locator("[data-culverin-root]").count(), 1);
 
+  const defaultBranchRoot = await page
+    .locator("[data-culverin-root]")
+    .elementHandle();
+
   await page.evaluate(() => {
     history.pushState({}, "", "/culverin/bootstrap-fixture/tree/feature");
+  });
+
+  await page.waitForFunction((root) => !root.isConnected, defaultBranchRoot);
+
+  await page.getByText("Analyze with Culverin").waitFor();
+
+  await page.evaluate(() => {
+    history.pushState({}, "", "/culverin/bootstrap-fixture/tree/feature/src");
   });
 
   await page.locator("[data-culverin-root]").waitFor({ state: "detached" });

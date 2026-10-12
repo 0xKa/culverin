@@ -6,6 +6,7 @@ export type FixtureState = {
   apiRequests: number;
   authorization?: string;
   mode: "ok" | "empty" | "rate" | "slow" | "shared" | "private";
+  branches: Record<string, string>;
   slowArchiveStarted?: () => void;
   metadataGate?: Promise<void>;
 };
@@ -17,6 +18,7 @@ export function createFixtures(sha: string): FixtureState {
     archiveRequests: 0,
     apiRequests: 0,
     mode: "ok",
+    branches: {},
   };
 }
 
@@ -26,12 +28,12 @@ export async function installGitHubFixtures(
   publicSha: string,
 ): Promise<FixtureState> {
   const fixtures = createFixtures(publicSha);
-  const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div><script type="application/json" data-target="react-app.embeddedData">{}</script></react-app></main><script>
+  const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></react-app></main><script>
 const sync = () => {
   const [, owner, name] = location.pathname.split("/");
   document.querySelector("#forks").setAttribute("href", "/" + owner + "/" + name + "/forks");
   document.querySelector('meta[name="octolytics-dimension-repository_nwo"]').setAttribute("content", owner + "/" + name);
-  document.querySelector('script[data-target="react-app.embeddedData"]').textContent = JSON.stringify({ payload: { codeViewLayoutRoute: { repo: { defaultBranch: "main", name, ownerLogin: owner } } } });
+  document.querySelector("#about").hidden = location.pathname.split("/").length > 5;
 };
 if (sessionStorage.getItem("holdHydration") !== "1")
   document.querySelector("#app").classList.add("loaded");
@@ -74,6 +76,17 @@ sync();
           },
           body: JSON.stringify({ sha: fixtures.sha }),
         });
+      }
+      const ref = /\/commits\/(.+)$/.exec(url.pathname)?.[1];
+      if (ref !== undefined) {
+        const sha = fixtures.branches[decodeURIComponent(ref)];
+        return sha
+          ? route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ sha }),
+            })
+          : route.fulfill({ status: 422, body: "{}" });
       }
       if (url.pathname.endsWith(`/tarball/${fixtures.sha}`)) {
         fixtures.archiveRequests++;

@@ -18,7 +18,7 @@ const modes: Option<LanguageColorMode>[] = [
   {
     value: "single",
     label: "Single color",
-    detail: "Use Culverin's accent for language bars.",
+    detail: "Use your accent color for language bars.",
   },
 ];
 

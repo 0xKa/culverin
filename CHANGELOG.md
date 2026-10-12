@@ -2,6 +2,10 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## Unreleased
+
+- Adds an Accent color choice under Appearance: Blue, Indigo, Violet, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.
+
 ## 0.1.5 - 2026-10-12
 
 - Counts the branch, tag, or commit a GitHub page names. Branch overviews such as `/tree/feature` get the About row, and the popup counts the ref shown on tree, blob, blame, commits, commit, and release tag pages. For a folder or file path, Culverin asks GitHub for each leading part of the path until one is a branch, at most five times.

@@ -10,6 +10,7 @@ import { ActionStatus, useAction } from "./ActionStatus";
 import { ThemeSample } from "./ThemeSample";
 import { NumberOptions } from "./NumberOptions";
 import { LanguageColorOptions } from "./LanguageColorOptions";
+import { AccentOptions } from "./AccentOptions";
 
 const options: { value: Theme; label: string; detail: string }[] = [
   {
@@ -101,6 +102,7 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"
         />
+        <AccentOptions />
         <div className="border-divider mt-5 border-t pt-5">
           <div className="relative">
             <fieldset className="m-0 border-0 p-0">

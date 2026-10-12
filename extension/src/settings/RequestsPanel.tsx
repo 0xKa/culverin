@@ -14,6 +14,9 @@ import { Status } from "../ui/Status";
 import { UsageMeter } from "../ui/UsageMeter";
 import { sendSettings } from "./client";
 import { Panel } from "./layout";
+import { ActionStatus } from "./ActionStatus";
+import { useRootChoice } from "./useRootChoice";
+import { popupApiLimit } from "../popup/api-limit-display";
 
 const FREE =
   "Checking is free without a GitHub connection. While connected, it uses 1 of your requests.";
@@ -27,6 +30,8 @@ export function RequestsPanel() {
   const limit = rateLimit?.authenticated
     ? rateLimit.limit.toLocaleString()
     : "60";
+
+  const display = useRootChoice(popupApiLimit);
 
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState("");
@@ -107,13 +112,36 @@ export function RequestsPanel() {
       </div>
       <p className="m-0">
         Checking a repository uses 2 of your {limit} GitHub requests per hour.
-        The toolbar popup shows how many are left.
       </p>
       <p id="api-usage-shared" className="text-muted m-0 mt-2 text-sm">
         {rateLimit?.authenticated
           ? `GitHub counts every request made with your account toward the same ${limit}, including VS Code, GitHub Desktop, the gh command line, and other GitHub apps or tokens you use. The count can be below ${limit} before Culverin has used any.`
           : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}
       </p>
+      <div className="border-divider relative mt-4 border-t pt-4">
+        <label className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 pr-24 transition-[border-color,background-color] duration-150">
+          <input
+            id="popup-api-limit"
+            type="checkbox"
+            name="popup-api-limit"
+            className="size-4 translate-y-0.5"
+            checked={display.value === "shown"}
+            disabled={display.value === undefined}
+            onChange={(event) =>
+              display.change(event.currentTarget.checked ? "shown" : "hidden")
+            }
+          />
+          <span className="font-medium">Show API requests in the popup</span>
+          <span className="text-muted col-start-2 text-sm">
+            A small meter in the popup header shows how many requests are left.
+          </span>
+        </label>
+        <ActionStatus
+          id="popup-api-limit-status"
+          state={display.state}
+          className="absolute top-4 right-3.5 mt-3.5 h-[1.375rem]"
+        />
+      </div>
     </Panel>
   );
 }

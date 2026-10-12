@@ -297,6 +297,10 @@
   }
 }
 
+:root:not([data-api-limit="shown"]) #api-limit {
+  display: none;
+}
+
 .culverin-separator {
   display: inline-block;
   position: relative;

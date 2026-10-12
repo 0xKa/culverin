@@ -298,9 +298,19 @@ export async function runPagePopupLifetimes(
 
   assert.equal(await knownPopup.locator("#sizes").count(), 0);
 
-  await knownPopup
-    .locator("#api-limit", { hasText: "API 57/60" })
-    .waitFor({ timeout: 5000 });
+  const knownApiLimit = knownPopup.locator("#api-limit", {
+    hasText: "API 57/60",
+  });
+
+  await knownApiLimit.waitFor({ state: "attached", timeout: 5000 });
+
+  assert.equal(await knownApiLimit.isVisible(), false);
+
+  await knownPopup.evaluate(() =>
+    chrome.storage.sync.set({ "culverin.popupApiLimit": "shown" }),
+  );
+
+  await knownApiLimit.waitFor({ timeout: 5000 });
 
   assert.equal(
     await knownPopup.locator("#api-limit-meter").getAttribute("data-level"),
@@ -313,6 +323,12 @@ export async function runPagePopupLifetimes(
   );
 
   assert.equal(fixtures.apiRequests, beforeKnownPopupApiRequests);
+
+  await knownPopup.evaluate(() =>
+    chrome.storage.sync.remove("culverin.popupApiLimit"),
+  );
+
+  await knownApiLimit.waitFor({ state: "hidden", timeout: 5000 });
 
   await knownPopup.close();
 

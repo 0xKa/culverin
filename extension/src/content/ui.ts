@@ -70,7 +70,7 @@ const hiddenLookupFailures: PublicErrorCode[] = [
 const connectLabels: Partial<Record<PublicErrorCode, string>> = {
   authentication_required: "Private repository? Connect GitHub",
   authentication_invalid: "GitHub connection expired · Reconnect",
-  access_not_granted: "No access · Choose repositories",
+  access_not_granted: "Culverin can't access this repo",
 };
 
 const sizeFailures: PublicErrorCode[] = [

@@ -319,6 +319,16 @@ test("badges summarize outcomes and only waiting failures keep a visible note", 
     note: "Try again in a minute",
   });
 
+  for (const [code, label] of [
+    ["authentication_required", "No access"],
+    ["access_not_granted", "Not shared"],
+  ]) {
+    const denied = ui.controller.analyze();
+    ui.reply(ui.requests.at(-1)!, { type: "analysis.failed", code });
+    await denied;
+    expect(lastStatus(ui.events)).toMatchObject({ label, tone: "warning" });
+  }
+
   const failed = ui.controller.analyze();
   ui.reply(ui.requests.at(-1)!, {
     type: "analysis.failed",

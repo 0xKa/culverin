@@ -142,7 +142,7 @@ const failures: Record<PublicErrorCode, [string, StatusTone]> = {
   archive_throttled: ["GitHub busy", "warning"],
   authentication_required: ["No access", "warning"],
   authentication_invalid: ["Expired", "warning"],
-  access_not_granted: ["No access", "warning"],
+  access_not_granted: ["Not shared", "warning"],
   metadata_limit_exceeded: ["Too large", "error"],
   network_unavailable: ["Unreachable", "error"],
   download_failed: ["Failed", "error"],

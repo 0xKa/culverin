@@ -206,7 +206,7 @@ test("maps failures to retryable, blocked, and hidden states", () => {
   });
   expect(signIn.title).toContain("Connect GitHub");
   expect(rowView(failureState("access_not_granted"))).toMatchObject({
-    label: "No access · Choose repositories",
+    label: "Culverin can't access this repo",
     action: "connect",
   });
   expect(rowView(failureState("authentication_invalid"))).toMatchObject({

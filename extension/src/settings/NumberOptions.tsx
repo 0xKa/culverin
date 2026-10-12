@@ -4,6 +4,7 @@ import {
 } from "../appearance/numbers";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import { formatCount, type CountFormat, type SizeUnits } from "../ui/format";
+import { Joined } from "../ui/Separator";
 import { ActionStatus, useAction } from "./ActionStatus";
 
 const counts: { value: CountFormat; label: string }[] = [
@@ -11,16 +12,16 @@ const counts: { value: CountFormat; label: string }[] = [
   { value: "abbreviated", label: "Abbreviated" },
 ];
 
-const sizes: { value: SizeUnits; label: string; detail: string }[] = [
+const sizes: { value: SizeUnits; label: string; detail: string[] }[] = [
   {
     value: "binary",
     label: "Binary",
-    detail: "KiB, MiB, GiB · 1 KiB = 1,024 bytes",
+    detail: ["KiB, MiB, GiB", "1 KiB = 1,024 bytes"],
   },
   {
     value: "decimal",
     label: "Decimal",
-    detail: "KB, MB, GB · 1 KB = 1,000 bytes",
+    detail: ["KB, MB, GB", "1 KB = 1,000 bytes"],
   },
 ];
 
@@ -117,7 +118,7 @@ export function NumberOptions({
                 />
                 <span className="font-medium">{option.label}</span>
                 <span className="text-muted col-start-2 text-sm">
-                  {option.detail}
+                  <Joined parts={option.detail} />
                 </span>
               </label>
             ))}

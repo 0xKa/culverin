@@ -2,6 +2,18 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 0.1.4 - 2026-10-12
+
+- Adds Appearance settings for System, Light, and Dark themes, with a live preview and a High contrast option.
+- Adds full or abbreviated counts and binary or decimal size units for the popup and saved results. Repository pages have separate choices, and tooltips keep exact counts and bytes.
+- Adds file-count and size rows to GitHub's About sidebar. Settings → Repository page, below Appearance, lets you choose which rows to show and their order, with a live preview.
+- Shows every file at the counted commit in the popup's file total, including ignored, binary, and other files. Its tooltip gives the number counted as code or text.
+- Shows one Size in the popup for the files at the counted commit, excluding Git history. Analysis details show an estimated clone size that includes the history GitHub reports.
+- Confirms settings saves, clearing and deleting results, and copying details with animated indicators beside the control. Failed saves restore the stored choice and show a retry message.
+- Uses the same hover and keyboard-focus tooltips throughout the popup and Settings, makes breakdown headings easier to spot, and shortens the analysis coverage text.
+- States the 8 MiB file limit in the warning for source files too large to count, keeping their links to the counted commit.
+- Keeps using results saved by 0.1.3.
+
 ## 0.1.3 - 2026-10-06
 
 - Opens the popup when you click the About row while it counts, instead of canceling the count. The popup follows the same count, shows its progress and result, and has a Cancel button.

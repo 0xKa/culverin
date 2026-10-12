@@ -62,7 +62,6 @@ export type ResultView = {
   coverage: string;
   coverageTitle: string;
   warning?: string;
-  fileLimit: string;
   oversizedFiles: {
     path: string;
     size: string;
@@ -270,9 +269,8 @@ export function resultView(
     coverage: coverageText(coverage),
     coverageTitle: "Skipped files aren't included in code or text lines.",
     warning: skipped.oversized_source
-      ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} too large to count and ${skipped.oversized_source === 1 ? "is" : "are"} not included in these totals.`
+      ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} over the ${ARCHIVE_LIMITS.file / 1024 ** 2} MiB file limit and ${skipped.oversized_source === 1 ? "isn't" : "aren't"} included in these totals.`
       : undefined,
-    fileLimit: `The per-file limit is ${ARCHIVE_LIMITS.file / 1024 ** 2} MiB.`,
     oversizedFiles,
     oversizedNote:
       skipped.oversized_source && coverage.oversizedFiles === undefined

@@ -124,7 +124,7 @@ export async function runPartialResults(
 
   await partialPopup
     .getByText(
-      "1 source file was too large to count and is not included in these totals.",
+      "1 source file was over the 8 MiB file limit and isn't included in these totals.",
     )
     .waitFor();
 
@@ -141,8 +141,6 @@ export async function runPartialResults(
   );
 
   assert.equal(await oversizedLink.getAttribute("target"), "_blank");
-
-  await partialPopup.getByText("The per-file limit is 8 MiB.").waitFor();
 
   assert.equal(await partialPopup.locator("#oversized-file-list").count(), 0);
 
@@ -321,7 +319,7 @@ export async function runPartialResults(
 
   await multiplePartialPopup
     .getByText(
-      "2 source files were too large to count and are not included in these totals.",
+      "2 source files were over the 8 MiB file limit and aren't included in these totals.",
     )
     .waitFor();
 

@@ -139,9 +139,8 @@ test("formats repository and result details", () => {
     ["No extension", (8 / 38) * 100],
   ]);
   expect(view.warning).toBe(
-    "1 source file was too large to count and is not included in these totals.",
+    "1 source file was over the 8 MiB file limit and isn't included in these totals.",
   );
-  expect(view.fileLimit).toBe("The per-file limit is 8 MiB.");
   expect(view.oversizedFiles).toEqual([]);
   expect(view.oversizedNote).toBe(
     "File names aren't available for this saved result. Reanalyze to see them.",
@@ -269,7 +268,6 @@ test("formats every result section without changing exact labels, shares, limits
     sizeTitle: "9,437,184 bytes",
     url: full.oversizedFiles[0]?.url,
   });
-  expect(compact.fileLimit).toBe(full.fileLimit);
   expect(compact.coverage).toBe(full.coverage);
   expect(JSON.stringify(source)).toBe(before);
 });

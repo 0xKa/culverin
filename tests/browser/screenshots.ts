@@ -199,7 +199,7 @@ try {
     .getByRole("button", { name: /Analyze repository|Reanalyze/ })
     .click();
   await partialPopup
-    .getByText(/too large to count/)
+    .getByText(/over the 8 MiB file limit/)
     .first()
     .waitFor();
   await partialPopup.waitForTimeout(400);

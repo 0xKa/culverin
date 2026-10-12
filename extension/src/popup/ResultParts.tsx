@@ -117,7 +117,6 @@ export function OversizedFiles({ result }: { result: ResultView }) {
   return (
     <Callout tone="warning" id="oversized-files" className="mt-3">
       <p className="m-0 font-medium">{result.warning}</p>
-      <p className="text-muted m-0 mt-0.5 text-xs">{result.fileLimit}</p>
       {result.oversizedFiles.length === 1 && list}
       {result.oversizedFiles.length > 1 && (
         <details id="oversized-file-list" className="disclosure mt-1.5">

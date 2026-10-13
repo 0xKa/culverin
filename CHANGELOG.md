@@ -2,13 +2,14 @@
 
 User-facing changes for each Culverin release. Newest first.
 
-## Unreleased
+## 0.1.6 - 2026-10-13
 
-- Shows a large monospace Culverin wordmark at the top of Settings. Hovering a letter turns it into a dashed outline with a selection frame. The frame uses your accent color. When Settings opens, the frame sweeps across the word once. The wordmark follows the theme and High contrast setting and then stays still until you point at it.
-- Adds Repo About section visibility under Settings → Repository page: show everywhere, hide on private repositories, or hide everywhere. The setting adds no GitHub requests. The toolbar popup stays available.
 - Adds an Accent color choice under Appearance: Blue, Copper, Purple, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.
+- Adds Repo About section visibility under Settings → Repository page: show everywhere, hide on private repositories, or hide everywhere. The setting adds no GitHub requests. The toolbar popup stays available.
 - Makes the Culverin mark in the popup and settings follow your accent color. The Chrome toolbar icon uses the same accent on its square background with a white symbol, and restores your choice after restarting Chrome.
+- Shows a large monospace Culverin wordmark at the top of Settings. Pointing at a letter turns it into a dashed outline with a selection frame in your accent color, and the frame sweeps across the word once when Settings opens. Reduced motion skips the sweep.
 - Turns Choose repositories in Settings → GitHub into a button beside Disconnect when you connect with the GitHub app.
+- Slows the language bar fill animation in the popup and saved results.
 - Renames the Storage section of Settings to History.
 
 ## 0.1.5 - 2026-10-12

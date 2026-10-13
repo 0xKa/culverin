@@ -576,13 +576,14 @@ const TechText = ({
       raf = 0;
       const s = settingsRef.current;
       if (!s) return;
-      const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+      const elapsed = Math.max(0.001, (now - last) / 1000);
+      const dt = Math.min(0.05, elapsed);
       last = now;
       const view = ensureLayout(s);
 
       const sweeping =
         s.sweep && !reducedMotion && !pointer.inside && dragging < 0;
-      if (sweeping) clock += dt * s.speed;
+      if (sweeping) clock += Math.min(0.25, elapsed) * s.speed;
       pulse += dt;
       let targetX = pointer.x;
       let targetY = pointer.y;
@@ -742,7 +743,7 @@ const TechText = ({
       const nextHeight = Math.max(1, container.clientHeight);
       const nextDpr = Math.min(
         (window.devicePixelRatio || 1) * (window.visualViewport?.scale ?? 1),
-        8,
+        3,
       );
       if (
         nextWidth === width &&

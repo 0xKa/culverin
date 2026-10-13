@@ -358,7 +358,7 @@ export function StorageSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="storage-heading" hidden={hidden}>
-      <SectionHeader id="storage-heading" title="Storage">
+      <SectionHeader id="storage-heading" title="History">
         Clearing saved results keeps your settings and GitHub connection.
       </SectionHeader>
       <div className="grid gap-4">

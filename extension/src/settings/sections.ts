@@ -1,7 +1,7 @@
 export const sections = [
   { id: "appearance", label: "Appearance" },
   { id: "repository-page", label: "Repository page" },
-  { id: "storage", label: "Storage" },
+  { id: "storage", label: "History" },
   { id: "ignore", label: "Culverin ignore" },
   { id: "counting", label: "Counting" },
   { id: "github", label: "GitHub" },

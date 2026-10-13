@@ -279,7 +279,7 @@
 
   .bar-fill {
     transform-origin: left;
-    transition: scale 200ms var(--ease-out-quick);
+    transition: scale 1500ms var(--ease-out-quick);
 
     @starting-style {
       scale: 0 1;

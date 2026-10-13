@@ -53,9 +53,22 @@ export function createPopupController(
   let formats = defaultNumberFormats;
   let shownResult:
     { result: AnalysisResultV2; resolution: ResolutionEnvelope } | undefined;
+  let held: PopupEvent[] | undefined = [];
+  let revealTimer: ReturnType<typeof setTimeout> | undefined;
   const dispatch = (event: PopupEvent) => {
-    if (!disposed) dispatchView(event);
+    if (disposed) return;
+    if (held) held.push(event);
+    else dispatchView(event);
   };
+
+  function reveal(): void {
+    clearTimeout(revealTimer);
+    const events = held;
+    held = undefined;
+    if (!events || disposed) return;
+    for (const event of events) dispatchView(event);
+    dispatchView({ type: "reveal" });
+  }
   let target: { tabId: number; repository: PageRepository } | undefined;
   let port: chrome.runtime.Port | undefined;
   const waiting = new Map<
@@ -220,12 +233,14 @@ export function createPopupController(
     return { requestId, response };
   }
 
-  async function lookup(): Promise<void> {
+  async function lookup(): Promise<boolean> {
     const pending = send("repository.lookup", {
       repository: target?.repository,
     });
-    if (!pending) return;
+    if (!pending) return false;
     lookupRequestId = pending.requestId;
+    const rulesHash = currentRulesHash();
+    rulesHash.catch(() => undefined);
     dispatch({ type: "lookup" });
     setStatus(statuses.lookup);
     const lookupTimer = setTimeout(() => {
@@ -237,22 +252,22 @@ export function createPopupController(
     }, 12_000);
     try {
       const reply = await pending.response;
-      if (lookupRequestId !== pending.requestId) return;
+      if (lookupRequestId !== pending.requestId) return false;
       if (reply.type === "repository.not_cached") {
         clearResult();
-        await currentRulesHash();
-        if (lookupRequestId !== pending.requestId) return;
+        await rulesHash;
+        if (lookupRequestId !== pending.requestId) return false;
         setStatus(statuses.notCounted);
-        void resume();
+        return true;
       } else if (reply.type === "repository.cache_miss") {
         clearResult();
-        await currentRulesHash();
-        if (lookupRequestId !== pending.requestId) return;
+        await rulesHash;
+        if (lookupRequestId !== pending.requestId) return false;
         setStatus(readyStatus(reply.resolution, reply.rulesChanged === true));
-        void resume();
+        return true;
       } else if (reply.type === "repository.cache_hit") {
-        const hash = await currentRulesHash();
-        if (lookupRequestId !== pending.requestId) return;
+        const hash = await rulesHash;
+        if (lookupRequestId !== pending.requestId) return false;
         if (reply.result.engine.rulesHash !== hash) {
           clearResult();
           setStatus(statuses.rulesChanged);
@@ -272,6 +287,7 @@ export function createPopupController(
         setBusy(Boolean(activeRequestId));
       }
     }
+    return false;
   }
 
   function watchAnalysis(requestId: string): void {
@@ -392,6 +408,7 @@ export function createPopupController(
     started = true;
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onActivated.addListener(onActivated);
+    revealTimer = setTimeout(reveal, 200);
     stopRateLimit = subscribeRateLimit(({ value, now }) =>
       dispatch({
         type: "apiLimit",
@@ -417,6 +434,8 @@ export function createPopupController(
     stopNumberFormats?.();
     shownResult = undefined;
     clearTimeout(retryTimer);
+    clearTimeout(revealTimer);
+    held = undefined;
     for (const waiter of waiting.values())
       waiter.reject(new Error("Viewer disposed"));
     waiting.clear();
@@ -446,9 +465,11 @@ export function createPopupController(
         type: "repository",
         value: `${repository.owner}/${repository.name}`,
       });
-      await lookup();
+      if (await lookup()) await resume();
     } catch {
       setStatus(statuses.tabUnreadable);
+    } finally {
+      reveal();
     }
   }
 

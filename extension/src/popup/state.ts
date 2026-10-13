@@ -2,6 +2,7 @@ import { statuses, type PopupStatus } from "./status";
 import type { ApiLimitView, ResultView } from "./view";
 
 export type PopupView = {
+  pending: boolean;
   repository?: string;
   status: PopupStatus;
   analysisVisible: boolean;
@@ -16,6 +17,7 @@ export type PopupView = {
 };
 
 export const initialView: PopupView = {
+  pending: true,
   status: statuses.notRepository,
   analysisVisible: false,
   analyzeDisabled: true,
@@ -25,6 +27,7 @@ export const initialView: PopupView = {
 };
 
 export type PopupEvent =
+  | { type: "reveal" }
   | { type: "status"; value: PopupStatus }
   | { type: "busy"; busy: boolean; disabled: boolean }
   | { type: "lookup" }
@@ -39,6 +42,8 @@ export type PopupEvent =
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
   switch (event.type) {
+    case "reveal":
+      return view.pending ? { ...view, pending: false } : view;
     case "status":
       return view.status === event.value
         ? view
@@ -70,6 +75,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
     case "left":
       return {
         ...initialView,
+        pending: false,
         status: statuses.tabChanged,
         apiLimit: view.apiLimit,
       };

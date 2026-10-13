@@ -59,6 +59,13 @@ test("tracks repository, busy state, result and details", () => {
   expect(cleared.reanalyze).toBe(false);
 });
 
+test("stays pending until revealed", () => {
+  expect(initialView.pending).toBe(true);
+  const revealed = reduce(initialView, { type: "reveal" });
+  expect(revealed.pending).toBe(false);
+  expect(reduce(revealed, { type: "reveal" })).toBe(revealed);
+});
+
 test("leaving a repository resets every repository-specific field", () => {
   const active = {
     ...initialView,
@@ -72,6 +79,7 @@ test("leaving a repository resets every repository-specific field", () => {
   };
   expect(reduce(active, { type: "left" })).toEqual({
     ...initialView,
+    pending: false,
     status: {
       label: "Tab changed",
       tone: "neutral",

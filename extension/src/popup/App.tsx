@@ -82,7 +82,9 @@ export function App() {
     <main>
       <Header view={view} />
       <div className="px-4 pt-3 pb-4">
-        <div className="flex items-start justify-between gap-3">
+        <div
+          className={`flex items-start justify-between gap-3 ${view.pending ? "invisible" : ""}`}
+        >
           {view.repository ? (
             <p
               id="repository"
@@ -109,9 +111,9 @@ export function App() {
           />
         </div>
         <Status id="status" className="sr-only">
-          {view.status.detail}
+          {!view.pending && view.status.detail}
         </Status>
-        <section id="analysis" hidden={!view.analysisVisible}>
+        <section id="analysis" hidden={view.pending || !view.analysisVisible}>
           {result && <Totals key={result.commit} result={result} />}
           {result?.warning && <OversizedFiles result={result} />}
           {result && <Sizes result={result} />}

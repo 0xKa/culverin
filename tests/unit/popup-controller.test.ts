@@ -20,6 +20,7 @@ afterEach(() => {
 
 function popup(
   query = async () => [{ id: 1, url: "https://github.com/culverin/sample" }],
+  holdLookup = false,
 ) {
   let connects = 0;
   const events: PopupEvent[] = [];
@@ -46,7 +47,7 @@ function popup(
           disconnect: () => undefined,
           postMessage: (request: Record<string, unknown>) => {
             requests.push(request);
-            if (request.type === "repository.lookup")
+            if (request.type === "repository.lookup" && !holdLookup)
               queueMicrotask(() =>
                 messages.emit({
                   protocolVersion: 1,
@@ -220,6 +221,41 @@ test("reformats a retained result during reanalysis without requests or disclosu
   const afterDisposal = ui.events.length;
   ui.changed.emit({ [SIZE_UNITS_KEY]: { newValue: "binary" } }, "sync");
   expect(ui.events).toHaveLength(afterDisposal);
+});
+
+test("holds the popup view until a cached result arrives", async () => {
+  jest.useFakeTimers();
+  const ui = popup(undefined, true);
+  await settle();
+  expect(ui.events).toEqual([]);
+  const lookup = ui.requests.find((item) => item.type === "repository.lookup")!;
+  const { result, resolution } = await completedResult();
+  ui.reply(lookup, { type: "repository.cache_hit", result, resolution });
+  await settle();
+  const reveal = ui.events.findIndex((item) => item.type === "reveal");
+  expect(reveal).toBe(ui.events.length - 1);
+  expect(ui.events.findIndex((item) => item.type === "result")).toBeLessThan(
+    reveal,
+  );
+  const view = ui.events.reduce(reduce, initialView);
+  expect(view.pending).toBe(false);
+  expect(view.reanalyze).toBe(true);
+  expect(view.status.label).toBe("Cached");
+  jest.advanceTimersByTime(200);
+  expect(ui.events.filter((item) => item.type === "reveal")).toHaveLength(1);
+});
+
+test("reveals the checking state when the lookup is slow", async () => {
+  jest.useFakeTimers();
+  const ui = popup(undefined, true);
+  await settle();
+  jest.advanceTimersByTime(199);
+  expect(ui.events).toEqual([]);
+  jest.advanceTimersByTime(1);
+  const view = ui.events.reduce(reduce, initialView);
+  expect(view.pending).toBe(false);
+  expect(view.repository).toBe("culverin/sample");
+  expect(view.status.label).toBe("Checking");
 });
 
 test("follows a repository across its sub pages and leaves it elsewhere", async () => {

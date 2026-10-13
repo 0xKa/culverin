@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-- Adds a moving accent-colored current around the Analyze repository button in the popup while you point at it. It is CSS only and stops when the pointer leaves. Reduced motion shows a still outline instead, and Reanalyze keeps its plain style.
+- Adds a slow accent-colored current that circles the Analyze repository button in the popup and speeds up while you point at it. It is CSS only and pauses while the button is disabled. Reduced motion shows a still outline on hover instead, and Reanalyze keeps its plain style.
 
 ## 0.1.6 - 2026-10-13
 

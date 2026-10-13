@@ -4,7 +4,7 @@ import { DEVICE_URL, INSTALL_URL, TOKEN_URL } from "../auth/github-app";
 import { Button } from "../ui/Button";
 import { DotLoader } from "../ui/DotLoader";
 import { IconButton } from "../ui/IconButton";
-import { Check, Copy } from "lucide-preact";
+import { Check, Copy, ExternalLink as ExternalLinkIcon } from "lucide-preact";
 import { Status } from "../ui/Status";
 import { connectionSummary, type ConnectionView } from "./github";
 import { inputClass, Panel, SectionHeader } from "./layout";
@@ -77,23 +77,36 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
               {view?.connected && view.method === "app" && (
                 <p className="text-muted m-0 mt-1 text-sm">
                   Culverin can read the repositories you chose when you
-                  installed the app.{" "}
-                  <ExternalLink href={INSTALL_URL}>
-                    Choose repositories on GitHub
-                  </ExternalLink>
+                  installed the app.
                 </p>
               )}
             </div>
             {view?.connected && (
-              <Button
-                id="github-disconnect"
-                type="button"
-                size="md"
-                disabled={busy !== undefined}
-                onClick={() => void controller.disconnect()}
-              >
-                Disconnect
-              </Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                {view.method === "app" && (
+                  <Button
+                    id="github-choose-repositories"
+                    type="button"
+                    size="md"
+                    onClick={() =>
+                      void chrome.tabs.create({ url: INSTALL_URL })
+                    }
+                  >
+                    Choose repositories
+                    <ExternalLinkIcon size={14} className="text-muted" />
+                  </Button>
+                )}
+                <Button
+                  id="github-disconnect"
+                  type="button"
+                  size="md"
+                  variant={view.method === "app" ? "ghost" : "secondary"}
+                  disabled={busy !== undefined}
+                  onClick={() => void controller.disconnect()}
+                >
+                  Disconnect
+                </Button>
+              </div>
             )}
           </div>
           {view?.expired && !view.connected && (

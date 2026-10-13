@@ -28,7 +28,7 @@ export async function installGitHubFixtures(
   publicSha: string,
 ): Promise<FixtureState> {
   const fixtures = createFixtures(publicSha);
-  const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></react-app></main><script>
+  const repositoryFixture = `<!doctype html><html><head><meta name="octolytics-dimension-repository_nwo" content="culverin/bootstrap-fixture"><meta name="octolytics-dimension-repository_public" content="true"><style>@media (max-width: 767px) { #about { display: none } }</style></head><body><main><react-app id="app"><div id="about"><h2>About</h2><div class="mt-2"><span>1 star</span></div><div class="mt-2"><a id="forks" href="/culverin/bootstrap-fixture/forks"><strong>0</strong> forks</a></div><div class="mt-2"><a href="/contact/report-content">Report repository</a></div></div></react-app></main><script>
 const sync = () => {
   const [, owner, name] = location.pathname.split("/");
   document.querySelector("#forks").setAttribute("href", "/" + owner + "/" + name + "/forks");

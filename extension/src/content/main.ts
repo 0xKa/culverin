@@ -7,10 +7,11 @@ import {
   type PublicRequest,
 } from "../github/public-protocol";
 import { failureMessages } from "../github/failure-messages";
-import { pageContext } from "./repository";
+import { pageContext, privateRepository } from "./repository";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
 import { defaultPageNumberFormats } from "../repository-page/format";
 import type { NumberFormats } from "../ui/format";
+import { showAbout, type AboutVisibility } from "../repository-page/visibility";
 import { sameRepository, type PageRepository } from "../github/repository";
 import {
   createSummaryUi,
@@ -31,6 +32,8 @@ type View = {
   state?: RowState;
   items: AboutItem[];
   formats: NumberFormats;
+  privateRepository?: boolean;
+  visibility?: AboutVisibility;
   displayRequestId?: string;
   lookupRequestId?: string;
   analysisRequestId?: string;
@@ -87,7 +90,28 @@ function send(
 function setState(current: View, state: RowState): void {
   clearTimeout(current.retryTimer);
   current.state = state;
-  showState(current.ui, state, current.items, current.formats);
+  render(current);
+}
+
+function render(current: View): void {
+  const shown =
+    current.visibility &&
+    showAbout(current.visibility, current.privateRepository);
+  showState(
+    current.ui,
+    shown ? (current.state ?? { kind: "idle" }) : { kind: "hidden" },
+    current.items,
+    current.formats,
+  );
+}
+
+function observeVisibility(current: View, reply: PublicReply): void {
+  if ("resolution" in reply) {
+    current.privateRepository =
+      privateRepository(current.repository, document) ??
+      reply.resolution.visibility === "private";
+    render(current);
+  }
 }
 
 function refreshDisplay(current: View): void {
@@ -101,15 +125,21 @@ function refreshDisplay(current: View): void {
         current.displayRequestId !== requestId ||
         (reply.items.join() === current.items.join() &&
           reply.formats.counts === current.formats.counts &&
-          reply.formats.sizes === current.formats.sizes)
+          reply.formats.sizes === current.formats.sizes &&
+          reply.visibility === current.visibility)
       )
         return;
       current.items = reply.items;
       current.formats = reply.formats;
-      if (current.state)
-        showState(current.ui, current.state, current.items, current.formats);
+      current.visibility = reply.visibility;
+      render(current);
     })
-    .catch(() => undefined);
+    .catch(() => {
+      if (!currentView(current) || current.displayRequestId !== requestId)
+        return;
+      current.visibility ??= "all";
+      render(current);
+    });
 }
 
 function rateLimit(current: View, retryAt?: number): void {
@@ -155,6 +185,7 @@ async function lookup(current: View): Promise<void> {
   try {
     const reply = await response;
     if (!active()) return;
+    observeVisibility(current, reply);
     if (reply.type === "analysis.failed") {
       if (reply.code === "rate_limited") rateLimit(current, reply.retryAt);
       else setState(current, lookupFailureState(reply.code));
@@ -192,6 +223,7 @@ async function finishAnalysis(
   reply: PublicReply,
 ): Promise<void> {
   if (!currentView(current) || current.analysisRequestId !== requestId) return;
+  observeVisibility(current, reply);
   if (reply.type === "analysis.completed") {
     const state = await completeState(reply.result);
     if (!currentView(current) || !stopAnalysis(current, requestId)) return;
@@ -272,8 +304,10 @@ function create(repository: PageRepository, ref: string): View {
     ui: createSummaryUi((action) => activate(current, action)),
     items: [...ABOUT_ITEMS],
     formats: { ...defaultPageNumberFormats },
+    privateRepository: privateRepository(repository, document),
     messageListener: () => undefined,
   };
+  current.ui.host.hidden = true;
   current.messageListener = (message, sender) => {
     if (
       sender.id !== chrome.runtime.id ||
@@ -321,6 +355,11 @@ function mount(): void {
     view = create(context.repository, context.ref);
     refreshDisplay(view);
     void lookup(view);
+  }
+  const privacy = privateRepository(context.repository, document);
+  if (privacy !== undefined && privacy !== view.privateRepository) {
+    view.privateRepository = privacy;
+    render(view);
   }
   if (context.hydrating && !hydrated.has(context.hydrating)) {
     awaitHydration(context.hydrating);
@@ -391,6 +430,8 @@ new MutationObserver(() => {
 }).observe(document, {
   childList: true,
   subtree: true,
+  attributes: true,
+  attributeFilter: ["content"],
 });
 window.addEventListener("popstate", schedule);
 window.addEventListener("pageshow", schedule);
@@ -399,5 +440,8 @@ window.addEventListener("pagehide", detach);
 window.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && view && currentView(view))
     refreshDisplay(view);
+});
+window.addEventListener("focus", () => {
+  if (view && currentView(view)) refreshDisplay(view);
 });
 mount();

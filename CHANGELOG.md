@@ -4,6 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
+- Adds Repo About section visibility under Settings → Repository page: show everywhere, hide on private repositories, or hide everywhere. The setting adds no GitHub requests. The toolbar popup stays available.
 - Adds an Accent color choice under Appearance: Blue, Copper, Purple, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.
 - Makes the Culverin mark in the popup and settings follow your accent color. The Chrome toolbar icon uses the same accent on its square background with a white symbol, and restores your choice after restarting Chrome.
 - Turns Choose repositories in Settings → GitHub into a button beside Disconnect when you connect with the GitHub app.

@@ -16,7 +16,7 @@ import {
   type AboutLayout,
 } from "../repository-page/about-items";
 import { IconButton } from "../ui/IconButton";
-import { Panel, SectionHeader } from "./layout";
+import { inputClass, Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import {
@@ -27,6 +27,16 @@ import { pageNumberPreferences } from "../repository-page/numbers";
 import { exactBytes, formatBytes } from "../ui/format";
 import { tip } from "../ui/tooltip";
 import { NumberOptions } from "./NumberOptions";
+import {
+  aboutVisibility,
+  type AboutVisibility,
+} from "../repository-page/visibility";
+
+const visibilityOptions: { value: AboutVisibility; label: string }[] = [
+  { value: "all", label: "Show everywhere" },
+  { value: "public", label: "Hide on private repositories" },
+  { value: "none", label: "Hide everywhere" },
+];
 
 const items: Record<
   AboutItem,
@@ -46,6 +56,8 @@ type Direction = "up" | "down";
 
 export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
   const [layout, setLayout] = useState<AboutLayout>();
+  const [visibility, setVisibility] = useState<AboutVisibility>();
+  const visibilityAction = useAction();
   const { state, run } = useAction();
   const [focus, setFocus] = useState<{
     item: AboutItem;
@@ -57,6 +69,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
 
   useEffect(() => {
     void aboutLayout.read().then(setLayout);
+    void aboutVisibility.read().then(setVisibility);
   }, []);
 
   useEffect(() => {
@@ -77,6 +90,13 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
     void run(() => aboutLayout.write(next), {
       message: `${message} Saved.`,
       restore: () => void aboutLayout.read().then(setLayout),
+    });
+  }
+
+  function changeVisibility(next: AboutVisibility): void {
+    setVisibility(next);
+    void visibilityAction.run(() => aboutVisibility.write(next), {
+      restore: () => void aboutVisibility.read().then(setVisibility),
     });
   }
 
@@ -104,6 +124,39 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
       <SectionHeader id="repository-page-heading" title="Repository page">
         What Culverin adds to the About list on GitHub repository pages.
       </SectionHeader>
+      <Panel className="relative mb-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <label htmlFor="about-visibility" className="text-md font-semibold">
+            Repo About section visibility
+          </label>
+          <ActionStatus
+            id="about-visibility-status"
+            state={visibilityAction.state}
+            className="h-[1.375rem]"
+          />
+        </div>
+        <select
+          id="about-visibility"
+          className={`${inputClass} w-full text-sm`}
+          value={visibility ?? "all"}
+          disabled={!visibility}
+          aria-describedby="about-visibility-detail"
+          onChange={(event) =>
+            changeVisibility(event.currentTarget.value as AboutVisibility)
+          }
+        >
+          {visibilityOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p id="about-visibility-detail" className="text-muted m-0 mt-3 text-sm">
+          Hides all Culverin rows, including Analyze, progress, and notices. The
+          toolbar popup stays available. Changes apply when you open or return
+          to a repository page. Counting follows your Counting setting.
+        </p>
+      </Panel>
       <Panel className="relative">
         <fieldset className="m-0 border-0 p-0">
           <legend className="text-md mb-1 p-0 font-semibold">
@@ -112,7 +165,8 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
           <p className="text-muted m-0 mb-3 text-sm">
             These rows appear after a count, in this order. Before a count, the
             page shows Analyze with Culverin. Changes apply when you open or
-            return to a repository page. At least one item stays shown.
+            return to a repository page. At least one item stays selected when
+            Culverin is visible.
           </p>
           <ul
             ref={list}

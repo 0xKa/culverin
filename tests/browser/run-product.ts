@@ -10,6 +10,7 @@ import { runPopupResults } from "./scenarios/popup-results";
 import { runStatusMarkMotion } from "./scenarios/status-mark";
 import { runSetup } from "./scenarios/setup";
 import { runAccentIcons } from "./scenarios/accent-icons";
+import { runAboutVisibility } from "./scenarios/about-visibility";
 import { inspectPackage } from "./support/package";
 import { closeBrowserSession, createBrowserSession } from "./support/session";
 
@@ -23,6 +24,7 @@ export async function runProductSuite(directory: string): Promise<void> {
   try {
     const step0 = await scenario("setup", () => runSetup(session));
     await scenario("accent icons", () => runAccentIcons(step0));
+    await scenario("About visibility", () => runAboutVisibility(step0));
     await scenario("denied diagnostic capabilities", () =>
       runDeniedDiagnostics(step0),
     );

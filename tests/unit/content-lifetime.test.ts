@@ -33,7 +33,11 @@ beforeAll(async () => {
 });
 afterEach(() => jest.useRealTimers());
 
-function pageHarness({ answerLookup = true } = {}) {
+function pageHarness({
+  answerLookup = true,
+  answerDisplay = true,
+  privatePage = false,
+} = {}) {
   jest.useFakeTimers();
   const states: RowState[] = [];
   const shownItems: unknown[] = [];
@@ -48,6 +52,8 @@ function pageHarness({ answerLookup = true } = {}) {
     connected: boolean;
   }[] = [];
   const lifecycle = new Map<string, () => void>();
+  const location = new URL("https://github.com/culverin/sample");
+  let mutation = () => undefined;
   const runtime = {
     id: "test",
     getURL: (path: string) => `chrome-extension://test/${path}`,
@@ -78,6 +84,16 @@ function pageHarness({ answerLookup = true } = {}) {
           type: "analysis.failed",
           code: "analysis_interrupted",
         });
+      else if (answerDisplay && request.type === "display.get")
+        callback({
+          protocolVersion: 1,
+          requestId: request.requestId,
+          navigationId: request.navigationId,
+          type: "display",
+          items: ["lines", "files", "size"],
+          formats: defaultPageNumberFormats,
+          visibility: "all",
+        });
       else if (answerLookup && request.type === "repository.lookup")
         callback({
           protocolVersion: 1,
@@ -91,7 +107,12 @@ function pageHarness({ answerLookup = true } = {}) {
     readyState: "complete",
     visibilityState: "visible",
     querySelectorAll: () => [],
-    querySelector: () => ({ getAttribute: () => "culverin/sample" }),
+    querySelector: (selector: string) => ({
+      getAttribute: () =>
+        selector === 'meta[name="octolytics-dimension-repository_public"]'
+          ? String(!privatePage)
+          : location.pathname.slice(1),
+    }),
   };
   const window = {
     addEventListener: (type: string, listener: () => void) =>
@@ -118,10 +139,13 @@ function pageHarness({ answerLookup = true } = {}) {
   );
   run(
     { runtime },
-    new URL("https://github.com/culverin/sample"),
+    location,
     document,
     window,
     class {
+      constructor(callback: () => undefined) {
+        mutation = callback;
+      }
       observe() {}
       disconnect() {}
     },
@@ -137,6 +161,8 @@ function pageHarness({ answerLookup = true } = {}) {
     ports,
     runtime,
     lifecycle,
+    location,
+    mutate: () => mutation(),
   };
 }
 
@@ -294,11 +320,22 @@ test("redraws a result with the About items chosen in settings", async () => {
     requests,
     callbacks,
     lifecycle,
-  } = pageHarness();
+  } = pageHarness({ answerDisplay: false });
   await settle();
   const display = () =>
     requests.filter((request) => request.type === "display.get");
   expect(display()).toHaveLength(1);
+  const initial = display()[0]!;
+  callbacks.get(initial.requestId as string)!({
+    protocolVersion: 1,
+    requestId: initial.requestId,
+    navigationId: initial.navigationId,
+    type: "display",
+    items: ["lines", "files", "size"],
+    formats: defaultPageNumberFormats,
+    visibility: "all",
+  });
+  await settle();
   activate("analyze");
   const request = requests.at(-1)!;
   callbacks.get(request.requestId as string)!({
@@ -319,15 +356,17 @@ test("redraws a result with the About items chosen in settings", async () => {
       type: "display",
       items,
       formats,
+      visibility: "all",
     });
   };
+  lifecycle.get("visibilitychange")!();
   answer(["size", "lines"]);
   await settle();
   expect(states.at(-1)).toMatchObject({ kind: "complete" });
   expect(shownItems.at(-1)).toEqual(["size", "lines"]);
   const shown = states.length;
   lifecycle.get("visibilitychange")!();
-  expect(display()).toHaveLength(2);
+  expect(display()).toHaveLength(3);
   answer(["size", "lines"]);
   await settle();
   expect(states).toHaveLength(shown);
@@ -358,8 +397,105 @@ test("redraws a result with the About items chosen in settings", async () => {
     type: "display",
     items: ["size"],
     formats: { counts: "full", sizes: "decimal" },
+    visibility: "all",
   });
   await settle();
   expect(shownItems.at(-1)).toEqual(["files"]);
   expect(shownFormats.at(-1)).toEqual(defaultPageNumberFormats);
+});
+
+test("visibility hides progress and results while retaining the state for later display", async () => {
+  const api = pageHarness({ answerDisplay: false, privatePage: true });
+  const answer = (visibility: string) => {
+    const request = api.requests
+      .filter((item) => item.type === "display.get")
+      .at(-1)!;
+    api.callbacks.get(request.requestId as string)!({
+      protocolVersion: 1,
+      requestId: request.requestId,
+      navigationId: request.navigationId,
+      type: "display",
+      items: ["lines", "files", "size"],
+      formats: defaultPageNumberFormats,
+      visibility,
+    });
+  };
+  await settle();
+  answer("public");
+  await settle();
+  expect(api.states.at(-1)).toEqual({ kind: "hidden" });
+  api.lifecycle.get("focus")!();
+  answer("all");
+  await settle();
+  expect(api.states.at(-1)).toEqual({ kind: "idle" });
+  api.activate("analyze");
+  const analysis = api.requests.at(-1)!;
+  api.lifecycle.get("focus")!();
+  answer("public");
+  await settle();
+  expect(api.states.at(-1)).toEqual({ kind: "hidden" });
+  api.callbacks.get(analysis.requestId as string)!({
+    protocolVersion: 1,
+    requestId: analysis.requestId,
+    navigationId: analysis.navigationId,
+    ...(await completedResult()),
+    resolution: {
+      ...(await completedResult()).resolution,
+      visibility: "private",
+    },
+  });
+  await settle();
+  expect(api.states.at(-1)).toEqual({ kind: "hidden" });
+  api.lifecycle.get("focus")!();
+  answer("all");
+  await settle();
+  expect(api.states.at(-1)).toMatchObject({ kind: "complete", total: 0 });
+  expect(
+    api.requests.filter((item) => item.type === "repository.lookup"),
+  ).toHaveLength(1);
+  expect(
+    api.requests.filter((item) => item.type === "analysis.request"),
+  ).toHaveLength(1);
+});
+
+test("same-document navigation ignores the previous repository's display and access failure", async () => {
+  const api = pageHarness({
+    answerDisplay: false,
+    answerLookup: false,
+    privatePage: true,
+  });
+  const oldRequests = [...api.requests];
+  api.location.pathname = "/culverin/other";
+  jest.advanceTimersByTime(300);
+  await settle();
+  const display = api.requests
+    .filter((item) => item.type === "display.get")
+    .at(-1)!;
+  api.callbacks.get(display.requestId as string)!({
+    protocolVersion: 1,
+    requestId: display.requestId,
+    navigationId: display.navigationId,
+    type: "display",
+    items: ["lines", "files", "size"],
+    formats: defaultPageNumberFormats,
+    visibility: "all",
+  });
+  await settle();
+  for (const request of oldRequests) {
+    api.callbacks.get(request.requestId as string)!({
+      protocolVersion: 1,
+      requestId: request.requestId,
+      navigationId: request.navigationId,
+      ...(request.type === "display.get"
+        ? {
+            type: "display",
+            items: ["lines", "files", "size"],
+            formats: defaultPageNumberFormats,
+            visibility: "none",
+          }
+        : { type: "analysis.failed", code: "access_not_granted" }),
+    });
+  }
+  await settle();
+  expect(api.states.at(-1)).toEqual({ kind: "idle" });
 });

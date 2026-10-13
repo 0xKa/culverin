@@ -14,6 +14,24 @@ function visible(element: Element | null): element is Element {
   );
 }
 
+export function privateRepository(
+  repository: PageRepository,
+  document: Document,
+): boolean | undefined {
+  const marker = document.querySelector(
+    'meta[name="octolytics-dimension-repository_nwo"]',
+  );
+  if (
+    marker?.getAttribute("content")?.toLowerCase() !==
+    `${repository.owner}/${repository.name}`.toLowerCase()
+  )
+    return undefined;
+  const value = document
+    .querySelector('meta[name="octolytics-dimension-repository_public"]')
+    ?.getAttribute("content");
+  return value === "false" ? true : value === "true" ? false : undefined;
+}
+
 export function pageContext(
   url: string,
   document: Document,

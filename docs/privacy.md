@@ -1,6 +1,6 @@
 # Privacy
 
-Effective 2026-10-12.
+Effective 2026-10-13.
 
 Culverin counts lines of code in GitHub repositories inside your browser. Public repositories need no account; to count private repositories you can connect your GitHub account. Culverin has no backend, account of its own, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
@@ -18,6 +18,8 @@ If you choose to count when a repository page opens, in the Counting section of 
 
 ## Connecting GitHub
 
+The Repository page section's Repo About section visibility setting can hide Culverin's About rows everywhere or on private repositories, including private repositories Culverin cannot access. This adds no GitHub requests: page visibility is read from GitHub's page markers or existing lookup and analysis replies. It does not change your Counting choice, and the toolbar popup remains available.
+
 Connecting is optional and happens only when you choose it in the GitHub section of the settings page. You can connect in one of two ways:
 
 - **Connect with GitHub** uses the Culverin GitHub App. Culverin asks GitHub for a short code, you enter it at `https://github.com/login/device`, and you approve the app on GitHub, where you also choose which repositories it may read. The app can only read repository contents and metadata. GitHub then gives the extension a token for your account that expires after 8 hours, and a refresh token that the extension uses to get a new one.
@@ -33,7 +35,7 @@ Complete aggregate results for public repositories are kept in the extension's l
 
 If you connect GitHub, the extension keeps your GitHub username and token, and for the GitHub App the refresh token and expiry times, in its local storage so you don't have to connect again after restarting the browser. This storage is not encrypted by Culverin, and anyone with access to your browser profile could read it. The GitHub App token can only read the repositories you chose; a personal access token can do whatever you allowed when you created it.
 
-Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice, theme, high contrast, accent color, and the independent popup and repository page number format and size unit preferences are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep copies of your theme, contrast, and accent color preferences so they open with your chosen appearance, in the extension's local page storage.
+Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice, Repo About section visibility and row layout, theme, high contrast, accent color, and the independent popup and repository page number format and size unit preferences are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep copies of your theme, contrast, and accent color preferences so they open with your chosen appearance, in the extension's local page storage.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 

@@ -389,8 +389,17 @@ test("lets only the page ask which About items to show", () => {
     type: "display",
     items: ["files", "lines"],
     formats: { counts: "abbreviated", sizes: "binary" },
+    visibility: "all",
   };
   expect(validPublicReply(reply, requestId, navigationId)).toBe(true);
+  for (const visibility of ["all", "public", "none"])
+    expect(
+      validPublicReply({ ...reply, visibility }, requestId, navigationId),
+    ).toBe(true);
+  for (const visibility of [undefined, "private", true])
+    expect(
+      validPublicReply({ ...reply, visibility }, requestId, navigationId),
+    ).toBe(false);
   for (const items of [[], ["lines", "lines"], ["lines", "stars"], "lines"])
     expect(validPublicReply({ ...reply, items }, requestId, navigationId)).toBe(
       false,

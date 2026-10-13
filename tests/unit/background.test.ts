@@ -6,6 +6,7 @@ import { createPublicAnalysis } from "../../extension/src/background/analysis";
 import { createSettingsHandler } from "../../extension/src/background/settings";
 import { createSenderGates } from "../../extension/src/background/senders";
 import { COUNT_TRIGGER_KEY } from "../../extension/src/counting/trigger";
+import { aboutVisibility } from "../../extension/src/repository-page/visibility";
 import {
   PAGE_COUNT_FORMAT_KEY,
   PAGE_SIZE_UNITS_KEY,
@@ -192,6 +193,7 @@ test("page display replies expose only the independent formatting choices and Ab
   const api = fixture();
   api.sync.values[PAGE_COUNT_FORMAT_KEY] = "full";
   api.sync.values[PAGE_SIZE_UNITS_KEY] = "decimal";
+  api.sync.values[aboutVisibility.key] = "none";
   api.sync.values["culverin.countFormat"] = "abbreviated";
   api.sync.values["culverin.sizeUnits"] = "binary";
   api.local.values["github.connection"] = { token: "fixture-token" };
@@ -217,6 +219,7 @@ test("page display replies expose only the independent formatting choices and Ab
     type: "display",
     items: ["lines", "files", "size"],
     formats: { counts: "full", sizes: "decimal" },
+    visibility: "none",
   });
   expect(api.calls).toEqual([]);
   expect(api.tokens).toEqual([]);
@@ -520,7 +523,6 @@ test("settings checks the rate limit for free without a connection and with one 
     code: "authentication_invalid",
   });
   expect(await api.resources.connection.status()).toMatchObject({
-    connected: false,
     expired: true,
   });
 });

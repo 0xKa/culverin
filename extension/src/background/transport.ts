@@ -6,6 +6,7 @@ import {
   type PublicRequest,
 } from "../github/public-protocol";
 import { aboutLayout, shownItems } from "../repository-page/about-items";
+import { aboutVisibility } from "../repository-page/visibility";
 import { readNumberFormats } from "../appearance/numbers";
 import { pageNumberPreferences } from "../repository-page/numbers";
 import type { createPublicAnalysis } from "./analysis";
@@ -77,12 +78,14 @@ export function createPublicTransport(
       void Promise.all([
         aboutLayout.read(chrome.storage.sync),
         readNumberFormats(pageNumberPreferences, chrome.storage.sync),
-      ]).then(([layout, formats]) =>
+        aboutVisibility.read(chrome.storage.sync),
+      ]).then(([layout, formats, visibility]) =>
         respond(
           publicReply(request, {
             type: "display",
             items: shownItems(layout),
             formats,
+            visibility,
           }),
         ),
       );

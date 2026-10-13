@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { BrandIcon } from "../ui/BrandIcon";
+import { BrandHeader } from "./BrandHeader";
 import { AboutSection } from "./AboutSection";
 import { AppearanceSection } from "./AppearanceSection";
 import { CountingSection } from "./CountingSection";
@@ -49,10 +49,7 @@ export function App() {
 
   return (
     <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base">
-      <header className="mb-8 flex items-center gap-3">
-        <BrandIcon className="size-7" />
-        <h1 className="m-0 text-xl font-semibold tracking-tight">Culverin</h1>
-      </header>
+      <BrandHeader />
       <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
         <nav
           aria-label="Settings sections"

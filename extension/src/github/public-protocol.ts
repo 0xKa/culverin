@@ -49,6 +49,20 @@ export type SummaryUpdate = {
   customIgnore: boolean;
 };
 
+export type SummaryProgress = {
+  protocolVersion: 1;
+  type: "summary.progress";
+  repository: { owner: string; name: string };
+  url: string;
+  phase:
+    | "queued"
+    | "resolving"
+    | "downloading"
+    | "decompressing"
+    | "counting"
+    | "ended";
+};
+
 export type ResolutionEnvelope = Resolution & { resolvedAt: number };
 
 export function withRef(
@@ -259,6 +273,30 @@ export function validSummaryUpdate(value: unknown): value is SummaryUpdate {
     Number.isSafeInteger(value.totalBytes) &&
     (value.totalBytes as number) >= 0 &&
     typeof value.customIgnore === "boolean"
+  );
+}
+
+export function validSummaryProgress(value: unknown): value is SummaryProgress {
+  return (
+    record(value) &&
+    exact(value, ["protocolVersion", "type", "repository", "url", "phase"]) &&
+    value.protocolVersion === PUBLIC_VERSION &&
+    value.type === "summary.progress" &&
+    record(value.repository) &&
+    exact(value.repository, ["owner", "name"]) &&
+    typeof value.repository.owner === "string" &&
+    typeof value.repository.name === "string" &&
+    validRepository(value.repository.owner, value.repository.name) &&
+    typeof value.url === "string" &&
+    value.url.length <= 4096 &&
+    [
+      "queued",
+      "resolving",
+      "downloading",
+      "decompressing",
+      "counting",
+      "ended",
+    ].includes(value.phase as string)
   );
 }
 

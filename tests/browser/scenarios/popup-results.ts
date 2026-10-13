@@ -181,7 +181,9 @@ export async function runPopupResults(
 
   assert.equal(heldPopupJobs?.length, 1);
 
-  assert.equal(await page.getByText("Analyze with Culverin").count(), 1);
+  await page.locator("[data-culverin-root] .culverin-spinner").waitFor();
+
+  assert.equal(await page.getByText("Analyze with Culverin").count(), 0);
 
   const resumedPopup = await openPopup(page);
 

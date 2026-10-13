@@ -2,9 +2,11 @@ import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
   PUBLIC_PORT,
   validPublicReply,
+  validSummaryProgress,
   validSummaryUpdate,
   type PublicReply,
   type PublicRequest,
+  type SummaryProgress,
 } from "../github/public-protocol";
 import { failureMessages } from "../github/failure-messages";
 import { pageContext, privateRepository } from "./repository";
@@ -37,6 +39,7 @@ type View = {
   displayRequestId?: string;
   lookupRequestId?: string;
   analysisRequestId?: string;
+  popupAnalysis?: { restore?: RowState };
   timer?: ReturnType<typeof setTimeout>;
   retryTimer?: ReturnType<typeof setTimeout>;
   port?: chrome.runtime.Port;
@@ -246,6 +249,7 @@ async function analyze(current: View): Promise<void> {
     repository: current.repository,
   });
   current.lookupRequestId = undefined;
+  current.popupAnalysis = undefined;
   current.analysisRequestId = requestId;
   setState(current, { kind: "running", phase: "resolving" });
   try {
@@ -254,6 +258,27 @@ async function analyze(current: View): Promise<void> {
     if (currentView(current) && stopAnalysis(current, requestId))
       setState(current, failureState("analysis_interrupted"));
   }
+}
+
+function followPopup(current: View, phase: SummaryProgress["phase"]): void {
+  if (phase === "ended") {
+    const popup = current.popupAnalysis;
+    if (!popup) return;
+    current.popupAnalysis = undefined;
+    setState(current, popup.restore ?? { kind: "idle" });
+    return;
+  }
+  if (
+    current.analysisRequestId ||
+    (!current.popupAnalysis && current.state?.kind === "complete")
+  )
+    return;
+  if (!current.popupAnalysis) {
+    current.popupAnalysis = { restore: current.state };
+    current.lookupRequestId = undefined;
+    clearTimeout(current.timer);
+  }
+  setState(current, { kind: "running", phase });
 }
 
 function activate(current: View, action: RowAction): void {
@@ -325,6 +350,14 @@ function create(repository: PageRepository, ref: string): View {
       setState(current, { kind: "running", phase: message.phase });
       return;
     }
+    if (validSummaryProgress(message)) {
+      if (
+        message.url === current.url &&
+        sameRepository(message.repository, current.repository)
+      )
+        followPopup(current, message.phase);
+      return;
+    }
     if (
       !validSummaryUpdate(message) ||
       !sameRepository(message.repository, current.repository) ||
@@ -334,6 +367,7 @@ function create(repository: PageRepository, ref: string): View {
       return;
     if (requestId) stopAnalysis(current, requestId);
     current.lookupRequestId = undefined;
+    current.popupAnalysis = undefined;
     setState(current, {
       kind: "complete",
       total: message.totalCodeLines,

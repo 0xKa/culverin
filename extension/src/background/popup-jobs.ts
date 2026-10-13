@@ -4,12 +4,22 @@ import {
   type PublicPayload,
   type PublicRequest,
   type ResolutionEnvelope,
+  type SummaryProgress,
   type SummaryUpdate,
 } from "../github/public-protocol";
 import { sameRepository, tabRepository, tabRoute } from "../github/repository";
 import type { createPublicAnalysis } from "./analysis";
 import type { BackgroundResources } from "./resources";
 import { popupOwner, publicReply } from "./senders";
+
+function pageUrl(url: string): string {
+  try {
+    const { origin, pathname } = new URL(url);
+    return origin + pathname;
+  } catch {
+    return "";
+  }
+}
 
 export function createPopupJobs(
   resources: BackgroundResources,
@@ -26,6 +36,8 @@ export function createPopupJobs(
     owner: string;
     requestId: string;
     repository: { owner: string; name: string };
+    url: string;
+    phase?: SummaryProgress["phase"];
     viewer?: PopupViewer;
   };
   const popupJobs = new Map<number, PopupJob>();
@@ -81,8 +93,8 @@ export function createPopupJobs(
     repository: { owner: string; name: string },
     resolution: ResolutionEnvelope,
     result: AnalysisResultV2,
-  ): Promise<void> {
-    if (result.engine.rulesHash !== (await currentRules()).hash) return;
+  ): Promise<boolean> {
+    if (result.engine.rulesHash !== (await currentRules()).hash) return false;
     const update: SummaryUpdate = {
       protocolVersion: 1,
       type: "summary.update",
@@ -96,6 +108,26 @@ export function createPopupJobs(
       customIgnore: result.engine.rulesHash !== (await defaultRulesHash),
     };
     await chrome.tabs
+      .sendMessage(tabId, update, { frameId: 0 })
+      .catch(() => undefined);
+    return true;
+  }
+
+  function sendProgress(
+    tabId: number,
+    job: PopupJob,
+    phase: SummaryProgress["phase"],
+  ): void {
+    if (job.phase === phase) return;
+    job.phase = phase;
+    const update: SummaryProgress = {
+      protocolVersion: 1,
+      type: "summary.progress",
+      repository: job.repository,
+      url: job.url,
+      phase,
+    };
+    void chrome.tabs
       .sendMessage(tabId, update, { frameId: 0 })
       .catch(() => undefined);
   }
@@ -116,13 +148,17 @@ export function createPopupJobs(
     if (popupJobs.get(tabId) !== job) return;
     popupJobs.delete(tabId);
     if (job.viewer) postToPopup(job.viewer.port, job.viewer.request, payload);
-    if (payload.type === "analysis.completed")
-      void updateSummary(
-        tabId,
-        job.repository,
-        payload.resolution,
-        payload.result,
-      );
+    void (async () => {
+      const updated =
+        payload.type === "analysis.completed" &&
+        (await updateSummary(
+          tabId,
+          job.repository,
+          payload.resolution,
+          payload.result,
+        ));
+      if (!updated && !popupJobs.has(tabId)) sendProgress(tabId, job, "ended");
+    })();
   }
 
   function endPopupJob(tabId: number, reason: string): void {
@@ -258,9 +294,11 @@ export function createPopupJobs(
         owner,
         requestId: publicRequest.requestId,
         repository,
+        url: pageUrl(tab.url ?? ""),
         viewer: { port, request: publicRequest },
       };
       popupJobs.set(tabId, next);
+      sendProgress(tabId, next, "resolving");
       analysis.run(publicRequest, {
         repository,
         target,
@@ -271,8 +309,10 @@ export function createPopupJobs(
         isAlive: () => popupJobs.get(tabId) === next,
         reply: (_current, payload) => settlePopupJob(tabId, next, payload),
         progress: (_current, phase, processedBytes) => {
+          if (popupJobs.get(tabId) !== next) return;
+          sendProgress(tabId, next, phase);
           const viewer = next.viewer;
-          if (popupJobs.get(tabId) !== next || !viewer) return;
+          if (!viewer) return;
           postToPopup(viewer.port, viewer.request, {
             type: "analysis.progress",
             phase,

@@ -2,6 +2,10 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## Unreleased
+
+- Adds a moving accent-colored current around the Analyze repository button in the popup while you point at it. It is CSS only and stops when the pointer leaves. Reduced motion shows a still outline instead, and Reanalyze keeps its plain style.
+
 ## 0.1.6 - 2026-10-13
 
 - Adds an Accent color choice under Appearance: Blue, Copper, Purple, Pink, Teal, or Slate, with square swatches and a live preview. The choice applies to the popup, settings, saved results, and single-color language bars, and follows the theme and High contrast setting.

@@ -1,0 +1,62 @@
+@property --current-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.current-border {
+  position: relative;
+}
+
+.current-border::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  padding: 1.5px;
+  border-radius: calc(var(--radius-md) + 4px);
+  background:
+    conic-gradient(
+      from var(--current-angle),
+      transparent 0 45%,
+      color-mix(in oklch, var(--color-accent-text) 25%, transparent) 75%,
+      var(--color-accent-text) 99%,
+      transparent 100%
+    ),
+    conic-gradient(
+      from calc(180deg - var(--current-angle)),
+      transparent 0,
+      color-mix(in oklch, var(--color-accent-text) 70%, transparent) 1%,
+      transparent 30% 100%
+    );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-out-quick);
+  animation: current-border-spin 2.4s linear infinite paused;
+}
+
+.current-border:hover:not(:disabled, :focus-visible)::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+@keyframes current-border-spin {
+  to {
+    --current-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current-border::before {
+    background: var(--color-accent-text);
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .current-border::before {
+    display: none;
+  }
+}

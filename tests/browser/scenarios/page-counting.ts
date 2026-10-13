@@ -650,7 +650,7 @@ export async function runPageCounting(
 
   await page.getByText("0 lines of code", { exact: true }).waitFor();
 
-  await countingSettings.getByRole("link", { name: "Storage" }).click();
+  await countingSettings.getByRole("link", { name: "History" }).click();
 
   await countingSettings
     .locator("#cache-summary", { hasText: "1 result for 1 repository" })

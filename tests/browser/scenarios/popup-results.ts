@@ -42,7 +42,7 @@ export async function runPopupResults(
 
   assert.equal(
     await settingsNav
-      .getByRole("link", { name: "Storage" })
+      .getByRole("link", { name: "History" })
       .getAttribute("aria-current"),
     "page",
   );
@@ -74,7 +74,7 @@ export async function runPopupResults(
 
   await settingsPage.locator("#rules").fill("draft\n");
 
-  await settingsNav.getByRole("link", { name: "Storage" }).focus();
+  await settingsNav.getByRole("link", { name: "History" }).focus();
 
   await settingsPage.keyboard.press("Enter");
 
@@ -84,7 +84,7 @@ export async function runPopupResults(
 
   assert.equal(
     await settingsNav
-      .getByRole("link", { name: "Storage" })
+      .getByRole("link", { name: "History" })
       .evaluate((link) => getComputedStyle(link).outlineStyle),
     "solid",
   );

@@ -319,7 +319,7 @@ export async function runGithubStorage(
 
   assert.equal(fixtures.apiRequests, beforePrivateReload);
 
-  await settingsPage.getByRole("link", { name: "Storage" }).click();
+  await settingsPage.getByRole("link", { name: "History" }).click();
 
   await settingsPage
     .locator("#private-summary", { hasText: "1 result for 1 repository" })
@@ -765,7 +765,7 @@ export async function runGithubStorage(
     "page",
   );
 
-  await openedSettingsPage.getByRole("link", { name: "Storage" }).click();
+  await openedSettingsPage.getByRole("link", { name: "History" }).click();
 
   await openedSettingsPage
     .getByRole("button", { name: "Clear public results" })
@@ -791,7 +791,7 @@ export async function runGithubStorage(
 
   assert.equal(
     await reopenedSettingsPage
-      .getByRole("link", { name: "Storage" })
+      .getByRole("link", { name: "History" })
       .getAttribute("aria-current"),
     "page",
   );

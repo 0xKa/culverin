@@ -129,7 +129,7 @@ export async function runIgnoreAccess(
     "47 B",
   );
 
-  await settingsNav.getByRole("link", { name: "Storage" }).click();
+  await settingsNav.getByRole("link", { name: "History" }).click();
 
   await settingsPage.locator("#rules").waitFor({ state: "hidden" });
 

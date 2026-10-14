@@ -135,23 +135,26 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
             className="h-[1.375rem]"
           />
         </div>
-        <select
-          id="about-visibility"
-          className={`${inputClass} w-full text-sm`}
-          value={visibility ?? "all"}
-          disabled={!visibility}
-          aria-labelledby="about-visibility-label"
-          aria-describedby="about-visibility-detail"
-          onChange={(event) =>
-            changeVisibility(event.currentTarget.value as AboutVisibility)
-          }
-        >
-          {visibilityOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            id="about-visibility"
+            className={`${inputClass} peer w-full appearance-none pr-8 text-sm`}
+            value={visibility ?? "all"}
+            disabled={!visibility}
+            aria-labelledby="about-visibility-label"
+            aria-describedby="about-visibility-detail"
+            onChange={(event) =>
+              changeVisibility(event.currentTarget.value as AboutVisibility)
+            }
+          >
+            {visibilityOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown class="text-muted pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 peer-disabled:opacity-60" />
+        </div>
         <p id="about-visibility-detail" className="text-muted m-0 mt-3 text-sm">
           Hides all Culverin rows, including Analyze, progress, and notices. The
           toolbar popup stays available. Changes apply when you open or return

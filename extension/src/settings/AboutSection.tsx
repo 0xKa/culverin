@@ -6,17 +6,28 @@ import {
   wrapperVersion,
 } from "../counter/rules";
 import { Button } from "../ui/Button";
-import { ExternalLink } from "lucide-preact";
+import {
+  Bug,
+  CodeXml,
+  ExternalLink,
+  ScrollText,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-preact";
 import { Separator } from "../ui/Separator";
 import { Panel, SectionHeader } from "./layout";
 import { aboutDetails, browserVersion, REPOSITORY_URL } from "./about";
 import { ActionStatus, useAction } from "./ActionStatus";
 
-const links: [string, string][] = [
-  ["Source code", REPOSITORY_URL],
-  ["Changelog", `${REPOSITORY_URL}/blob/main/CHANGELOG.md`],
-  ["Privacy policy", `${REPOSITORY_URL}/blob/main/docs/privacy.md`],
-  ["Report an issue", `${REPOSITORY_URL}/issues`],
+const links: [string, string, LucideIcon][] = [
+  ["Source code", REPOSITORY_URL, CodeXml],
+  ["Changelog", `${REPOSITORY_URL}/blob/main/CHANGELOG.md`, ScrollText],
+  [
+    "Privacy policy",
+    `${REPOSITORY_URL}/blob/main/docs/privacy.md`,
+    ShieldCheck,
+  ],
+  ["Report an issue", `${REPOSITORY_URL}/issues`, Bug],
 ];
 
 export function AboutSection({ hidden }: { hidden: boolean }) {
@@ -105,14 +116,17 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
         </Panel>
         <Panel title="Links">
           <ul className="divide-divider m-0 -my-1 list-none divide-y p-0">
-            {links.map(([label, url]) => (
+            {links.map(([label, url, Icon]) => (
               <li key={label}>
                 <ExternalLinkComponent
                   href={url}
-                  className="text-ink hover:text-accent-text -mx-2 flex items-center justify-between rounded-md px-2 py-2.5 no-underline transition-colors duration-150"
+                  className="group text-ink hover:text-accent-text -mx-2 flex items-center justify-between rounded-md px-2 py-2.5 no-underline transition-colors duration-150"
                 >
-                  {label}
-                  <ExternalLink class="text-muted" />
+                  <span className="flex items-center gap-3">
+                    <Icon class="text-muted group-hover:text-accent-text transition-colors duration-150" />
+                    {label}
+                  </span>
+                  <ExternalLink class="text-muted group-hover:text-accent-text transition-colors duration-150" />
                 </ExternalLinkComponent>
               </li>
             ))}

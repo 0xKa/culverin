@@ -22,7 +22,7 @@ import { initialView, reduce, type PopupView } from "./state";
 function Header({ view }: { view: PopupView }) {
   return (
     <header className="border-divider flex items-center gap-2 border-b px-4 py-2.5">
-      <BrandIcon className="size-5" />
+      <BrandIcon size={20} />
       <h1 className="text-md m-0 font-semibold tracking-tight">Culverin</h1>
       <div className="ml-auto flex items-center gap-1">
         <span

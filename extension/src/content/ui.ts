@@ -1,6 +1,6 @@
-import iconSource from "../../../assets/mono/culverin-mono-stats.svg" with { type: "text" };
 import { Code, createElement, Database, Files, type IconNode } from "lucide";
 import spinnerStyles from "../ui/spinner.css" with { type: "text" };
+import { brandMarkPixels, brandMarkSvg } from "../ui/brand-mark";
 import { formatBytes, type NumberFormats } from "../ui/format";
 import {
   defaultPageNumberFormats,
@@ -213,18 +213,22 @@ function resultIcon(node: IconNode): Element {
   });
 }
 
-let iconTemplate: Element | undefined;
+let iconTemplate: { pixels: number; element: Element } | undefined;
 
 function icon(): Element {
-  if (!iconTemplate) {
-    iconTemplate = new DOMParser().parseFromString(
-      iconSource,
-      "image/svg+xml",
-    ).documentElement;
-    for (const node of Array.from(iconTemplate.childNodes))
-      if (node.nodeType !== Node.ELEMENT_NODE) node.remove();
-  }
-  const svg = document.importNode(iconTemplate, true);
+  const ratio = window.devicePixelRatio || 1;
+  const pixels = brandMarkPixels(16, ratio);
+  if (iconTemplate?.pixels !== pixels)
+    iconTemplate = {
+      pixels,
+      element: new DOMParser().parseFromString(
+        brandMarkSvg(pixels),
+        "image/svg+xml",
+      ).documentElement,
+    };
+  const svg = document.importNode(iconTemplate.element, true);
+  svg.setAttribute("width", String(pixels / ratio));
+  svg.setAttribute("height", String(pixels / ratio));
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
   return svg;

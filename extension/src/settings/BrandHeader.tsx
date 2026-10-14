@@ -98,7 +98,7 @@ export function BrandHeader() {
       ref={header}
       className="text-ink mb-8 flex items-center gap-1 font-mono"
     >
-      <BrandIcon className="size-14 translate-y-[3px]" />
+      <BrandIcon size={56} className="translate-y-[3px]" />
       <span
         ref={highlight}
         aria-hidden="true"

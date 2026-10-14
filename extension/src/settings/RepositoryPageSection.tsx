@@ -44,6 +44,12 @@ const visibilityOptions: ChoiceOption<AboutVisibility>[] = [
   { value: "none", label: "Hidden", name: "Hide everywhere" },
 ];
 
+const visibilityHints: Record<AboutVisibility, string> = {
+  all: "Shows Culverin rows on public and private repositories.",
+  public: "Shows Culverin rows on public repositories only.",
+  none: "Hides Culverin rows on all repositories.",
+};
+
 const items: Record<
   AboutItem,
   { label: string; icon: LucideIcon; value: number; unit: string }
@@ -124,6 +130,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
   }
 
   const visible = layout ? shownItems(layout) : [];
+  const selectedVisibility = visibility ?? aboutVisibility.fallback;
 
   return (
     <section aria-labelledby="repository-page-heading" hidden={hidden}>
@@ -134,13 +141,13 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
         <SettingRow
           id="about-visibility"
           label="Repo About section visibility"
-          hint="Hides all Culverin rows, including Analyze, progress, and notices. The toolbar popup stays available. Changes apply when you open or return to a repository page. Counting follows your When to count setting."
+          hint={visibilityHints[selectedVisibility]}
           state={visibilityAction.state}
         >
           <TickChoice
             name="about-visibility"
             options={visibilityOptions}
-            value={visibility}
+            value={selectedVisibility}
             disabled={!visibility}
             onChange={changeVisibility}
           />

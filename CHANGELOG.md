@@ -2,9 +2,19 @@
 
 User-facing changes for each Culverin release. Newest first.
 
-## Unreleased
+## 0.1.7 - 2026-10-14
 
-- Adds a slow accent-colored current that circles the Analyze repository button in the popup and speeds up while you point at it. It is CSS only and pauses while the button is disabled. Reduced motion shows a still outline on hover instead, and Reanalyze keeps its plain style.
+- Shows progress in GitHub's About row when you start a first count from the popup. Clicking the running row opens that count in the popup.
+- Reduces popup startup flicker while a saved result or an existing count loads.
+- Groups the Settings sidebar by Display, Counting, and Account & data, with icons and corner ticks. Renames Counting to When to count, Culverin ignore to Ignored files, and History to Saved results.
+- Shows Appearance and Repository page choices in compact rows with corner ticks around the selected value. When to count shows both options with their full descriptions.
+- Uses checkboxes with corner ticks for built-in ignore rules, About-list items, and the popup API meter option, with a bolder checkmark and clear keyboard focus.
+- Adds corner ticks and a light sweep to the popup's Analyze repository and Reanalyze buttons. The sweep pauses while disabled and stops with reduced motion.
+- Adds icons to the About links and Copy details button.
+- Marks Disconnect in the GitHub settings in red.
+- Keeps the Culverin mark's strokes even across display scales.
+- Gives the Settings wordmark's opening sweep a steadier pace on slower displays.
+- Keeps using results saved by 0.1.6.
 
 ## 0.1.6 - 2026-10-13
 

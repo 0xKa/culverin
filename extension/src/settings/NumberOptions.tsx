@@ -4,36 +4,26 @@ import {
 } from "../appearance/numbers";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import { formatCount, type CountFormat, type SizeUnits } from "../ui/format";
-import { Joined } from "../ui/Separator";
-import { ActionStatus, useAction } from "./ActionStatus";
+import { useAction } from "./ActionStatus";
+import { SettingRow, TickChoice } from "./SettingRow";
 
-const counts: { value: CountFormat; label: string }[] = [
-  { value: "full", label: "Full" },
-  { value: "abbreviated", label: "Abbreviated" },
+const counts: { value: CountFormat; name: string }[] = [
+  { value: "full", name: "Full" },
+  { value: "abbreviated", name: "Abbreviated" },
 ];
 
-const sizes: { value: SizeUnits; label: string; detail: string[] }[] = [
-  {
-    value: "binary",
-    label: "Binary",
-    detail: ["KiB, MiB, GiB", "1 KiB = 1,024 bytes"],
-  },
-  {
-    value: "decimal",
-    label: "Decimal",
-    detail: ["KB, MB, GB", "1 KB = 1,000 bytes"],
-  },
+const sizes: { value: SizeUnits; label: string; name: string }[] = [
+  { value: "binary", label: "KiB", name: "Binary, KiB" },
+  { value: "decimal", label: "KB", name: "Decimal, KB" },
 ];
 
 export function NumberOptions({
   preferences = appearanceNumberPreferences,
   idPrefix = "",
-  description = "Applies to the popup, saved results, and this preview. Hover or focus values to see exact counts and bytes.",
   formatExample = formatCount,
 }: {
   preferences?: NumberFormatPreferences;
   idPrefix?: string;
-  description?: string;
   formatExample?: (value: number, format: CountFormat) => string;
 } = {}) {
   const [formats, setFormats] = useNumberFormats(preferences);
@@ -67,70 +57,43 @@ export function NumberOptions({
   }
 
   return (
-    <div className="border-divider mt-5 grid gap-5 border-t pt-5">
-      <div className="relative">
-        <fieldset className="m-0 border-0 p-0" disabled={!formats}>
-          <legend className="text-md mb-3 p-0 font-semibold">Numbers</legend>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {counts.map((option) => (
-              <label
-                key={option.value}
-                className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 transition-[border-color,background-color] duration-150"
-              >
-                <input
-                  type="radio"
-                  name={`${idPrefix}count-format`}
-                  value={option.value}
-                  className="size-4 translate-y-0.5"
-                  checked={formats?.counts === option.value}
-                  onChange={() => changeCounts(option.value)}
-                />
-                <span className="font-medium">{option.label}</span>
-                <span className="text-muted col-start-2 text-sm">
-                  {formatExample(12_480, option.value)} code lines
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <ActionStatus
-          id={`${idPrefix}count-format-status`}
-          state={countAction.state}
-          className="absolute top-0 right-0 h-[1.375rem]"
+    <>
+      <SettingRow
+        id={`${idPrefix}count-format`}
+        label="Numbers"
+        hint="Full counts or short ones."
+        state={countAction.state}
+      >
+        <TickChoice
+          name={`${idPrefix}count-format`}
+          options={counts.map((option) => {
+            const example = formatExample(12_480, option.value);
+            return {
+              value: option.value,
+              label: example,
+              name: `${option.name}, ${example}`,
+              mono: true,
+            };
+          })}
+          value={formats?.counts}
+          disabled={!formats}
+          onChange={changeCounts}
         />
-      </div>
-      <div className="relative">
-        <fieldset className="m-0 border-0 p-0" disabled={!formats}>
-          <legend className="text-md mb-3 p-0 font-semibold">Size units</legend>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {sizes.map((option) => (
-              <label
-                key={option.value}
-                className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 transition-[border-color,background-color] duration-150"
-              >
-                <input
-                  type="radio"
-                  name={`${idPrefix}size-units`}
-                  value={option.value}
-                  className="size-4 translate-y-0.5"
-                  checked={formats?.sizes === option.value}
-                  onChange={() => changeSizes(option.value)}
-                />
-                <span className="font-medium">{option.label}</span>
-                <span className="text-muted col-start-2 text-sm">
-                  <Joined parts={option.detail} />
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <ActionStatus
-          id={`${idPrefix}size-units-status`}
-          state={sizeAction.state}
-          className="absolute top-0 right-0 h-[1.375rem]"
+      </SettingRow>
+      <SettingRow
+        id={`${idPrefix}size-units`}
+        label="Size units"
+        hint="1 KiB = 1,024 bytes; 1 KB = 1,000 bytes."
+        state={sizeAction.state}
+      >
+        <TickChoice
+          name={`${idPrefix}size-units`}
+          options={sizes.map((option) => ({ ...option, mono: true }))}
+          value={formats?.sizes}
+          disabled={!formats}
+          onChange={changeSizes}
         />
-      </div>
-      <p className="text-muted m-0 text-sm">{description}</p>
-    </div>
+      </SettingRow>
+    </>
   );
 }

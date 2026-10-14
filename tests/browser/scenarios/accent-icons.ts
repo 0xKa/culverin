@@ -136,7 +136,11 @@ export async function runAccentIcons(
         theme,
       );
       for (const enabled of [false, true]) {
-        await settings.locator("#high-contrast").setChecked(enabled);
+        await settings
+          .locator(
+            `input[name="high-contrast"][value="${enabled ? "high" : "standard"}"]`,
+          )
+          .check();
         await popup.waitForFunction(
           (enabled) =>
             (document.documentElement.dataset.contrast === "high") === enabled,
@@ -146,7 +150,9 @@ export async function runAccentIcons(
         await checkHeader(popup);
       }
     }
-    await settings.locator("#high-contrast").uncheck();
+    await settings
+      .locator('input[name="high-contrast"][value="standard"]')
+      .check();
     await popup.waitForFunction(
       () => !document.documentElement.dataset.contrast,
     );
@@ -181,7 +187,9 @@ export async function runAccentIcons(
     });
     await settings.locator('input[name="accent"][value="blue"]').check();
     await settings.locator('input[name="theme"][value="system"]').check();
-    await settings.locator("#high-contrast").uncheck();
+    await settings
+      .locator('input[name="high-contrast"][value="standard"]')
+      .check();
     await popup.waitForFunction(
       () =>
         !document.documentElement.dataset.accent &&

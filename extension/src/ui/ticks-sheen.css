@@ -33,9 +33,13 @@
     opacity 200ms var(--ease-out-quick);
 }
 
-.ticks:is(:hover, [aria-current="page"])::before {
+.ticks:is(:hover, [aria-current="page"], :has(:checked))::before {
   inset: var(--ticks-active);
   opacity: 1;
+}
+
+.ticks:has(:disabled:not(:checked))::before {
+  opacity: 0;
 }
 
 button.ticks:is(:focus-visible, :disabled)::before {

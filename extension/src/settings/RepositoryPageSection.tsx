@@ -225,12 +225,18 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
           state={state}
           className="absolute top-4 right-4 h-[1.375rem]"
         />
-        <NumberOptions
-          preferences={pageNumberPreferences}
-          idPrefix="repository-page-"
-          formatExample={formatPageCount}
-          description="Independent from Appearance. Changes apply when you open or return to a repository page. Exact counts and bytes stay in the page's tooltips."
-        />
+        <div className="border-divider divide-divider mt-5 grid divide-y border-t pt-5">
+          <NumberOptions
+            preferences={pageNumberPreferences}
+            idPrefix="repository-page-"
+            formatExample={formatPageCount}
+          />
+        </div>
+        <p className="text-muted m-0 mt-4 text-sm">
+          Independent from Appearance. Changes apply when you open or return to
+          a repository page. Exact counts and bytes stay in the page&apos;s
+          tooltips.
+        </p>
         <figure className="m-0 mt-4">
           <figcaption className="text-muted mb-2 text-xs font-medium">
             Preview

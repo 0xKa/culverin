@@ -16,6 +16,7 @@ import {
   type AboutLayout,
 } from "../repository-page/about-items";
 import { IconButton } from "../ui/IconButton";
+import { Checkbox } from "../ui/Checkbox";
 import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
 import { SettingRow, TickChoice, type ChoiceOption } from "./SettingRow";
@@ -167,11 +168,9 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
               return (
                 <li key={item} className="flex items-center gap-3 px-3 py-1.5">
                   <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       name="about-items"
                       value={item}
-                      className="size-4"
                       checked={shown}
                       disabled={shown && visible.length === 1}
                       onChange={() => toggle(layout, item)}

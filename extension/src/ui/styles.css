@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./checkbox.css";
 @import "./ticks-sheen.css";
 @import "./dot-loader.css";
 @import "./status-badge.css";

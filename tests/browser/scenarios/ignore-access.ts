@@ -57,9 +57,11 @@ export async function runIgnoreAccess(
 
   await settingsPage.locator("#rules").fill("README\n");
 
-  const firstGroup = settingsPage.locator("#groups [role=radiogroup]").first();
+  const firstGroup = settingsPage
+    .locator('#groups input[type="checkbox"]')
+    .first();
 
-  await firstGroup.locator('input[value="count"]').check();
+  await firstGroup.uncheck();
 
   await settingsPage
     .locator('#ignore-groups-status-mark[data-mark="done"]')
@@ -67,7 +69,14 @@ export async function runIgnoreAccess(
 
   assert.equal(await settingsPage.locator("#ignore-status-mark").count(), 0);
 
-  await firstGroup.locator('input[value="skip"]').check();
+  await settingsPage.waitForFunction(async () => {
+    const stored = (await chrome.storage.sync.get("culverin.ignore"))[
+      "culverin.ignore"
+    ] as { disabledGroups?: string[] } | undefined;
+    return stored?.disabledGroups?.includes("dependencies");
+  });
+
+  await firstGroup.check();
 
   await settingsPage.waitForFunction(async () => {
     const stored = (await chrome.storage.sync.get("culverin.ignore"))[

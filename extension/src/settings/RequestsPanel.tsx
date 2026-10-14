@@ -5,6 +5,7 @@ import {
   type RateLimitSnapshot,
 } from "../github/rate-limit-observer";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { DotLoader } from "../ui/DotLoader";
 import { formatClockTime } from "../ui/format";
 import { IconButton } from "../ui/IconButton";
@@ -120,11 +121,10 @@ export function RequestsPanel() {
       </p>
       <div className="border-divider relative mt-4 border-t pt-4">
         <label className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 pr-24 transition-[border-color,background-color] duration-150">
-          <input
+          <Checkbox
             id="popup-api-limit"
-            type="checkbox"
             name="popup-api-limit"
-            className="size-4 translate-y-0.5"
+            className="translate-y-0.5"
             checked={display.value === "shown"}
             disabled={display.value === undefined}
             onChange={(event) =>

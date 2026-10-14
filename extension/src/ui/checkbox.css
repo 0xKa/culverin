@@ -1,0 +1,84 @@
+@layer components {
+  .culverin-checkbox {
+    .checkbox-box {
+      border-color: var(--color-control);
+      background: var(--color-raised);
+      color: var(--color-accent-ink);
+      transition:
+        border-color 150ms var(--ease-out-quick),
+        background-color 150ms var(--ease-out-quick);
+    }
+
+    svg {
+      visibility: hidden;
+    }
+
+    &:has(input:hover:not(:disabled)) .checkbox-box {
+      border-color: var(--color-accent);
+    }
+
+    &:has(input:checked) {
+      .checkbox-box {
+        border-color: var(--color-accent);
+        background: var(--color-accent);
+      }
+
+      svg {
+        visibility: visible;
+      }
+    }
+
+    &:has(input:focus-visible) .checkbox-box {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+
+    &:has(input:disabled) {
+      opacity: 0.5;
+    }
+  }
+
+  :root[data-contrast="high"]
+    .culverin-checkbox:has(input:focus-visible)
+    .checkbox-box {
+    outline-width: 3px;
+  }
+
+  @media (forced-colors: active) {
+    .culverin-checkbox {
+      forced-color-adjust: none;
+
+      .checkbox-box {
+        border-color: CanvasText;
+        background: Canvas;
+        color: HighlightText;
+      }
+
+      &:has(input:hover:not(:disabled)) .checkbox-box {
+        border-color: Highlight;
+      }
+
+      &:has(input:checked) .checkbox-box {
+        border-color: Highlight;
+        background: Highlight;
+      }
+
+      &:has(input:focus-visible) .checkbox-box {
+        outline-color: Highlight;
+      }
+
+      &:has(input:disabled) {
+        opacity: 1;
+
+        .checkbox-box {
+          border-color: GrayText;
+        }
+
+        &:has(input:checked) .checkbox-box {
+          background: GrayText;
+          color: Canvas;
+        }
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ import { Joined } from "../ui/Separator";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { SettingRow, TickChoice } from "./SettingRow";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
   const [settings, setSettings] = useState<IgnoreSettings>(defaultIgnore);
@@ -61,29 +62,37 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             <legend className="text-md mb-3 p-0 font-semibold">
               Built-in rules
             </legend>
-            <div className="border-divider divide-divider divide-y rounded-lg border">
+            <div className="divide-divider grid divide-y">
               {ignoreGroups.map((group) => {
                 const list = entries(group);
                 return (
-                  <label
+                  <SettingRow
                     key={group.id}
-                    className="hover:bg-surface grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 px-3.5 py-2.5 transition-colors duration-150 first:rounded-t-lg last:rounded-b-lg sm:grid-cols-[auto_12rem_1fr]"
+                    id={`ignore-group-${group.id}`}
+                    label={group.label}
+                    hint={
+                      <span className="block truncate font-mono text-xs">
+                        {list.slice(0, 4).join(", ")}
+                        {list.length > 4 ? ", …" : ""}
+                      </span>
+                    }
                   >
-                    <input
-                      type="checkbox"
-                      value={group.id}
-                      className="size-4 translate-y-0.5"
-                      checked={!settings.disabledGroups.includes(group.id)}
-                      onChange={(event) =>
-                        changeGroup(group.id, event.currentTarget.checked)
+                    <TickChoice
+                      name={`ignore-group-${group.id}`}
+                      options={[
+                        { value: "skip", label: "Skip" },
+                        { value: "count", label: "Count" },
+                      ]}
+                      value={
+                        settings.disabledGroups.includes(group.id)
+                          ? "count"
+                          : "skip"
+                      }
+                      onChange={(value) =>
+                        changeGroup(group.id, value === "skip")
                       }
                     />
-                    <span className="font-medium">{group.label}</span>
-                    <span className="text-muted col-start-2 truncate font-mono text-xs sm:col-start-3">
-                      {list.slice(0, 4).join(", ")}
-                      {list.length > 4 ? ", …" : ""}
-                    </span>
-                  </label>
+                  </SettingRow>
                 );
               })}
             </div>

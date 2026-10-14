@@ -16,8 +16,9 @@ import {
   type AboutLayout,
 } from "../repository-page/about-items";
 import { IconButton } from "../ui/IconButton";
-import { inputClass, Panel, SectionHeader } from "./layout";
+import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { SettingRow, TickChoice, type ChoiceOption } from "./SettingRow";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import {
   defaultPageNumberFormats,
@@ -32,10 +33,14 @@ import {
   type AboutVisibility,
 } from "../repository-page/visibility";
 
-const visibilityOptions: { value: AboutVisibility; label: string }[] = [
-  { value: "all", label: "Show everywhere" },
-  { value: "public", label: "Hide on private repositories" },
-  { value: "none", label: "Hide everywhere" },
+const visibilityOptions: ChoiceOption<AboutVisibility>[] = [
+  { value: "all", label: "Everywhere", name: "Show everywhere" },
+  {
+    value: "public",
+    label: "Public only",
+    name: "Hide on private repositories",
+  },
+  { value: "none", label: "Hidden", name: "Hide everywhere" },
 ];
 
 const items: Record<
@@ -124,42 +129,21 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
       <SectionHeader id="repository-page-heading" title="Repository page">
         What Culverin adds to the About list on GitHub repository pages.
       </SectionHeader>
-      <Panel className="relative mb-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <h3 id="about-visibility-label" className="text-md m-0 font-semibold">
-            Repo About section visibility
-          </h3>
-          <ActionStatus
-            id="about-visibility-status"
-            state={visibilityAction.state}
-            className="h-[1.375rem]"
-          />
-        </div>
-        <div className="relative">
-          <select
-            id="about-visibility"
-            className={`${inputClass} peer w-full appearance-none pr-8 text-sm`}
-            value={visibility ?? "all"}
+      <Panel className="mb-4">
+        <SettingRow
+          id="about-visibility"
+          label="Repo About section visibility"
+          hint="Hides all Culverin rows, including Analyze, progress, and notices. The toolbar popup stays available. Changes apply when you open or return to a repository page. Counting follows your When to count setting."
+          state={visibilityAction.state}
+        >
+          <TickChoice
+            name="about-visibility"
+            options={visibilityOptions}
+            value={visibility}
             disabled={!visibility}
-            aria-labelledby="about-visibility-label"
-            aria-describedby="about-visibility-detail"
-            onChange={(event) =>
-              changeVisibility(event.currentTarget.value as AboutVisibility)
-            }
-          >
-            {visibilityOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown class="text-muted pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 peer-disabled:opacity-60" />
-        </div>
-        <p id="about-visibility-detail" className="text-muted m-0 mt-3 text-sm">
-          Hides all Culverin rows, including Analyze, progress, and notices. The
-          toolbar popup stays available. Changes apply when you open or return
-          to a repository page. Counting follows your When to count setting.
-        </p>
+            onChange={changeVisibility}
+          />
+        </SettingRow>
       </Panel>
       <Panel className="relative">
         <fieldset className="m-0 border-0 p-0">

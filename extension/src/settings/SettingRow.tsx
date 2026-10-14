@@ -7,6 +7,7 @@ export function SettingRow({
   hint,
   state,
   statusId = `${id}-status`,
+  stacked = false,
   children,
 }: {
   id: string;
@@ -14,10 +15,13 @@ export function SettingRow({
   hint?: ComponentChildren;
   state?: ActionState;
   statusId?: string;
+  stacked?: boolean;
   children: ComponentChildren;
 }) {
   return (
-    <div className="grid items-center gap-x-6 gap-y-2.5 py-3.5 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto]">
+    <div
+      className={`grid items-center gap-x-6 gap-y-2.5 py-3.5 first:pt-0 last:pb-0 ${stacked ? "" : "sm:grid-cols-[1fr_auto]"}`}
+    >
       <div className="min-w-0">
         <div className="flex min-h-[1.375rem] items-center gap-2.5">
           <span id={`${id}-label`} className="font-medium">
@@ -35,7 +39,9 @@ export function SettingRow({
         role="radiogroup"
         aria-labelledby={`${id}-label`}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className="flex flex-wrap items-center gap-1.5"
+        className={
+          stacked ? "grid gap-1.5" : "flex flex-wrap items-center gap-1.5"
+        }
       >
         {children}
       </div>

@@ -5,7 +5,8 @@ import {
   type CountTrigger,
 } from "../counting/trigger";
 import { Panel, SectionHeader } from "./layout";
-import { ActionStatus, useAction } from "./ActionStatus";
+import { useAction } from "./ActionStatus";
+import { SettingRow } from "./SettingRow";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
   {
@@ -42,38 +43,41 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
       <SectionHeader id="counting-heading" title="When to count">
         Changes apply to repository pages you open from now on.
       </SectionHeader>
-      <Panel className="relative">
-        <fieldset className="m-0 border-0 p-0">
-          <legend className="text-md mb-3 p-0 font-semibold">
-            Count lines of code in a repository
-          </legend>
-          <div className="grid gap-2.5">
-            {options.map((option) => (
-              <label
-                key={option.value}
-                className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 transition-[border-color,background-color] duration-150"
-              >
-                <input
-                  type="radio"
-                  name="count-trigger"
-                  value={option.value}
-                  className="size-4 translate-y-0.5"
-                  checked={trigger === option.value}
-                  onChange={() => change(option.value)}
-                />
-                <span className="font-medium">{option.label}</span>
-                <span className="text-muted col-start-2 text-sm">
-                  {option.detail}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <ActionStatus
-          id="counting-status"
+      <Panel>
+        <SettingRow
+          id="counting"
+          label="Count lines of code in a repository"
           state={state}
-          className="absolute top-4 right-4 h-[1.375rem]"
-        />
+          stacked
+        >
+          {options.map((option) => (
+            <label
+              key={option.value}
+              className="ticks ticks-quiet group has-checked:bg-accent-soft has-focus-visible:outline-accent grid cursor-pointer gap-0.5 px-3 py-2.5 transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-4"
+            >
+              <input
+                type="radio"
+                name="count-trigger"
+                value={option.value}
+                aria-label={option.label}
+                aria-describedby={`count-trigger-${option.value}-detail`}
+                className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0"
+                checked={trigger === option.value}
+                disabled={!trigger}
+                onChange={() => change(option.value)}
+              />
+              <span className="group-has-checked:text-accent-text font-medium">
+                {option.label}
+              </span>
+              <span
+                id={`count-trigger-${option.value}-detail`}
+                className="text-muted text-sm"
+              >
+                {option.detail}
+              </span>
+            </label>
+          ))}
+        </SettingRow>
       </Panel>
     </section>
   );

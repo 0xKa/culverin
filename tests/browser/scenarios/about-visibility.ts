@@ -7,10 +7,12 @@ export async function runAboutVisibility(
   const { context, page, summary, extensionUrl, fixtures, openPopup } = state;
   const settings = await context.newPage();
   await settings.goto(`${extensionUrl}/settings.html#repository-page`);
-  const choice = settings.getByLabel("Repo About section visibility", {
-    exact: true,
+  const choice = settings.getByRole("radiogroup", {
+    name: "Repo About section visibility",
   });
-  await choice.waitFor();
+  await choice.locator("input:checked").waitFor();
+  const checkedValue = () =>
+    choice.locator("input:checked").getAttribute("value");
   const before = [fixtures.apiRequests, fixtures.archiveRequests];
   const setPrivacy = async (isPrivate: boolean) => {
     await page.evaluate((isPrivate) => {
@@ -20,7 +22,7 @@ export async function runAboutVisibility(
     }, isPrivate);
   };
   const change = async (value: string) => {
-    await choice.selectOption(value);
+    await choice.locator(`input[value="${value}"]`).check();
     await settings.waitForFunction(async (value) => {
       const stored = await chrome.storage.sync.get("culverin.aboutVisibility");
       return (stored["culverin.aboutVisibility"] ?? "all") === value;
@@ -29,12 +31,12 @@ export async function runAboutVisibility(
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   };
   try {
-    assert.equal(await choice.inputValue(), "all");
+    assert.equal(await checkedValue(), "all");
     assert.deepEqual(
       await choice
-        .locator("option")
+        .locator('input[name="about-visibility"]')
         .evaluateAll((options) =>
-          options.map((option) => (option as HTMLOptionElement).value),
+          options.map((option) => (option as HTMLInputElement).value),
         ),
       ["all", "public", "none"],
     );
@@ -49,7 +51,8 @@ export async function runAboutVisibility(
     await change("public");
     await summary.waitFor({ state: "hidden" });
     await settings.reload();
-    assert.equal(await choice.inputValue(), "public");
+    await choice.locator("input:checked").waitFor();
+    assert.equal(await checkedValue(), "public");
     await setPrivacy(false);
     await page.getByText("Analyze with Culverin").waitFor();
     await setPrivacy(true);

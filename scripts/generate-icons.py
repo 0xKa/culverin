@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import zlib
 from pathlib import Path
 
-SOURCE = Path("assets/original/culverin-original-stats.svg")
+SOURCE = Path("assets/culverin-icon.svg")
 OUTPUT = Path("extension/public/icons")
 STYLES = Path("extension/src/ui/styles.css")
 SIZES = (16, 32, 48, 128)

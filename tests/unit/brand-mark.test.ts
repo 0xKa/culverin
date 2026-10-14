@@ -9,10 +9,7 @@ import {
 } from "../../extension/src/ui/brand-mark";
 
 test("matches the white symbol of the original icon artwork", () => {
-  const source = readFileSync(
-    "assets/original/culverin-original-stats.svg",
-    "utf8",
-  );
+  const source = readFileSync("assets/culverin-icon.svg", "utf8");
   const symbol = source.slice(source.indexOf('<g fill="#ffffff">'));
   const rects = [...symbol.matchAll(/<rect ([^>]*)\/>/g)].map(
     ([, attributes]) =>

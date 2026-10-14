@@ -1,5 +1,4 @@
 import type { ComponentProps } from "preact";
-import { Check } from "lucide-preact";
 
 export function Checkbox({
   className,
@@ -7,19 +6,17 @@ export function Checkbox({
 }: Omit<ComponentProps<"input">, "type" | "children">) {
   return (
     <span
-      className={`culverin-checkbox relative inline-flex size-4 shrink-0 align-middle ${className ?? ""}`.trim()}
+      className={`culverin-checkbox relative inline-flex size-4.5 shrink-0 align-middle ${className ?? ""}`.trim()}
     >
       <input
         {...props}
         type="checkbox"
-        className="absolute inset-0 m-0 size-full cursor-pointer opacity-0 disabled:cursor-default"
+        className="absolute -inset-1.25 m-0 size-7 cursor-pointer opacity-0 disabled:cursor-default"
       />
       <span
-        className="checkbox-box pointer-events-none flex size-full items-center justify-center rounded-md border"
+        className="checkbox-box pointer-events-none relative block size-full"
         aria-hidden="true"
-      >
-        <Check size={12} strokeWidth={2} />
-      </span>
+      />
     </span>
   );
 }

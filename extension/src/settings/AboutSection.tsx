@@ -9,6 +9,7 @@ import { Button } from "../ui/Button";
 import {
   Bug,
   CodeXml,
+  Copy,
   ExternalLink,
   ScrollText,
   ShieldCheck,
@@ -75,6 +76,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
             <div className="flex items-center gap-3">
               <ActionStatus id="about-status" state={copied.state} />
               <Button id="copy-details" type="button" size="md" onClick={copy}>
+                <Copy />
                 Copy details
               </Button>
             </div>

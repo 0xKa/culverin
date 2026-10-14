@@ -126,9 +126,9 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
       </SectionHeader>
       <Panel className="relative mb-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <label htmlFor="about-visibility" className="text-md font-semibold">
+          <h3 id="about-visibility-label" className="text-md m-0 font-semibold">
             Repo About section visibility
-          </label>
+          </h3>
           <ActionStatus
             id="about-visibility-status"
             state={visibilityAction.state}
@@ -140,6 +140,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
           className={`${inputClass} w-full text-sm`}
           value={visibility ?? "all"}
           disabled={!visibility}
+          aria-labelledby="about-visibility-label"
           aria-describedby="about-visibility-detail"
           onChange={(event) =>
             changeVisibility(event.currentTarget.value as AboutVisibility)

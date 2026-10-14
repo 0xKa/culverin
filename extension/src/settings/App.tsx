@@ -109,7 +109,7 @@ export function App() {
                           aria-current={
                             active === section.id ? "page" : undefined
                           }
-                          className="group text-ink hover:bg-hover aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text flex items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
+                          className="ticks ticks-quiet group text-ink hover:bg-hover aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text flex items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
                         >
                           <Icon class="text-muted group-aria-[current=page]:text-accent-text shrink-0" />
                           {section.label}

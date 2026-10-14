@@ -162,7 +162,9 @@ export function App() {
               type="button"
               variant={view.reanalyze ? "secondary" : "primary"}
               className={
-                view.reanalyze ? "flair flex-1" : "flair flair-solid flex-1"
+                view.reanalyze
+                  ? "ticks sheen flex-1"
+                  : "ticks sheen sheen-solid flex-1"
               }
               hidden={analyzing}
               disabled={view.analyzeDisabled}

@@ -1,0 +1,119 @@
+.ticks {
+  --ticks-rest: -6px;
+  --ticks-active: -3px;
+  --ticks-rest-opacity: 0.5;
+  position: relative;
+}
+
+.ticks-quiet {
+  --ticks-rest: -3px;
+  --ticks-active: 0px;
+  --ticks-rest-opacity: 0;
+}
+
+.ticks::before {
+  --tick: var(--color-accent-text);
+  content: "";
+  position: absolute;
+  inset: var(--ticks-rest);
+  background:
+    linear-gradient(var(--tick) 0 0) top left / 8px 1.5px,
+    linear-gradient(var(--tick) 0 0) top left / 1.5px 8px,
+    linear-gradient(var(--tick) 0 0) top right / 8px 1.5px,
+    linear-gradient(var(--tick) 0 0) top right / 1.5px 8px,
+    linear-gradient(var(--tick) 0 0) bottom left / 8px 1.5px,
+    linear-gradient(var(--tick) 0 0) bottom left / 1.5px 8px,
+    linear-gradient(var(--tick) 0 0) bottom right / 8px 1.5px,
+    linear-gradient(var(--tick) 0 0) bottom right / 1.5px 8px;
+  background-repeat: no-repeat;
+  opacity: var(--ticks-rest-opacity);
+  pointer-events: none;
+  transition:
+    inset 200ms var(--ease-out-quick),
+    opacity 200ms var(--ease-out-quick);
+}
+
+.ticks:is(:hover, [aria-current="page"])::before {
+  inset: var(--ticks-active);
+  opacity: 1;
+}
+
+button.ticks:is(:focus-visible, :disabled)::before {
+  opacity: 0;
+}
+
+.sheen {
+  --sheen: color-mix(in oklch, var(--color-accent-text) 14%, transparent);
+  position: relative;
+}
+
+.sheen-solid {
+  --sheen: oklch(1 0 0 / 0.26);
+
+  @variant dark {
+    --sheen: oklch(1 0 0 / 0.55);
+  }
+}
+
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+      105deg,
+      transparent 40%,
+      var(--sheen) 50%,
+      transparent 60%
+    )
+    no-repeat 130% 0 / 250% 100%;
+  pointer-events: none;
+  animation: sheen-idle 5s ease-in-out 1s infinite;
+}
+
+.sheen:hover::after {
+  animation: sheen-sweep 800ms ease-out forwards;
+}
+
+.sheen:disabled::after {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes sheen-idle {
+  0% {
+    background-position: 130% 0;
+  }
+
+  22%,
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+@keyframes sheen-sweep {
+  from {
+    background-position: 130% 0;
+  }
+
+  to {
+    background-position: -30% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticks::before {
+    transition: opacity 180ms var(--ease-out-quick);
+  }
+
+  .sheen::after {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ticks::before,
+  .sheen::after {
+    display: none;
+  }
+}

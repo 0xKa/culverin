@@ -161,7 +161,9 @@ export function App() {
               id="analyze"
               type="button"
               variant={view.reanalyze ? "secondary" : "primary"}
-              className={view.reanalyze ? "flex-1" : "current-border flex-1"}
+              className={
+                view.reanalyze ? "flair flex-1" : "flair flair-solid flex-1"
+              }
               hidden={analyzing}
               disabled={view.analyzeDisabled}
               onClick={() => {

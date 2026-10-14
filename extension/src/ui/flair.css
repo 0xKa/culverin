@@ -1,0 +1,106 @@
+.flair {
+  --flair-sheen: color-mix(in oklch, var(--color-accent-text) 14%, transparent);
+  position: relative;
+}
+
+.flair-solid {
+  --flair-sheen: oklch(1 0 0 / 0.26);
+
+  @variant dark {
+    --flair-sheen: oklch(1 0 0 / 0.55);
+  }
+}
+
+.flair::before {
+  --flair-tick: var(--color-accent-text);
+  content: "";
+  position: absolute;
+  inset: -6px;
+  background:
+    linear-gradient(var(--flair-tick) 0 0) top left / 8px 1.5px,
+    linear-gradient(var(--flair-tick) 0 0) top left / 1.5px 8px,
+    linear-gradient(var(--flair-tick) 0 0) top right / 8px 1.5px,
+    linear-gradient(var(--flair-tick) 0 0) top right / 1.5px 8px,
+    linear-gradient(var(--flair-tick) 0 0) bottom left / 8px 1.5px,
+    linear-gradient(var(--flair-tick) 0 0) bottom left / 1.5px 8px,
+    linear-gradient(var(--flair-tick) 0 0) bottom right / 8px 1.5px,
+    linear-gradient(var(--flair-tick) 0 0) bottom right / 1.5px 8px;
+  background-repeat: no-repeat;
+  opacity: 0.5;
+  pointer-events: none;
+  transition:
+    inset 200ms var(--ease-out-quick),
+    opacity 200ms var(--ease-out-quick);
+}
+
+.flair:hover::before {
+  inset: -3px;
+  opacity: 1;
+}
+
+.flair::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+      105deg,
+      transparent 40%,
+      var(--flair-sheen) 50%,
+      transparent 60%
+    )
+    no-repeat 130% 0 / 250% 100%;
+  pointer-events: none;
+  animation: flair-sheen 5s ease-in-out 1s infinite;
+}
+
+.flair:hover::after {
+  animation: flair-sweep 800ms ease-out forwards;
+}
+
+.flair:focus-visible::before,
+.flair:disabled::before,
+.flair:disabled::after {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes flair-sheen {
+  0% {
+    background-position: 130% 0;
+  }
+
+  22%,
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+@keyframes flair-sweep {
+  from {
+    background-position: 130% 0;
+  }
+
+  to {
+    background-position: -30% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flair::before,
+  .flair:hover::before {
+    inset: -5px;
+    transition: opacity 180ms var(--ease-out-quick);
+  }
+
+  .flair::after {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .flair::before,
+  .flair::after {
+    display: none;
+  }
+}

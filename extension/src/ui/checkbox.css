@@ -25,11 +25,11 @@
       content: "";
       position: absolute;
       top: 5px;
-      left: 4px;
-      width: 8px;
-      height: 4px;
-      border-bottom: 1.5px solid currentColor;
-      border-left: 1.5px solid currentColor;
+      left: 4.5px;
+      width: 9px;
+      height: 5px;
+      border-bottom: 2px solid currentColor;
+      border-left: 2px solid currentColor;
       transform: rotate(-45deg);
       opacity: 0;
     }

@@ -120,11 +120,11 @@ export function RequestsPanel() {
           : `Everything on your network that uses GitHub without signing in shares the same ${limit}. The count can be below ${limit} before Culverin has used any.`}
       </p>
       <div className="border-divider relative mt-4 border-t pt-4">
-        <label className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 rounded-lg border p-3.5 pr-24 transition-[border-color,background-color] duration-150">
+        <label className="border-divider hover:border-border has-checked:border-accent has-checked:bg-accent-soft/40 grid cursor-pointer grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 rounded-lg border p-3.5 pr-24 transition-[border-color,background-color] duration-150">
           <Checkbox
             id="popup-api-limit"
             name="popup-api-limit"
-            className="translate-y-0.5"
+            className="row-span-2"
             checked={display.value === "shown"}
             disabled={display.value === undefined}
             onChange={(event) =>

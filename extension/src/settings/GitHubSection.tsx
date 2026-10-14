@@ -100,7 +100,7 @@ export function GitHubSection({ hidden }: { hidden: boolean }) {
                   id="github-disconnect"
                   type="button"
                   size="md"
-                  variant={view.method === "app" ? "ghost" : "secondary"}
+                  variant="danger"
                   disabled={busy !== undefined}
                   onClick={() => void controller.disconnect()}
                 >

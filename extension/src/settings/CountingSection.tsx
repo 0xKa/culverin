@@ -39,7 +39,7 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="counting-heading" hidden={hidden}>
-      <SectionHeader id="counting-heading" title="Counting">
+      <SectionHeader id="counting-heading" title="When to count">
         Changes apply to repository pages you open from now on.
       </SectionHeader>
       <Panel className="relative">

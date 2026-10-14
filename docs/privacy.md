@@ -14,7 +14,7 @@ By default, opening or reloading a repository page sends no request to GitHub un
 
 The settings page shows how many GitHub API requests you have left, using the counts GitHub returns with Culverin's other requests. When you select Check now or Refresh there, the extension asks `api.github.com` for your current limit. Without a GitHub connection, GitHub does not count that request against the limit. While connected, the check uses one request from your account's limit.
 
-If you choose to count when a repository page opens, in the Counting section of the settings page, opening a repository page, including another branch's page, always requests metadata and, when there is no current result, downloads that commit's source archive as if you had selected Analyze. Culverin tries this at most once per repository commit and settings in each browser session.
+If you choose to count when a repository page opens, in the When to count section of the settings page, opening a repository page, including another branch's page, always requests metadata and, when there is no current result, downloads that commit's source archive as if you had selected Analyze. Culverin tries this at most once per repository commit and settings in each browser session.
 
 ## Connecting GitHub
 
@@ -35,7 +35,7 @@ Complete aggregate results for public repositories are kept in the extension's l
 
 If you connect GitHub, the extension keeps your GitHub username and token, and for the GitHub App the refresh token and expiry times, in its local storage so you don't have to connect again after restarting the browser. This storage is not encrypted by Culverin, and anyone with access to your browser profile could read it. The GitHub App token can only read the repositories you chose; a personal access token can do whatever you allowed when you created it.
 
-Your Culverin ignore settings, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice, Repo About section visibility and row layout, theme, high contrast, accent color, and the independent popup and repository page number format and size unit preferences are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep copies of your theme, contrast, and accent color preferences so they open with your chosen appearance, in the extension's local page storage.
+Your ignore rules, the built-in exclusion groups you turned off and the exclusion rules you wrote, are kept in the extension's sync storage. When Chrome sync is on, Chrome copies them to your other browsers through your Google account, as it does for other extension settings; otherwise they stay in this browser. They contain only what you type into the settings page. Your Counting choice, Repo About section visibility and row layout, theme, high contrast, accent color, and the independent popup and repository page number format and size unit preferences are kept the same way when you change them from the default. The settings page also remembers which of its sections you last opened, and the popup and settings page keep copies of your theme, contrast, and accent color preferences so they open with your chosen appearance, in the extension's local page storage.
 
 Extension storage is limited to trusted extension contexts. The script that runs on GitHub pages receives only aggregate counts for the repository you are viewing, never source files.
 
@@ -43,7 +43,7 @@ A cached result is shown only after GitHub confirms the repository is still publ
 
 ## Permissions
 
-- `storage`: keep completed results, Culverin ignore settings, and short-lived job state.
+- `storage`: keep completed results, ignore rules, and short-lived job state.
 - `offscreen`: run the packaged WebAssembly line counter outside the service worker.
 - `github.com`, `api.github.com`, and `codeload.github.com`: show the lines-of-code row on repository pages, connect your GitHub account when you ask to, read repository metadata, and download source archives you ask to analyze.
 
@@ -51,7 +51,7 @@ All code, including the WebAssembly counter, is packaged with the extension. No 
 
 ## Removing data
 
-The History section of the extension's settings page offers **Clear public results**, **Clear private results**, and **Clear all results** to delete the corresponding saved results while keeping your settings and GitHub connection. Each listed result can also be viewed or deleted on its own. Viewing a result reads it from local storage and makes no network request. Use **Reset to defaults** under Culverin ignore to delete your ignore settings, and **Disconnect** in the GitHub section to delete your saved token and private results. Disconnecting does not revoke the token on GitHub: to do that, remove the Culverin app's authorization in your GitHub settings under Applications, or delete the personal access token. Removing the extension deletes all of its stored data.
+The Saved results section of the extension's settings page offers **Clear public results**, **Clear private results**, and **Clear all results** to delete the corresponding saved results while keeping your settings and GitHub connection. Each listed result can also be viewed or deleted on its own. Viewing a result reads it from local storage and makes no network request. Use **Reset to defaults** under Ignored files to delete your ignore rules, and **Disconnect** in the GitHub section to delete your saved token and private results. Disconnecting does not revoke the token on GitHub: to do that, remove the Culverin app's authorization in your GitHub settings under Applications, or delete the personal access token. Removing the extension deletes all of its stored data.
 
 The extension cannot control how GitHub handles requests or how long the browser keeps data in network and process memory. The `no-store` setting asks the browser not to use its HTTP cache for these requests.
 

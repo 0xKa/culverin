@@ -108,7 +108,7 @@ export function createPopupController(
       type: "ignore",
       value: isDefaultIgnore(ignore)
         ? undefined
-        : `Culverin ignore: ${describeIgnore(ignore)}`,
+        : `Ignored files: ${describeIgnore(ignore)}`,
     });
     return effectiveRulesHash(ignore);
   }

@@ -42,7 +42,7 @@ export async function runPopupResults(
 
   assert.equal(
     await settingsNav
-      .getByRole("link", { name: "History" })
+      .getByRole("link", { name: "Saved results" })
       .getAttribute("aria-current"),
     "page",
   );
@@ -59,7 +59,7 @@ export async function runPopupResults(
     .locator("#cache-summary", { hasText: "No saved results." })
     .waitFor();
 
-  await settingsNav.getByRole("link", { name: "Culverin ignore" }).click();
+  await settingsNav.getByRole("link", { name: "Ignored files" }).click();
 
   await settingsPage.locator("#rules").waitFor({ state: "visible" });
 
@@ -74,7 +74,7 @@ export async function runPopupResults(
 
   await settingsPage.locator("#rules").fill("draft\n");
 
-  await settingsNav.getByRole("link", { name: "History" }).focus();
+  await settingsNav.getByRole("link", { name: "Saved results" }).focus();
 
   await settingsPage.keyboard.press("Enter");
 
@@ -84,7 +84,7 @@ export async function runPopupResults(
 
   assert.equal(
     await settingsNav
-      .getByRole("link", { name: "History" })
+      .getByRole("link", { name: "Saved results" })
       .evaluate((link) => getComputedStyle(link).outlineStyle),
     "solid",
   );

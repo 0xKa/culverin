@@ -158,7 +158,7 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
         <p id="about-visibility-detail" className="text-muted m-0 mt-3 text-sm">
           Hides all Culverin rows, including Analyze, progress, and notices. The
           toolbar popup stays available. Changes apply when you open or return
-          to a repository page. Counting follows your Counting setting.
+          to a repository page. Counting follows your When to count setting.
         </p>
       </Panel>
       <Panel className="relative">

@@ -42,7 +42,7 @@ test("describes complete counts with exact tooltips and opens details", () => {
   ).toEqual({
     count: "412.3k",
     label: "lines of code",
-    title: "412,345 lines of code (Culverin ignore active)",
+    title: "412,345 lines of code (ignore rules active)",
     action: "details",
   });
 });
@@ -120,7 +120,7 @@ test("applies page count and size formats while keeping exact tooltips and parti
   });
   expect(full.map((row) => row.count)).toEqual(["4.7 MB", "12,300+", "1,200"]);
   expect(full[1]?.title).toBe(
-    "12,300 lines of code, not including 2 source files too large to count (Culverin ignore active)",
+    "12,300 lines of code, not including 2 source files too large to count (ignore rules active)",
   );
   expect(full[2]?.title).toBe("1,200 files at the analyzed commit");
   expect(full[0]?.title).toContain("(4,718,592 bytes)");

@@ -50,7 +50,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
 
   return (
     <section aria-labelledby="ignore-heading" hidden={hidden}>
-      <SectionHeader id="ignore-heading" title="Culverin ignore">
+      <SectionHeader id="ignore-heading" title="Ignored files">
         Files that match these rules are skipped when counting lines. They still
         count toward the "Files at …" size. New analyses use your changes;
         earlier results are kept and reused if you switch back.
@@ -187,7 +187,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               onClick={() => {
                 if (
                   confirm(
-                    "Reset Culverin ignore? All built-in rules are turned back on and your rules are removed.",
+                    "Reset ignored files? All built-in rules are turned back on and your rules are removed.",
                   )
                 )
                   save(defaultIgnore);

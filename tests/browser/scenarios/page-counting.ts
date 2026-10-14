@@ -638,7 +638,7 @@ export async function runPageCounting(
     .getByText(/^The first asks for the repository's details/)
     .waitFor();
 
-  await countingSettings.getByRole("link", { name: "Counting" }).click();
+  await countingSettings.getByRole("link", { name: "When to count" }).click();
 
   await openTrigger.check();
 
@@ -650,7 +650,7 @@ export async function runPageCounting(
 
   await page.getByText("0 lines of code", { exact: true }).waitFor();
 
-  await countingSettings.getByRole("link", { name: "History" }).click();
+  await countingSettings.getByRole("link", { name: "Saved results" }).click();
 
   await countingSettings
     .locator("#cache-summary", { hasText: "1 result for 1 repository" })
@@ -663,7 +663,7 @@ export async function runPageCounting(
     "https://github.com/culverin/bootstrap-fixture",
   );
 
-  await countingSettings.getByRole("link", { name: "Counting" }).click();
+  await countingSettings.getByRole("link", { name: "When to count" }).click();
 
   const beforeRestartedLookup = fixtures.apiRequests;
 
@@ -738,7 +738,7 @@ export async function runPageCounting(
     /^(Copied|Couldn't copy\. Select the details below instead\.)$/,
   );
 
-  await countingSettings.getByRole("link", { name: "Culverin ignore" }).click();
+  await countingSettings.getByRole("link", { name: "Ignored files" }).click();
 
   await countingSettings.locator("#rules").waitFor({ state: "visible" });
 

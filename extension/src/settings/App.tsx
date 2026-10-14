@@ -1,3 +1,13 @@
+import {
+  EyeOff,
+  Gauge,
+  History as HistoryIcon,
+  Info,
+  KeyRound,
+  Palette,
+  PanelsTopLeft,
+  type LucideIcon,
+} from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { BrandHeader } from "./BrandHeader";
 import { AboutSection } from "./AboutSection";
@@ -12,9 +22,20 @@ import {
   readSection,
   rememberSection,
   SECTION_KEY,
-  sections,
+  sectionGroups,
+  type SectionId,
 } from "./sections";
 import { StorageSection } from "./StorageSection";
+
+const sectionIcons: Record<SectionId, LucideIcon> = {
+  appearance: Palette,
+  "repository-page": PanelsTopLeft,
+  counting: Gauge,
+  ignore: EyeOff,
+  github: KeyRound,
+  storage: HistoryIcon,
+  about: Info,
+};
 
 export function App() {
   const [active, setActive] = useState(() =>
@@ -55,19 +76,51 @@ export function App() {
           aria-label="Settings sections"
           className="md:sticky md:top-8 md:self-start"
         >
-          <ul className="m-0 flex list-none flex-wrap gap-1 p-0 md:flex-col">
-            {sections.map((section) => (
-              <li key={section.id}>
-                <a
-                  href={`#${section.id}`}
-                  aria-current={active === section.id ? "page" : undefined}
-                  className="text-ink hover:bg-hover aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text block rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
+          <div className="flex flex-wrap gap-1 md:flex-col md:gap-4">
+            {sectionGroups.map((group, index) => (
+              <div
+                key={group.name ?? index}
+                className={
+                  group.name
+                    ? undefined
+                    : "md:border-divider md:border-t md:pt-4"
+                }
+              >
+                {group.name && (
+                  <p
+                    id={`nav-group-${index}`}
+                    className="text-muted m-0 mb-1 hidden px-3 text-2xs font-semibold tracking-wider uppercase md:block"
+                  >
+                    {group.name}
+                  </p>
+                )}
+                <ul
+                  aria-labelledby={
+                    group.name ? `nav-group-${index}` : undefined
+                  }
+                  className="m-0 flex list-none flex-wrap gap-1 p-0 md:flex-col"
                 >
-                  {section.label}
-                </a>
-              </li>
+                  {group.sections.map((section) => {
+                    const Icon = sectionIcons[section.id];
+                    return (
+                      <li key={section.id}>
+                        <a
+                          href={`#${section.id}`}
+                          aria-current={
+                            active === section.id ? "page" : undefined
+                          }
+                          className="group text-ink hover:bg-hover aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text flex items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
+                        >
+                          <Icon class="text-muted group-aria-[current=page]:text-accent-text shrink-0" />
+                          {section.label}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </nav>
         <main className="min-w-0">
           <AppearanceSection hidden={active !== "appearance"} />

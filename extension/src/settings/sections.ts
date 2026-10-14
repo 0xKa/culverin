@@ -1,14 +1,26 @@
 export const sections = [
-  { id: "appearance", label: "Appearance" },
-  { id: "repository-page", label: "Repository page" },
-  { id: "storage", label: "History" },
-  { id: "ignore", label: "Culverin ignore" },
-  { id: "counting", label: "Counting" },
-  { id: "github", label: "GitHub" },
+  { id: "appearance", label: "Appearance", group: "Display" },
+  { id: "repository-page", label: "Repository page", group: "Display" },
+  { id: "counting", label: "When to count", group: "Counting" },
+  { id: "ignore", label: "Ignored files", group: "Counting" },
+  { id: "github", label: "GitHub", group: "Account & data" },
+  { id: "storage", label: "Saved results", group: "Account & data" },
   { id: "about", label: "About" },
 ] as const;
 
-export type SectionId = (typeof sections)[number]["id"];
+export type Section = (typeof sections)[number];
+
+export type SectionId = Section["id"];
+
+export const sectionGroups = sections.reduce<
+  { name?: string; sections: Section[] }[]
+>((groups, section) => {
+  const name = "group" in section ? section.group : undefined;
+  const last = groups.at(-1);
+  if (last && last.name === name) last.sections.push(section);
+  else groups.push({ name, sections: [section] });
+  return groups;
+}, []);
 
 export const SECTION_KEY = "culverin.settings.section";
 

@@ -319,7 +319,7 @@ export async function runGithubStorage(
 
   assert.equal(fixtures.apiRequests, beforePrivateReload);
 
-  await settingsPage.getByRole("link", { name: "History" }).click();
+  await settingsPage.getByRole("link", { name: "Saved results" }).click();
 
   await settingsPage
     .locator("#private-summary", { hasText: "1 result for 1 repository" })
@@ -732,7 +732,7 @@ export async function runGithubStorage(
 
   fixtures.mode = "ok";
 
-  await settingsPage.getByRole("link", { name: "Culverin ignore" }).click();
+  await settingsPage.getByRole("link", { name: "Ignored files" }).click();
 
   await settingsPage.locator("#rules").waitFor({ state: "visible" });
 
@@ -760,12 +760,12 @@ export async function runGithubStorage(
 
   assert.equal(
     await openedSettingsPage
-      .getByRole("link", { name: "Culverin ignore" })
+      .getByRole("link", { name: "Ignored files" })
       .getAttribute("aria-current"),
     "page",
   );
 
-  await openedSettingsPage.getByRole("link", { name: "History" }).click();
+  await openedSettingsPage.getByRole("link", { name: "Saved results" }).click();
 
   await openedSettingsPage
     .getByRole("button", { name: "Clear public results" })
@@ -791,7 +791,7 @@ export async function runGithubStorage(
 
   assert.equal(
     await reopenedSettingsPage
-      .getByRole("link", { name: "History" })
+      .getByRole("link", { name: "Saved results" })
       .getAttribute("aria-current"),
     "page",
   );

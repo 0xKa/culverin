@@ -8,17 +8,24 @@ import {
   brandMarkSvg,
 } from "../../extension/src/ui/brand-mark";
 
-test("matches the white symbol of the original icon artwork", () => {
-  const source = readFileSync("assets/culverin-icon.svg", "utf8");
-  const symbol = source.slice(source.indexOf('<g fill="#ffffff">'));
-  const rects = [...symbol.matchAll(/<rect ([^>]*)\/>/g)].map(
-    ([, attributes]) =>
-      ["x", "y", "width", "height"].map(
-        (name) =>
-          Number(new RegExp(`${name}="(\\d+)"`).exec(attributes!)?.[1]) / 8,
-      ),
+function symbolRects(path: string): number[][] {
+  const source = readFileSync(path, "utf8");
+  const symbol = source.slice(source.indexOf("<g fill="));
+  return [...symbol.matchAll(/<rect ([^>]*)\/>/g)].map(([, attributes]) =>
+    ["x", "y", "width", "height"].map(
+      (name) =>
+        Number(new RegExp(`${name}="(\\d+)"`).exec(attributes!)?.[1]) / 8,
+    ),
   );
-  expect(rects).toEqual(brandMarkRects.map((rect) => [...rect]));
+}
+
+test("matches the symbol of every icon artwork", () => {
+  for (const path of [
+    "assets/culverin-icon.svg",
+    "assets/culverin-icon-light.svg",
+    "assets/culverin-icon-dark.svg",
+  ])
+    expect(symbolRects(path)).toEqual(brandMarkRects.map((rect) => [...rect]));
 });
 
 test("draws equal strokes with equal device pixels at every size", () => {

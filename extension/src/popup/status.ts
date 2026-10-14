@@ -64,7 +64,7 @@ export const statuses = {
     "Rules changed",
     "warning",
     "idle",
-    "Culverin ignore changed. Reopen the popup to see results for the current rules.",
+    "Ignore rules changed. Reopen the popup to see results for the current rules.",
   ),
   cached: status(
     "Cached",
@@ -131,7 +131,7 @@ export function readyStatus(
   const target = ref.commit
     ? `commit ${resolution.sha.slice(0, 12)}`
     : `${ref.name} at ${resolution.sha.slice(0, 12)}`;
-  const detail = `Ready to analyze ${target}. ${rulesChanged ? "Culverin ignore changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`;
+  const detail = `Ready to analyze ${target}. ${rulesChanged ? "Ignore rules changed since the last count." : "Analyze downloads a source snapshot from GitHub and counts it locally."}`;
   return rulesChanged
     ? status("Rules changed", "warning", "idle", detail)
     : status("Not counted", "neutral", "idle", detail);

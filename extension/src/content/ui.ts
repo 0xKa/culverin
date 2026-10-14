@@ -151,7 +151,7 @@ export function rowView(
     return {
       count: `${formatPageCount(state.total, formats.counts)}${state.uncounted ? "+" : ""}`,
       label,
-      title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (Culverin ignore active)" : ""}`,
+      title: `${state.total.toLocaleString("en")} ${label}${uncounted}${state.customIgnore ? " (ignore rules active)" : ""}`,
       action: "details",
     };
   }

@@ -66,7 +66,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
         <p className="m-0 mt-2">
           Repository source is downloaded directly from GitHub and analyzed in
           your browser when you select Analyze, or when you open a repository
-          page if you turn that on under Counting. Public repositories work
+          page if you turn that on under When to count. Public repositories work
           without an account; connect GitHub to count private ones.
         </p>
       </SectionHeader>

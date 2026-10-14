@@ -102,12 +102,12 @@ export async function runIgnoreAccess(
   const ignorePopup = await openPopup(page);
 
   await ignorePopup
-    .getByText(/Culverin ignore changed since the last count\./)
+    .getByText(/Ignore rules changed since the last count\./)
     .waitFor();
 
   assert.equal(
     await ignorePopup.locator("#ignore-text").textContent(),
-    "Culverin ignore: 1 rule",
+    "Ignored files: 1 rule",
   );
 
   await ignorePopup.getByRole("button", { name: "Analyze repository" }).click();
@@ -129,7 +129,7 @@ export async function runIgnoreAccess(
     "47 B",
   );
 
-  await settingsNav.getByRole("link", { name: "History" }).click();
+  await settingsNav.getByRole("link", { name: "Saved results" }).click();
 
   await settingsPage.locator("#rules").waitFor({ state: "hidden" });
 
@@ -158,12 +158,12 @@ export async function runIgnoreAccess(
         .querySelector("[data-culverin-root]")
         ?.shadowRoot?.querySelector("[title]")
         ?.getAttribute("title")
-        ?.includes("Culverin ignore active") ?? false,
+        ?.includes("ignore rules active") ?? false,
   );
 
   assert.match(
     (await ignoredRow.getAttribute("title")) ?? "",
-    /^1 line of code \(Culverin ignore active\)$/,
+    /^1 line of code \(ignore rules active\)$/,
   );
 
   settingsPage.once("dialog", (dialog) => void dialog.accept());

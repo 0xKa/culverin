@@ -73,7 +73,7 @@ test("leaving a repository resets every repository-specific field", () => {
     analysisVisible: true,
     analyzeDisabled: false,
     cancelVisible: true,
-    ignoreSummary: "Culverin ignore: 1 rule",
+    ignoreSummary: "Ignored files: 1 rule",
     detailsOpen: true,
     reanalyze: true,
   };

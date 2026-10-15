@@ -89,7 +89,7 @@ test("formats repository and result details", () => {
   expect(view.fileTotal).toBe("5");
   expect(view.fileLabel).toBe("files");
   expect(view.fileTitle).toBe(
-    "All files at this commit, 2 counted as code or text. Other files are listed in Analysis details.",
+    "All files at this commit, 4 counted: 2 as code or text, 2 as other files.",
   );
   expect(view.stats).toEqual([
     {
@@ -129,9 +129,8 @@ test("formats repository and result details", () => {
     },
   ]);
   expect(view.revision).toEqual({ name: "main", commit: false });
-  expect(view.coverage).toBe(
-    "Counted 2 of 5 files. Skipped 2 other, 1 oversized.",
-  );
+  expect(view.coverage).toBe("Counted 4 of 5 files.");
+  expect(view.notCounted).toEqual([{ text: "Not counted: 1 oversized." }]);
   expect(view.otherRows.map((row) => row.label)).toEqual([
     ".golden: 30 lines, 1 files",
     "No extension: 8 lines, 1 files",
@@ -344,6 +343,7 @@ test("handles zero lines and absent languages without invalid percentages", () =
   const view = resultView(empty, { ...resolution, sizeKb: null });
   expect(view.noLanguages).toBe("No language totals.");
   expect(view.coverage).toBe("No files to count.");
+  expect(view.notCounted).toBeUndefined();
   expect(
     resultView(
       {
@@ -353,6 +353,59 @@ test("handles zero lines and absent languages without invalid percentages", () =
       resolution,
     ).coverage,
   ).toBe("Counted all 1 file.");
+  const mixed = (
+    skippedByReason: AnalysisResultV2["coverage"]["skippedByReason"],
+  ) => {
+    const { coverage, notCounted } = resultView(
+      {
+        ...empty,
+        coverage: {
+          ...empty.coverage,
+          regularFiles: 300,
+          countedFiles: 266,
+          skippedFiles: 34,
+          skippedByReason,
+        },
+      },
+      resolution,
+    );
+    return { coverage, notCounted };
+  };
+  const none = { ...empty.coverage.skippedByReason };
+  expect(
+    mixed({
+      ...none,
+      excluded_by_rule: 2,
+      unsupported_language: 2,
+      binary_content: 30,
+    }),
+  ).toEqual({
+    coverage: "Counted 268 of 300 files.",
+    notCounted: [
+      { text: "Not counted: 30 binary, 2 matched " },
+      { text: "ignore rules", link: "ignore" },
+      { text: "." },
+    ],
+  });
+  expect(
+    mixed({
+      ...none,
+      excluded_by_rule: 1,
+      unsupported_language: 32,
+      unsupported_notebook: 1,
+    }),
+  ).toEqual({
+    coverage: "Counted 298 of 300 files.",
+    notCounted: [
+      { text: "Not counted: 1 matched an " },
+      { text: "ignore rule", link: "ignore" },
+      { text: ", 1 unsupported notebook." },
+    ],
+  });
+  expect(mixed({ ...none, unsupported_language: 34 })).toEqual({
+    coverage: "Counted all 300 files.",
+    notCounted: undefined,
+  });
   expect(view.codeRows).toEqual([]);
   expect(view.textRows).toEqual([]);
   expect(view.codeSummary).toEqual(["0 code lines", "0 files"]);

@@ -212,7 +212,7 @@ export async function runPopupResults(
   assert.equal(await resumedPopup.locator("#analysis-loader").count(), 0);
 
   await resumedPopup
-    .getByText("Counted 2 of 14 files. Skipped 12 other.", { exact: true })
+    .getByText("Counted all 14 files.", { exact: true })
     .waitFor();
 
   assert.equal(

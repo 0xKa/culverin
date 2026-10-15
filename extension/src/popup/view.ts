@@ -37,6 +37,11 @@ export type StatView = {
   id?: string;
 };
 
+export type CoveragePart = {
+  text: string;
+  link?: "ignore";
+};
+
 export type ResultView = {
   codeTotal: string;
   codeTitle?: string;
@@ -61,6 +66,7 @@ export type ResultView = {
   otherRows: BreakdownRow[];
   noLanguages?: string;
   coverage: string;
+  notCounted?: CoveragePart[];
   coverageTitle: string;
   warning?: string;
   oversizedFiles: {
@@ -84,28 +90,59 @@ const bySize = <T extends { files: number; language: string }>(
 export const TEXT_LINES_TITLE =
   "Non-blank prose lines in Markdown, MDX, Djot, and plain text files";
 
-function coverageText(coverage: AnalysisResultV2["coverage"]): string {
+function coverageText(
+  coverage: AnalysisResultV2["coverage"],
+): Pick<ResultView, "coverage" | "notCounted"> {
   const total = coverage.regularFiles.toLocaleString();
-  if (coverage.regularFiles === 0) return "No files to count.";
-  if (coverage.skippedFiles === 0)
-    return `Counted all ${total} ${coverage.regularFiles === 1 ? "file" : "files"}.`;
+  if (coverage.regularFiles === 0) return { coverage: "No files to count." };
   const skipped = coverage.skippedByReason;
-  const reasons = [
-    [skipped.excluded_by_rule, "ignored"],
-    [skipped.unsupported_language, "other"],
-    [skipped.binary_content, "binary"],
+  const counted = coverage.countedFiles + skipped.unsupported_language;
+  if (counted === coverage.regularFiles)
+    return {
+      coverage: `Counted all ${total} ${coverage.regularFiles === 1 ? "file" : "files"}.`,
+    };
+  const rules = skipped.excluded_by_rule;
+  const reasons: [number, CoveragePart[]][] = [
+    [skipped.binary_content, [{ text: "binary" }]],
+    [
+      rules,
+      [
+        { text: rules === 1 ? "matched an " : "matched " },
+        { text: rules === 1 ? "ignore rule" : "ignore rules", link: "ignore" },
+      ],
+    ],
     [
       skipped.unsupported_notebook,
-      skipped.unsupported_notebook === 1
-        ? "unsupported notebook"
-        : "unsupported notebooks",
+      [
+        {
+          text:
+            skipped.unsupported_notebook === 1
+              ? "unsupported notebook"
+              : "unsupported notebooks",
+        },
+      ],
     ],
-    [skipped.oversized_source, "oversized"],
-  ] as const;
-  const listed = reasons
-    .filter(([value]) => value > 0)
-    .map(([value, label]) => `${value.toLocaleString()} ${label}`);
-  return `Counted ${coverage.countedFiles.toLocaleString()} of ${total} files. Skipped ${listed.join(", ")}.`;
+    [skipped.oversized_source, [{ text: "oversized" }]],
+  ];
+  const parts: CoveragePart[] = [
+    { text: "Not counted: " },
+    ...reasons
+      .filter(([value]) => value > 0)
+      .flatMap(([value, label], index) => [
+        { text: `${index > 0 ? ", " : ""}${value.toLocaleString()} ` },
+        ...label,
+      ]),
+    { text: "." },
+  ];
+  return {
+    coverage: `Counted ${counted.toLocaleString()} of ${total} files.`,
+    notCounted: parts.reduce<CoveragePart[]>((merged, part) => {
+      const last = merged.at(-1);
+      if (last && !last.link && !part.link) last.text += part.text;
+      else merged.push({ ...part });
+      return merged;
+    }, []),
+  };
 }
 
 const share = (part: number, whole: number) =>
@@ -218,7 +255,7 @@ export function resultView(
     codeTitle: exact(`${totals.code.toLocaleString()} code lines`),
     fileTotal: count(coverage.regularFiles),
     fileLabel: coverage.regularFiles === 1 ? "file" : "files",
-    fileTitle: `${formats.counts === "abbreviated" ? `${coverage.regularFiles.toLocaleString()} ${coverage.regularFiles === 1 ? "file" : "files"}. ` : ""}All files at this commit, ${coverage.countedFiles.toLocaleString()} counted as code or text. Other files are listed in Analysis details.`,
+    fileTitle: `${formats.counts === "abbreviated" ? `${coverage.regularFiles.toLocaleString()} ${coverage.regularFiles === 1 ? "file" : "files"}. ` : ""}All files at this commit, ${other.files > 0 ? `${(coverage.countedFiles + other.files).toLocaleString()} counted: ${coverage.countedFiles.toLocaleString()} as code or text, ${other.files.toLocaleString()} as other files.` : `${coverage.countedFiles.toLocaleString()} counted as code or text.`}`,
     stats: [
       stat("Text lines", text, TEXT_LINES_TITLE, "text-lines"),
       stat(
@@ -267,8 +304,9 @@ export function resultView(
     otherRows,
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
-    coverage: coverageText(coverage),
-    coverageTitle: "Skipped files aren't included in code or text lines.",
+    ...coverageText(coverage),
+    coverageTitle:
+      "Other files are counted separately from code and text lines. Files not counted aren't in any totals.",
     warning: skipped.oversized_source
       ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} over the ${ARCHIVE_LIMITS.file / 1024 ** 2} MiB file limit and ${skipped.oversized_source === 1 ? "isn't" : "aren't"} included in these totals.`
       : undefined,

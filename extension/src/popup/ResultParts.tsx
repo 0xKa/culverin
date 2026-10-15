@@ -3,6 +3,7 @@ import { ExternalLink } from "../ui/ExternalLink";
 import { RefName } from "../ui/RefName";
 import { Separator } from "../ui/Separator";
 import { tip } from "../ui/tooltip";
+import { openSettings } from "./controller";
 import { ResultSection } from "./ResultSection";
 import { TEXT_LINES_TITLE, type ResultView } from "./view";
 
@@ -232,9 +233,26 @@ export function Details({
           <p
             id="coverage"
             {...tip(result.coverageTitle, { side: "top" })}
-            className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs"
+            className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs whitespace-pre-line"
           >
             {result.coverage}
+            {result.notCounted && "\n"}
+            {result.notCounted?.map((part) =>
+              part.link ? (
+                <a
+                  href={`settings.html#${part.link}`}
+                  className="underline"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    openSettings(part.link);
+                  }}
+                >
+                  {part.text}
+                </a>
+              ) : (
+                part.text
+              ),
+            )}
           </p>
         )}
       </div>

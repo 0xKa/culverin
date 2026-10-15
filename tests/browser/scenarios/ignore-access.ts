@@ -126,9 +126,12 @@ export async function runIgnoreAccess(
     .waitFor({ timeout: 15_000 });
 
   await ignorePopup
-    .getByText("Counted 1 of 14 files. Skipped 1 ignored, 12 other.", {
-      exact: true,
-    })
+    .getByText(
+      "Counted 13 of 14 files. Not counted: 1 matched an ignore rule.",
+      {
+        exact: true,
+      },
+    )
     .waitFor();
 
   assert.equal(await ignorePopup.locator("#text-lines").textContent(), "0");
@@ -155,6 +158,26 @@ export async function runIgnoreAccess(
   assert.equal(context.pages().length, pagesBeforeEdit);
 
   await ignorePopup.close();
+
+  await settingsNav.getByRole("link", { name: "Saved results" }).click();
+
+  await settingsPage.locator("#rules").waitFor({ state: "hidden" });
+
+  const linkPopup = await openPopup(page);
+
+  await linkPopup
+    .getByRole("link", { name: "ignore rule", exact: true })
+    .click();
+
+  await settingsPage.locator("#rules").waitFor({ state: "visible" });
+
+  assert.equal(new URL(settingsPage.url()).hash, "#ignore");
+
+  await linkPopup.waitForTimeout(300);
+
+  assert.equal(context.pages().length, pagesBeforeEdit);
+
+  await linkPopup.close();
 
   const ignoredRow = page.getByRole("button", {
     name: "1 line of code",

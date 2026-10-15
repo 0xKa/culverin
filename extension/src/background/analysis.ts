@@ -19,7 +19,11 @@ export type PublicClient = {
 
 import { ARCHIVE_TIMEOUTS } from "../archive/limits";
 import { readCountTrigger } from "../counting/trigger";
-import { resolutionIdentity, type ResultCache } from "../github/cache";
+import {
+  resolutionIdentity,
+  resultIdentity,
+  type ResultCache,
+} from "../github/cache";
 import { AcquisitionError, safeFailure } from "../github/client";
 import {
   publicFailure,
@@ -200,6 +204,8 @@ export function createPublicAnalysis(
             return;
           }
         }
+        const disconnected = async () =>
+          privateJob && (await connection.generation()) !== auth.generation;
         const results: ResultCache = privateJob ? privateResults : cache;
         if (resolved.fresh && refs.isCurrent(resolved.epoch))
           results.allowRepository(envelope);
@@ -208,6 +214,10 @@ export function createPublicAnalysis(
           .get(envelope, rules.hash)
           .catch(() => undefined);
         if (controller.signal.aborted || !client.isAlive()) return;
+        if (await disconnected()) {
+          reply({ type: "analysis.failed", code: "analysis_interrupted" });
+          return;
+        }
         if (results.isRevoked(envelope.repositoryId)) {
           reply({ type: "analysis.failed", code: "repository_unavailable" });
           return;
@@ -257,7 +267,12 @@ export function createPublicAnalysis(
         pending.delete(owner);
         await clearInterrupted(owner);
         const semantic = resolutionIdentity(envelope, rules.hash);
+        const stale = await disconnected();
         if (controller.signal.aborted || !client.isAlive()) return;
+        if (stale) {
+          reply({ type: "analysis.failed", code: "analysis_interrupted" });
+          return;
+        }
         if (results.isRevoked(envelope.repositoryId)) {
           reply({ type: "analysis.failed", code: "repository_unavailable" });
           return;
@@ -286,18 +301,24 @@ export function createPublicAnalysis(
                 reply({ type: "analysis.failed", code: "counter_failed" });
                 return;
               }
-              if (
-                privateJob &&
-                (await connection.generation()) !== auth.generation
-              ) {
+              const replyInterrupted = () =>
                 reply({
                   type: "analysis.failed",
                   code: "analysis_interrupted",
                 });
+              if (await disconnected()) {
+                replyInterrupted();
                 return;
               }
               const labelled = withRef(current, envelope.ref);
               await results.put(labelled, output.result).catch(() => undefined);
+              if (await disconnected()) {
+                await results
+                  .delete(resultIdentity(output.result))
+                  .catch(() => undefined);
+                replyInterrupted();
+                return;
+              }
               if (
                 coordinator.isSubscribed(owner, request.requestId) &&
                 client.isAlive()

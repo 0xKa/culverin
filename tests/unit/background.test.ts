@@ -539,3 +539,90 @@ test("runtime listener registration is explicit and idempotent", () => {
   runtime.initialize();
   expect(connect.listeners.size).toBe(1);
 });
+
+async function connectPrivate(api: ReturnType<typeof fixture>) {
+  await api.resources.connection.connect(
+    { method: "token", login: "octo", token: "fixture-token" },
+    await api.resources.connection.generation(),
+  );
+  api.private();
+}
+function disconnect(api: ReturnType<typeof fixture>) {
+  return new Promise(
+    (resolve) =>
+      void api.auth.handle(
+        {
+          protocolVersion: 1,
+          requestId: crypto.randomUUID(),
+          navigationId: crypto.randomUUID(),
+          type: "auth.disconnect",
+        },
+        resolve,
+      ),
+  );
+}
+function disconnectDuring(
+  api: ReturnType<typeof fixture>,
+  method: "get" | "put",
+  order: "before" | "after",
+) {
+  const results = api.resources.privateResults;
+  const original = results[method].bind(results) as (
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  Object.assign(results, {
+    [method]: async (...args: unknown[]) => {
+      Reflect.deleteProperty(results, method);
+      if (order === "before") await disconnect(api);
+      const value = await original(...args);
+      if (order === "after") await disconnect(api);
+      return value;
+    },
+  });
+}
+async function hasPrivateResult(api: ReturnType<typeof fixture>) {
+  return api.resources.privateResults.hasRepository(
+    { owner: "culverin", name: "sample" },
+    (await api.resources.currentRules()).hash,
+  );
+}
+
+test("a private result read before Disconnect is not delivered after it", async () => {
+  const api = fixture();
+  await connectPrivate(api);
+  expect(await api.run("analysis.request", false)).toMatchObject({
+    type: "analysis.completed",
+    fromCache: false,
+  });
+  disconnectDuring(api, "get", "after");
+  expect(await api.run("analysis.request", false)).toEqual({
+    type: "analysis.failed",
+    code: "analysis_interrupted",
+  });
+  expect(await api.resources.connection.status()).toMatchObject({
+    connected: false,
+  });
+});
+
+test("a private analysis pending during Disconnect does not start with the old credential", async () => {
+  const api = fixture();
+  await connectPrivate(api);
+  disconnectDuring(api, "get", "after");
+  expect(await api.run("analysis.request", false)).toEqual({
+    type: "analysis.failed",
+    code: "analysis_interrupted",
+  });
+  expect(api.tokens).toEqual([]);
+});
+
+test("a private result finishing during Disconnect is not kept", async () => {
+  const api = fixture();
+  await connectPrivate(api);
+  disconnectDuring(api, "put", "before");
+  expect(await api.run("analysis.request", false)).toEqual({
+    type: "analysis.failed",
+    code: "analysis_interrupted",
+  });
+  expect(api.tokens).toEqual(["fixture-token"]);
+  expect(await hasPrivateResult(api)).toBe(false);
+});

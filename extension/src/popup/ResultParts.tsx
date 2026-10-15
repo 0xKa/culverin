@@ -232,7 +232,6 @@ export function Details({
         {result && (
           <p
             id="coverage"
-            {...tip(result.coverageTitle, { side: "top" })}
             className="text-muted border-divider m-0 mt-4 border-t pt-3 text-2xs whitespace-pre-line"
           >
             {result.coverage}

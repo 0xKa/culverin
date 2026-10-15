@@ -67,7 +67,6 @@ export type ResultView = {
   noLanguages?: string;
   coverage: string;
   notCounted?: CoveragePart[];
-  coverageTitle: string;
   warning?: string;
   oversizedFiles: {
     path: string;
@@ -305,8 +304,6 @@ export function resultView(
     noLanguages:
       result.languages.length === 0 ? "No language totals." : undefined,
     ...coverageText(coverage),
-    coverageTitle:
-      "Other files are counted separately from code and text lines. Files not counted aren't in any totals.",
     warning: skipped.oversized_source
       ? `${skipped.oversized_source.toLocaleString()} source ${skipped.oversized_source === 1 ? "file was" : "files were"} over the ${ARCHIVE_LIMITS.file / 1024 ** 2} MiB file limit and ${skipped.oversized_source === 1 ? "isn't" : "aren't"} included in these totals.`
       : undefined,

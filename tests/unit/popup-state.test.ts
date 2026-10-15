@@ -29,7 +29,6 @@ test("tracks repository, busy state, result and details", () => {
     otherRows: [],
     noLanguages: "No language totals.",
     coverage: "",
-    coverageTitle: "",
     oversizedFiles: [],
   };
   expect(ready.reanalyze).toBe(false);

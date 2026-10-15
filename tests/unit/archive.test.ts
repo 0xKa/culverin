@@ -456,43 +456,56 @@ describe("incremental tar parser", () => {
   });
 
   test("enforces the regular-file count while streaming", async () => {
-    const input = generatedEntries(ARCHIVE_LIMITS.regularFiles + 1, (index) =>
+    const limits = { ...ARCHIVE_LIMITS, regularFiles: 100 };
+    const input = generatedEntries(limits.regularFiles + 1, (index) =>
       entry(`repo/${index}.rs`, new Uint8Array(0)),
     );
     try {
-      await analyzeTar(input, {
-        classify: () => "counted",
-        addFile: () => undefined,
-        skipFile: () => undefined,
-        skipOther: () => undefined,
-      });
+      await analyzeTar(
+        input,
+        {
+          classify: () => "counted",
+          addFile: () => undefined,
+          skipFile: () => undefined,
+          skipOther: () => undefined,
+        },
+        undefined,
+        undefined,
+        limits,
+      );
       throw new Error("expected file limit");
     } catch (error) {
       expect((error as ArchiveError).code).toBe("file_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("regularFiles");
     }
-  }, 30_000);
+  });
 
   test("accepts the entry boundary and rejects one additional entry", async () => {
     const make = (index: number) =>
       entry(`repo/d${index}`, new Uint8Array(0), "5");
-    const target = sink();
+    const limits = { ...ARCHIVE_LIMITS, entries: 100 };
     const exact = await analyzeTar(
-      generatedEntries(ARCHIVE_LIMITS.entries, make),
-      target,
+      generatedEntries(limits.entries, make),
+      sink(),
+      undefined,
+      undefined,
+      limits,
     );
-    expect(exact.entries).toBe(ARCHIVE_LIMITS.entries);
+    expect(exact.entries).toBe(limits.entries);
     try {
       await analyzeTar(
-        generatedEntries(ARCHIVE_LIMITS.entries + 1, make),
+        generatedEntries(limits.entries + 1, make),
         sink(),
+        undefined,
+        undefined,
+        limits,
       );
       throw new Error("expected entry limit");
     } catch (error) {
       expect((error as ArchiveError).code).toBe("entry_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("entries");
     }
-  }, 30_000);
+  });
 
   test("bounds total bytes passed to WASM", async () => {
     const chunk = new Uint8Array(64 * 1024);
@@ -544,7 +557,8 @@ describe("incremental tar parser", () => {
   });
 
   test("bounds retained names before inserting many long paths", async () => {
-    const input = generatedEntries(ARCHIVE_LIMITS.entries, (index) => {
+    const limits = { ...ARCHIVE_LIMITS, entries: 100, retainedPaths: 4096 };
+    const input = generatedEntries(limits.entries, (index) => {
       const block = entry(
         `${index.toString().padStart(5, "0")}${"x".repeat(90)}`,
         new Uint8Array(0),
@@ -555,11 +569,11 @@ describe("incremental tar parser", () => {
       return block;
     });
     try {
-      await analyzeTar(input, sink());
+      await analyzeTar(input, sink(), undefined, undefined, limits);
       throw new Error("expected retained-path limit");
     } catch (error) {
       expect((error as ArchiveError).code).toBe("metadata_limit_exceeded");
       expect((error as ArchiveError).limit).toBe("retainedPaths");
     }
-  }, 30_000);
+  });
 });

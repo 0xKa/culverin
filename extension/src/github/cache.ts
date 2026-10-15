@@ -434,11 +434,15 @@ export class ResultCache {
         (entry) => entry.identity !== identity,
       );
       if (kept.length === snapshot.entries.length) return;
-      snapshot.entries = kept;
-      if (!(await this.persist(snapshot))) {
-        await this.storage.remove(this.options.key);
-        this.snapshot = { version: 1, entries: [] };
+      try {
+        await this.storage.set({
+          [this.options.key]: { ...snapshot, entries: kept },
+        });
+      } catch (error) {
+        this.snapshot = undefined;
+        throw error;
       }
+      snapshot.entries = kept;
     });
   }
 

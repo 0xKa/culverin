@@ -201,6 +201,48 @@ test.each(["public", "private"] as const)(
   },
 );
 
+test.each(["public", "private"] as const)(
+  "a failed %s result deletion reports the failure and keeps every result",
+  async (visibility) => {
+    const storage = new MemoryStorage();
+    const cache =
+      visibility === "public"
+        ? new PublicResultCache(storage)
+        : new PrivateResultCache(storage);
+    const options = visibility === "public" ? publicCache : privateCache;
+    const key = visibility === "public" ? PUBLIC_CACHE_KEY : PRIVATE_CACHE_KEY;
+    const envelope = (id: string, name: string): ResolutionEnvelope => ({
+      ...resolution(id, name),
+      visibility,
+    });
+    const hash = (await result()).engine.rulesHash;
+    const names = () =>
+      cachedResultSummaries(storage.values[key], options)
+        .map((entry) => entry.name)
+        .sort();
+    await cache.put(envelope("41", "first"), await result("41"));
+    await cache.put(envelope("42", "repo"), await result("42"));
+    await cache.put(envelope("43", "other"), await result("43"));
+    const target = cachedResultSummaries(storage.values[key], options).find(
+      (entry) => entry.name === "repo",
+    )!;
+    for (const failures of [1, Number.POSITIVE_INFINITY]) {
+      storage.failWrites = failures;
+      await expect(cache.delete(target.identity)).rejects.toThrow("quota");
+      storage.failWrites = 0;
+      expect(names()).toEqual(["first", "other", "repo"]);
+    }
+    for (const [id, name] of [
+      ["41", "first"],
+      ["42", "repo"],
+      ["43", "other"],
+    ] as const)
+      expect(await cache.get(envelope(id, name), hash)).toBeDefined();
+    await cache.delete(target.identity);
+    expect(names()).toEqual(["first", "other"]);
+  },
+);
+
 describe("public result cache", () => {
   test("lists valid stored results for display, most recently viewed first", async () => {
     let now = 1_000;

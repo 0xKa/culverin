@@ -23,6 +23,7 @@ import {
   rememberSection,
   SECTION_KEY,
   sectionGroups,
+  sections,
   type SectionId,
 } from "./sections";
 import { StorageSection } from "./StorageSection";
@@ -38,19 +39,23 @@ const sectionIcons: Record<SectionId, LucideIcon> = {
 };
 
 export function App() {
-  const [active, setActive] = useState(() =>
+  const [initial] = useState(() =>
     initialSection(location.hash, readSection()),
   );
+  const [active, setActive] = useState(initial);
 
   useEffect(() => {
     rememberSection(active);
-    if (!parseSection(location.hash))
-      history.replaceState(null, "", `#${active}`);
   }, [active]);
 
   useEffect(() => {
+    if (!parseSection(location.hash))
+      history.replaceState(null, "", `#${initial}`);
+  }, [initial]);
+
+  useEffect(() => {
     const fromHash = () => {
-      const next = parseSection(location.hash);
+      const next = location.hash ? parseSection(location.hash) : sections[0].id;
       if (next) setActive(next);
     };
     const fromStorage = (event: StorageEvent) => {
@@ -70,7 +75,13 @@ export function App() {
 
   return (
     <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base">
-      <BrandHeader />
+      <BrandHeader
+        onHome={() => {
+          if (location.hash)
+            history.pushState(null, "", location.pathname + location.search);
+          setActive(sections[0].id);
+        }}
+      />
       <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
         <nav
           aria-label="Settings sections"

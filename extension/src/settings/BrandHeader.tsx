@@ -42,7 +42,7 @@ function toHex(color: string): string {
     .join("")}`;
 }
 
-export function BrandHeader() {
+export function BrandHeader({ onHome }: { onHome: () => void }) {
   const header = useRef<HTMLElement>(null);
   const highlight = useRef<HTMLSpanElement>(null);
   const [colors, setColors] = useState<{ ink: string; accent: string }>();
@@ -98,32 +98,49 @@ export function BrandHeader() {
       ref={header}
       className="text-ink mb-8 flex items-center gap-1 font-mono"
     >
-      <BrandIcon size={56} className="translate-y-[3px]" />
       <span
         ref={highlight}
         aria-hidden="true"
         className="text-accent-text hidden"
       />
-      <h1
-        className="relative m-0 max-w-full min-w-0 flex-1"
-        style={{ height: Math.round(SIZE * 0.68) * 2, maxWidth: width }}
+      <a
+        href="settings.html"
+        onClick={(event) => {
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          event.preventDefault();
+          onHome();
+        }}
+        className="focus-visible:outline-accent flex max-w-full min-w-0 items-center gap-1 text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-4"
       >
-        {colors ? (
-          <div className="absolute" style={{ inset: -BLEED }}>
-            <TechText
-              text={NAME}
-              fontSize={SIZE}
-              fontWeight={WEIGHT}
-              letterSpacing={SPACING}
-              color={colors.ink}
-              accentColor={colors.accent}
-              draggable={false}
-              sweep={intro}
-              speed={INTRO_SPEED}
-            />
-          </div>
-        ) : null}
-      </h1>
+        <BrandIcon size={56} className="translate-y-[3px]" />
+        <h1
+          className="relative m-0 min-w-0"
+          style={{ height: Math.round(SIZE * 0.68) * 2, width }}
+        >
+          {colors ? (
+            <div className="absolute" style={{ inset: -BLEED }}>
+              <TechText
+                text={NAME}
+                fontSize={SIZE}
+                fontWeight={WEIGHT}
+                letterSpacing={SPACING}
+                color={colors.ink}
+                accentColor={colors.accent}
+                draggable={false}
+                sweep={intro}
+                speed={INTRO_SPEED}
+              />
+            </div>
+          ) : null}
+        </h1>
+      </a>
     </header>
   );
 }

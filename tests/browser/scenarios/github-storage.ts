@@ -796,6 +796,29 @@ export async function runGithubStorage(
     "page",
   );
 
+  await reopenedSettingsPage.getByRole("link", { name: "Culverin" }).click();
+
+  await reopenedSettingsPage
+    .locator("#appearance-heading")
+    .waitFor({ state: "visible" });
+
+  assert.equal(new URL(reopenedSettingsPage.url()).hash, "");
+
+  assert.equal(
+    await reopenedSettingsPage
+      .getByRole("link", { name: "Appearance" })
+      .getAttribute("aria-current"),
+    "page",
+  );
+
+  await reopenedSettingsPage.goBack();
+
+  await reopenedSettingsPage
+    .getByRole("button", { name: "Clear public results" })
+    .waitFor({ state: "visible" });
+
+  assert.equal(new URL(reopenedSettingsPage.url()).hash, "#storage");
+
   await reopenedSettingsPage.close();
 
   await settingsLauncher.close();

@@ -24,6 +24,9 @@ export type Resolution = {
   ref?: string;
 };
 
+export type RefResolution = Resolution & { nested?: boolean };
+type RefObjects = Map<string, Record<string, unknown> | undefined>;
+
 const REF_ATTEMPTS = 5;
 
 export type AcquisitionErrorCode =
@@ -236,7 +239,7 @@ export async function resolveRepository(
   token: string | undefined,
   signal: AbortSignal,
   target?: RefTarget,
-): Promise<Resolution> {
+): Promise<RefResolution> {
   const metadata = record(
     await apiGet(fetcher, apiUrl(owner, name), token, signal),
   );
@@ -278,25 +281,97 @@ export async function resolveRepository(
       throw new AcquisitionError("network_unavailable");
     return sha.toLowerCase();
   };
+  const listRefs = async (kind: "heads" | "tags", prefix: string) => {
+    const value = await apiGet(
+      fetcher,
+      apiUrl(
+        canonicalOwner,
+        canonicalName,
+        `/git/matching-refs/${kind}/${prefix.split("/").map(encodeURIComponent).join("/")}`,
+      ),
+      token,
+      signal,
+    );
+    if (!Array.isArray(value))
+      throw new AcquisitionError("network_unavailable");
+    const refs: RefObjects = new Map();
+    for (const item of value) {
+      const name = record(item)?.ref;
+      if (typeof name === "string" && name.startsWith(`refs/${kind}/`))
+        refs.set(
+          name.slice(`refs/${kind}/`.length),
+          record(record(item)?.object),
+        );
+    }
+    return refs;
+  };
+  const commitOf = async (candidate: string) => {
+    const response = await apiRequest(
+      fetcher,
+      commitUrl(candidate),
+      token,
+      signal,
+    );
+    if (response.status === 404 || response.status === 422) {
+      await response.body?.cancel().catch(() => undefined);
+      return undefined;
+    }
+    if (!response.ok) throw apiFailure(response);
+    return shaOf(await boundedJson(response));
+  };
   let ref: string | undefined;
   let sha: string | undefined;
+  let nested: boolean | undefined;
   if (target && !defaultTarget(target, branch)) {
-    for (const candidate of refCandidates(target, branch)) {
-      const response = await apiRequest(
-        fetcher,
-        commitUrl(candidate),
-        token,
-        signal,
-      );
-      if (response.status === 404 || response.status === 422) {
-        await response.body?.cancel().catch(() => undefined);
-        continue;
+    const candidates = refCandidates(target, branch);
+    let listed: [RefObjects, RefObjects] | undefined;
+    let oversized = false;
+    if (
+      candidates.length &&
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(candidates[0]!)
+    ) {
+      try {
+        listed = await Promise.all([
+          listRefs("heads", candidates[0]!),
+          listRefs("tags", candidates[0]!),
+        ]);
+      } catch (error) {
+        if (
+          !(error instanceof AcquisitionError) ||
+          error.code !== "metadata_limit_exceeded"
+        )
+          throw error;
+        oversized = true;
       }
-      if (!response.ok) throw apiFailure(response);
-      sha = shaOf(await boundedJson(response));
-      ref = candidate;
-      break;
     }
+    if (listed) {
+      const [heads, tags] = listed;
+      const match = [...candidates]
+        .reverse()
+        .find((candidate) => heads.has(candidate) || tags.has(candidate));
+      if (match !== undefined) {
+        const head = heads.get(match);
+        sha =
+          !tags.has(match) && head?.type === "commit"
+            ? shaOf(head)
+            : await commitOf(match);
+        if (sha) {
+          ref = match;
+          nested = [...heads.keys(), ...tags.keys()].some((name) =>
+            name.startsWith(`${match}/`),
+          );
+        }
+      }
+    }
+    if (!sha)
+      for (const candidate of oversized
+        ? [...candidates].reverse()
+        : candidates) {
+        sha = await commitOf(candidate);
+        if (!sha) continue;
+        ref = candidate;
+        break;
+      }
     if (!sha) throw new AcquisitionError("ref_unavailable");
   }
   sha ??= shaOf(await apiGet(fetcher, commitUrl(branch), token, signal));
@@ -312,6 +387,7 @@ export async function resolveRepository(
         ? (size as number)
         : null,
     ...(ref === undefined ? {} : { ref }),
+    ...(nested === undefined ? {} : { nested }),
   };
 }
 

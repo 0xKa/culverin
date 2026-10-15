@@ -148,14 +148,14 @@ export function createPublicAnalysis(
         const keys =
           target && !target.exact
             ? [
-                ...new Set([
-                  ...refPrefixes(target.path).map(
-                    (prefix) => `${base}@${prefix}`,
-                  ),
-                  key,
-                ]),
+                key,
+                ...refPrefixes(target.path)
+                  .slice(0, -1)
+                  .reverse()
+                  .map((prefix) => `${base}@${prefix}/`),
               ]
             : [key];
+        let nested: boolean | undefined;
         const kept = async () => {
           for (const each of keys) {
             const hit = await refs.peek(each);
@@ -172,14 +172,20 @@ export function createPublicAnalysis(
                 async () => {
                   if (Date.now() < limitedUntil(limit))
                     throw new Error("rate_limited");
-                  return {
-                    ...(await resolveFor(repository, auth, target)),
-                    resolvedAt: Date.now(),
-                  };
+                  const { nested: below, ...resolution } = await resolveFor(
+                    repository,
+                    auth,
+                    target,
+                  );
+                  nested = below;
+                  return { ...resolution, resolvedAt: Date.now() };
                 },
                 client.force,
                 (envelope) => [
                   `${base}@${refLabel(envelope)}`,
+                  ...(envelope.ref === undefined || nested === false
+                    ? [`${base}@${refLabel(envelope)}/`]
+                    : []),
                   ...(envelope.ref === undefined ? [base] : []),
                 ],
               ));

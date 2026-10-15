@@ -69,6 +69,7 @@ function fixture() {
     "feature/x": "c".repeat(40),
     "same-as-main": "a".repeat(40),
   };
+  const tags: Record<string, string> = {};
   let rateLimitStatus = 200;
   const authorizations: (string | null)[] = [];
   const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -105,10 +106,33 @@ function fixture() {
       Object.defineProperty(response, "url", { value: url });
       return response;
     }
+    const listing = /\/git\/matching-refs\/(heads|tags)\/(.+)$/.exec(url);
+    if (listing) {
+      const kind = listing[1]!;
+      const prefix = listing[2]!.split("/").map(decodeURIComponent).join("/");
+      const response = new Response(
+        JSON.stringify(
+          Object.entries(kind === "heads" ? branches : tags)
+            .filter(([name]) => name.startsWith(prefix))
+            .map(([name, sha]) => ({
+              ref: `refs/${kind}/${name}`,
+              object: { sha, type: "commit" },
+            })),
+        ),
+        { status: 200 },
+      );
+      Object.defineProperty(response, "url", { value: url });
+      return response;
+    }
     const ref = url.includes("/commits/")
       ? decodeURIComponent(url.split("/commits/")[1]!)
       : undefined;
-    if (ref !== undefined && ref !== "main" && !(ref in branches)) {
+    if (
+      ref !== undefined &&
+      ref !== "main" &&
+      !(ref in branches) &&
+      !(ref in tags)
+    ) {
       const missing = new Response("{}", { status: 422 });
       Object.defineProperty(missing, "url", { value: url });
       return missing;
@@ -116,7 +140,10 @@ function fixture() {
     const response = new Response(
       JSON.stringify(
         ref !== undefined
-          ? { sha: ref === "main" ? "a".repeat(40) : branches[ref] }
+          ? {
+              sha:
+                ref === "main" ? "a".repeat(40) : (tags[ref] ?? branches[ref]),
+            }
           : {
               id: 42,
               owner: { login: "culverin" },
@@ -183,6 +210,8 @@ function fixture() {
     private: () => {
       visibility = "private";
     },
+    branches,
+    tags,
     rateLimitStatus: (status: number) => {
       rateLimitStatus = status;
     },
@@ -316,7 +345,8 @@ test("branch pages resolve their own commit, share results by commit, and keep t
   });
   expect(api.calls.slice(2)).toEqual([
     "https://api.github.com/repos/culverin/sample",
-    "https://api.github.com/repos/culverin/sample/commits/ding-dong",
+    "https://api.github.com/repos/culverin/sample/git/matching-refs/heads/ding-dong",
+    "https://api.github.com/repos/culverin/sample/git/matching-refs/tags/ding-dong",
   ]);
   expect(
     await api.run("repository.lookup", true, false, page("ding-dong")),
@@ -332,7 +362,7 @@ test("branch pages resolve their own commit, share results by commit, and keep t
     type: "repository.cache_hit",
     result: { revision: { commitSha: "a".repeat(40) } },
   });
-  expect(api.calls).toHaveLength(4);
+  expect(api.calls).toHaveLength(5);
   expect(
     await api.run(
       "analysis.request",
@@ -341,10 +371,10 @@ test("branch pages resolve their own commit, share results by commit, and keep t
       browse("feature/x/README.md"),
     ),
   ).toMatchObject({ resolution: { ref: "feature/x" } });
-  expect(api.calls.slice(4)).toEqual([
+  expect(api.calls.slice(5)).toEqual([
     "https://api.github.com/repos/culverin/sample",
-    "https://api.github.com/repos/culverin/sample/commits/feature",
-    "https://api.github.com/repos/culverin/sample/commits/feature%2Fx",
+    "https://api.github.com/repos/culverin/sample/git/matching-refs/heads/feature",
+    "https://api.github.com/repos/culverin/sample/git/matching-refs/tags/feature",
   ]);
   expect(
     await api.run("analysis.request", false, false, page("same-as-main")),
@@ -382,6 +412,38 @@ test("branch pages resolve their own commit, share results by commit, and keep t
     await api.run("analysis.request", false, false, page("deleted")),
   ).toEqual({ type: "analysis.failed", code: "ref_unavailable" });
   expect(api.tokens).toHaveLength(3);
+});
+
+test("a tag sharing a branch prefix never stands in for the branch", async () => {
+  const api = fixture();
+  api.tags.release = "d".repeat(40);
+  api.branches["release/v2"] = "e".repeat(40);
+  const browse = (path: string) => ({ path, exact: false });
+  expect(
+    await api.run("analysis.request", false, false, browse("release/src")),
+  ).toMatchObject({
+    type: "analysis.completed",
+    resolution: { ref: "release", sha: "d".repeat(40) },
+  });
+  const calls = api.calls.length;
+  for (const path of ["release/v2/src/index.ts", "release/docs"])
+    expect(
+      await api.run("repository.lookup", false, false, browse(path)),
+    ).toEqual({ type: "repository.not_cached" });
+  expect(api.calls).toHaveLength(calls);
+  for (const path of ["release/v2", "release/v2/src/index.ts"])
+    expect(
+      await api.run("analysis.request", false, false, browse(path)),
+    ).toMatchObject({
+      type: "analysis.completed",
+      resolution: { ref: "release/v2", sha: "e".repeat(40) },
+    });
+  expect(
+    await api.run("repository.lookup", false, false, browse("release/v2/docs")),
+  ).toMatchObject({
+    type: "repository.cache_hit",
+    resolution: { ref: "release/v2", sha: "e".repeat(40) },
+  });
 });
 
 test("trusted analysis keeps its authorized public archive policy and strict sender gate", async () => {

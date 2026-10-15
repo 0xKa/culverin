@@ -77,6 +77,26 @@ sync();
           body: JSON.stringify({ sha: fixtures.sha }),
         });
       }
+      const listing = /\/git\/matching-refs\/(heads|tags)\/(.+)$/.exec(
+        url.pathname,
+      );
+      if (listing) {
+        const prefix = listing[2]!.split("/").map(decodeURIComponent).join("/");
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(
+            listing[1] === "heads"
+              ? Object.entries(fixtures.branches)
+                  .filter(([name]) => name.startsWith(prefix))
+                  .map(([name, sha]) => ({
+                    ref: `refs/heads/${name}`,
+                    object: { sha, type: "commit" },
+                  }))
+              : [],
+          ),
+        });
+      }
       const ref = /\/commits\/(.+)$/.exec(url.pathname)?.[1];
       if (ref !== undefined) {
         const sha = fixtures.branches[decodeURIComponent(ref)];

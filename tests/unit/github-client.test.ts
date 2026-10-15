@@ -4,6 +4,7 @@ import {
   AcquisitionError,
   ARCHIVE_LIMIT,
   downloadArchive,
+  METADATA_LIMIT,
   refCandidates,
   resolveRepository,
   safeFailure,
@@ -80,13 +81,22 @@ test("resolves canonical identity and SHA with bounded no-store requests", async
   expect(requests.some((r) => r.url.includes("tarball"))).toBe(false);
 });
 
-test("resolves the branch, tag, or commit a page names with the fewest requests", async () => {
-  const other = "b".repeat(40);
+test("resolves the longest branch or tag a page names, even when a tag shares a branch prefix", async () => {
+  const branchSha = "b".repeat(40);
+  const tagSha = "c".repeat(40);
+  const tagObject = "d".repeat(40);
   const resolve = async (
     target: { path: string; exact: boolean },
-    refs: Record<string, number> = {},
+    refs: {
+      heads?: string[];
+      tags?: string[];
+      commits?: Record<string, number>;
+      oversized?: boolean;
+    } = {},
   ) => {
     const urls: string[] = [];
+    const heads = refs.heads ?? [];
+    const tags = refs.tags ?? [];
     const fetcher = (async (url: string) => {
       urls.push(url);
       if (urls.length === 1)
@@ -94,11 +104,38 @@ test("resolves the branch, tag, or commit a page names with the fewest requests"
           metadata(),
           "https://api.github.com/repos/owner/canonical",
         );
+      const listing = /\/git\/matching-refs\/(heads|tags)\/(.+)$/.exec(url);
+      if (listing) {
+        if (refs.oversized)
+          return response("[]", url, 200, {
+            "content-length": String(METADATA_LIMIT + 1),
+          });
+        const kind = listing[1]!;
+        const prefix = listing[2]!.split("/").map(decodeURIComponent).join("/");
+        return response(
+          JSON.stringify(
+            (kind === "heads" ? heads : tags)
+              .filter((name) => name.startsWith(prefix))
+              .map((name) => ({
+                ref: `refs/${kind}/${name}`,
+                object:
+                  kind === "heads"
+                    ? { sha: branchSha.toUpperCase(), type: "commit" }
+                    : { sha: tagObject, type: "tag" },
+              })),
+          ),
+          url,
+        );
+      }
       const ref = decodeURIComponent(url.split("/commits/")[1] ?? "");
       if (ref === "main") return response(JSON.stringify({ sha }), url);
-      const status = refs[ref];
+      if (tags.includes(ref))
+        return response(JSON.stringify({ sha: tagSha }), url);
+      if (heads.includes(ref))
+        return response(JSON.stringify({ sha: branchSha }), url);
+      const status = refs.commits?.[ref];
       return status === 200
-        ? response(JSON.stringify({ sha: other.toUpperCase() }), url)
+        ? response(JSON.stringify({ sha: branchSha }), url)
         : response("{}", url, status ?? 422);
     }) as Fetcher;
     try {
@@ -110,49 +147,121 @@ test("resolves the branch, tag, or commit a page names with the fewest requests"
         controller.signal,
         target,
       );
-      return { urls: urls.slice(1), sha: result.sha, ref: result.ref };
+      return {
+        urls: urls.slice(1),
+        sha: result.sha,
+        ref: result.ref,
+        nested: result.nested,
+      };
     } catch (error) {
       return { urls: urls.slice(1), code: (error as AcquisitionError).code };
     }
   };
-  const commits = "https://api.github.com/repos/owner/canonical/commits/";
+  const repo = "https://api.github.com/repos/owner/canonical";
+  const commits = `${repo}/commits/`;
+  const listings = (prefix: string) => [
+    `${repo}/git/matching-refs/heads/${prefix}`,
+    `${repo}/git/matching-refs/tags/${prefix}`,
+  ];
   expect(await resolve({ path: "main", exact: true })).toEqual({
     urls: [`${commits}main`],
     sha,
     ref: undefined,
+    nested: undefined,
   });
   expect(await resolve({ path: "main/src/app.ts", exact: false })).toEqual({
     urls: [`${commits}main`],
     sha,
     ref: undefined,
+    nested: undefined,
   });
   expect(
     await resolve(
       { path: "ding-dong/src", exact: false },
-      { "ding-dong": 200 },
-    ),
-  ).toEqual({ urls: [`${commits}ding-dong`], sha: other, ref: "ding-dong" });
-  expect(
-    await resolve(
-      { path: "feature/x/README.md", exact: false },
-      { feature: 404, "feature/x": 200 },
+      { heads: ["ding-dong"] },
     ),
   ).toEqual({
-    urls: [`${commits}feature`, `${commits}feature%2Fx`],
-    sha: other,
-    ref: "feature/x",
+    urls: listings("ding-dong"),
+    sha: branchSha,
+    ref: "ding-dong",
+    nested: false,
+  });
+  const collision = { heads: ["release/v2"], tags: ["release"] };
+  for (const path of ["release/v2", "release/v2/src/index.ts"])
+    expect(await resolve({ path, exact: false }, collision)).toEqual({
+      urls: listings("release"),
+      sha: branchSha,
+      ref: "release/v2",
+      nested: false,
+    });
+  expect(
+    await resolve({ path: "release/src", exact: false }, collision),
+  ).toEqual({
+    urls: [...listings("release"), `${commits}release`],
+    sha: tagSha,
+    ref: "release",
+    nested: true,
   });
   expect(
-    await resolve({ path: "feature/x", exact: true }, { "feature/x": 200 }),
-  ).toEqual({ urls: [`${commits}feature%2Fx`], sha: other, ref: "feature/x" });
+    await resolve(
+      { path: "release/v2/src", exact: false },
+      { ...collision, oversized: true },
+    ),
+  ).toEqual({
+    urls: [
+      ...listings("release"),
+      `${commits}release%2Fv2%2Fsrc`,
+      `${commits}release%2Fv2`,
+    ],
+    sha: branchSha,
+    ref: "release/v2",
+    nested: undefined,
+  });
+  expect(
+    await resolve(
+      { path: "1a2b3c4/src/app.ts", exact: false },
+      { commits: { "1a2b3c4": 200 } },
+    ),
+  ).toEqual({
+    urls: [...listings("1a2b3c4"), `${commits}1a2b3c4`],
+    sha: branchSha,
+    ref: "1a2b3c4",
+    nested: undefined,
+  });
+  expect(
+    await resolve({ path: "feature/x", exact: true }, { heads: ["feature/x"] }),
+  ).toEqual({
+    urls: listings("feature/x"),
+    sha: branchSha,
+    ref: "feature/x",
+    nested: false,
+  });
+  const full = "f".repeat(40);
+  expect(
+    await resolve(
+      { path: `${full}/src/app.ts`, exact: false },
+      { commits: { [full]: 200 } },
+    ),
+  ).toEqual({
+    urls: [`${commits}${full}`],
+    sha: branchSha,
+    ref: full,
+    nested: undefined,
+  });
   const missing = await resolve({ path: "a/b/c/d/e/f/g", exact: false });
   expect(missing.code).toBe("ref_unavailable");
-  expect(missing.urls).toHaveLength(5);
+  expect(missing.urls).toHaveLength(7);
   expect(
-    (await resolve({ path: "gone", exact: true }, { gone: 404 })).code,
+    (await resolve({ path: "gone", exact: true }, { commits: { gone: 404 } }))
+      .code,
   ).toBe("ref_unavailable");
   expect(
-    (await resolve({ path: "limited", exact: true }, { limited: 403 })).code,
+    (
+      await resolve(
+        { path: "limited", exact: true },
+        { commits: { limited: 403 } },
+      )
+    ).code,
   ).toBe("repository_forbidden");
   expect(refCandidates({ path: "x".repeat(256), exact: true }, "main")).toEqual(
     [],

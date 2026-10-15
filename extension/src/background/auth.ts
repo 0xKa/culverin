@@ -13,7 +13,7 @@ import {
   resolveRepository,
   safeFailure,
   type Fetcher,
-  type Resolution,
+  type RefResolution,
 } from "../github/client";
 import { type PublicErrorCode } from "../github/public-protocol";
 import type { RefTarget } from "../github/repository";
@@ -82,7 +82,7 @@ export function createAuthService(resources: BackgroundResources) {
     repository: { owner: string; name: string },
     auth: Auth,
     target?: RefTarget,
-  ): Promise<Resolution> {
+  ): Promise<RefResolution> {
     const anonymous = () =>
       resolveRepository(
         trackedFetch(false),

@@ -79,7 +79,7 @@ export async function runBranchCounting(
   await page.getByText("Analyze with Culverin").click();
   await page.getByText(/ lines? of code$/).waitFor();
   assert.deepEqual(await archives(), [branchSha]);
-  assert.equal(fixtures.apiRequests, beforeBranchPage + 2);
+  assert.equal(fixtures.apiRequests, beforeBranchPage + 3);
 
   const branchPopup = await openPopup(page);
   const revision = branchPopup.locator("#revision");
@@ -102,7 +102,7 @@ export async function runBranchCounting(
     /^feature, commit b{12}$/,
   );
   await folderPopup.close();
-  assert.equal(fixtures.apiRequests, beforeBranchPage + 2);
+  assert.equal(fixtures.apiRequests, beforeBranchPage + 3);
 
   await page.evaluate(() =>
     history.replaceState({}, "", "/culverin/bootstrap-fixture"),

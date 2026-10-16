@@ -36,21 +36,22 @@ After a rebuild, click the reload button on the extension card.
 
 ## Commands
 
-| Command                 | What it does                                                       |
-| ----------------------- | ------------------------------------------------------------------ |
-| `bun run build`         | Builds the extension into `extension/dist`.                        |
-| `bun run dev`           | Builds the extension and rebuilds it when files change.            |
-| `bun run lint`          | Checks formatting and lint rules for TypeScript and Rust.          |
-| `bun run typecheck`     | Type-checks the extension and the tests.                           |
-| `bun run test`          | Runs the Rust tests, the unit tests, and the WebAssembly test.     |
-| `bun run test:browser`  | Runs the extension in headless Chromium against test scenarios.    |
-| `bun run verify`        | Runs the checks above plus icon and notice checks. CI runs it too. |
-| `bun run package`       | Writes a release ZIP and its checksum to `dist/`.                  |
-| `bun run test:package`  | Builds the ZIP, unpacks it, and runs the browser tests against it. |
-| `bun run bench:archive` | Measures archive processing speed on large generated archives.     |
-| `bun run screenshots`   | Captures the popup, settings, and page row in light and dark mode. |
-| `bun run icons:build`   | Regenerates the PNG icons from `assets/culverin-icon.svg`.         |
-| `bun run notices:build` | Regenerates `extension/public/THIRD_PARTY_NOTICES.txt`.            |
+| Command                 | What it does                                                            |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `bun run build`         | Builds the extension into `extension/dist`.                             |
+| `bun run dev`           | Builds the extension and rebuilds it when files change.                 |
+| `bun run lint`          | Checks formatting and lint rules for TypeScript and Rust.               |
+| `bun run typecheck`     | Type-checks the extension and the tests.                                |
+| `bun run test`          | Runs the Rust tests, the unit tests, and the WebAssembly test.          |
+| `bun run test:browser`  | Runs the extension in headless Chromium against test scenarios.         |
+| `bun run verify`        | Runs the checks above plus icon and notice checks. CI runs it too.      |
+| `bun run package`       | Writes a release ZIP and its checksum to `dist/`.                       |
+| `bun run test:package`  | Builds the ZIP, unpacks it, and runs the browser tests against it.      |
+| `bun run bench:archive` | Measures archive processing speed on large generated archives.          |
+| `bun run measure:repos` | Measures real GitHub repositories against the limits. CI never runs it. |
+| `bun run screenshots`   | Captures the popup, settings, and page row in light and dark mode.      |
+| `bun run icons:build`   | Regenerates the PNG icons from `assets/culverin-icon.svg`.              |
+| `bun run notices:build` | Regenerates `extension/public/THIRD_PARTY_NOTICES.txt`.                 |
 
 ## Before you open a pull request
 

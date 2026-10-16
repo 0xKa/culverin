@@ -35,7 +35,7 @@ function validMetrics(value: unknown): value is ArchiveMetrics {
     entries: ARCHIVE_LIMITS.entries,
     regularFiles: ARCHIVE_LIMITS.regularFiles,
     specialEntries: ARCHIVE_LIMITS.entries,
-    wasmBytes: ARCHIVE_LIMITS.wasmBytes,
+    wasmBytes: ARCHIVE_LIMITS.decompressed,
     retainedPathBytes: ARCHIVE_LIMITS.retainedPaths,
   };
   return (

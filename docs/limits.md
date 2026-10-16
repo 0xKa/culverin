@@ -1,6 +1,6 @@
 # Limits
 
-Culverin counts a repository inside the browser, so every count is bounded in download size, unpacked size, file count, counted source, time, and concurrency. This page lists those limits, what happens when one is reached, and how real repositories compare with them. The values are defined in `extension/src/archive/limits.ts`, with a few in `extension/src/github/`. [Result semantics](result-semantics.md) describes how they apply to the archive parser and to coverage.
+Culverin counts a repository inside the browser, so every count is bounded in download size, unpacked size, file count, time, and concurrency. This page lists those limits, what happens when one is reached, and how real repositories compare with them. The values are defined in `extension/src/archive/limits.ts`, with a few in `extension/src/github/`. [Result semantics](result-semantics.md) describes how they apply to the archive parser and to coverage.
 
 ## How Culverin decides a repository is too large
 
@@ -10,21 +10,20 @@ The only check before the body is read is GitHub's `Content-Length` header: when
 
 ## Limits that stop a count
 
-| Limit                                | Value                    | Message shown                                                                                    |
-| ------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| Compressed download                  | 256 MiB                  | The source snapshot exceeds the compressed-size limit. The limit is 256 MiB downloaded.          |
-| Unpacked archive                     | 2 GiB                    | The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked.            |
-| Archive entries                      | 250,000                  | The source snapshot has too many entries. The limit is 250,000 archive entries.                  |
-| Regular files                        | 200,000                  | The source snapshot exceeds the counting limit. The limit is 200,000 files.                      |
-| Source passed to the counter         | 1 GiB in total           | The source snapshot exceeds the counting limit. The limit is 1,024 MiB of source files to count. |
-| Metadata for one archive entry (PAX) | 64 KiB                   | Repository metadata exceeds the safe limit. The limit is 64 KiB of metadata for one entry.       |
-| Archive metadata in total (PAX)      | 2 MiB                    | Repository metadata exceeds the safe limit. The limit is 2 MiB of archive metadata.              |
-| File paths in total                  | 32 MiB                   | Repository metadata exceeds the safe limit. The limit is 32 MiB of file paths.                   |
-| One GitHub API response              | 1 MiB                    | Repository metadata exceeds the safe limit.                                                      |
-| One file path                        | 4,096 bytes or 100 parts | The source snapshot is malformed.                                                                |
-| Counter memory after counting        | 512 MiB of WASM memory   | Local counting failed.                                                                           |
+| Limit                                | Value                    | Message shown                                                                              |
+| ------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------ |
+| Compressed download                  | 256 MiB                  | The source snapshot exceeds the compressed-size limit. The limit is 256 MiB downloaded.    |
+| Unpacked archive                     | 2 GiB                    | The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked.      |
+| Archive entries                      | 2,000,000                | The source snapshot has too many entries. The limit is 2,000,000 archive entries.          |
+| Regular files                        | 1,000,000                | The source snapshot exceeds the counting limit. The limit is 1,000,000 files.              |
+| Metadata for one archive entry (PAX) | 64 KiB                   | Repository metadata exceeds the safe limit. The limit is 64 KiB of metadata for one entry. |
+| Archive metadata in total (PAX)      | 2 MiB                    | Repository metadata exceeds the safe limit. The limit is 2 MiB of archive metadata.        |
+| File paths in total                  | 128 MiB                  | Repository metadata exceeds the safe limit. The limit is 128 MiB of file paths.            |
+| One GitHub API response              | 1 MiB                    | Repository metadata exceeds the safe limit.                                                |
+| One file path                        | 4,096 bytes or 100 parts | The source snapshot is malformed.                                                          |
+| Counter memory after counting        | 512 MiB of WASM memory   | Local counting failed.                                                                     |
 
-Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits; only files that are counted add to the 1 GiB source limit. Custom ignore rules can therefore bring a repository under the source limit, but not under the others.
+Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits, so ignore rules cannot bring a repository under them. There is no separate limit on the amount of source passed to the counter: the counter keeps only per-language totals, so its memory does not grow with the source, and the unpacked limit bounds the work.
 
 ## Limit that skips a file
 
@@ -32,11 +31,11 @@ A source file over 8 MiB is not counted. The count continues, the result is mark
 
 ## Time and concurrency
 
-- A count may run for five minutes from when its job starts.
-- A queued count may wait five minutes for its turn before failing as busy.
-- The download fails if GitHub sends nothing for 30 seconds.
-- The archive worker is stopped after 60 seconds without download or counting activity.
+- A count stops when it stalls, not after a fixed time: the download fails if GitHub sends nothing for 30 seconds, and the archive worker is stopped after 60 seconds without download or counting activity.
+- No count runs for more than 60 minutes from when its job starts.
+- A queued count may wait 60 minutes for its turn before failing as busy.
 - One count runs at a time. Up to eight more can wait in the queue, and at most 32 popups and pages can follow counts at once.
+- Counts started by a click or from the popup run before queued counts that started when a repository page opened. When the queue is full, a click cancels the oldest queued automatic count, whose page row returns to Analyze with Culverin, instead of failing as busy.
 
 ## Inputs and storage
 

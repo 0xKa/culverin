@@ -417,8 +417,6 @@ export async function analyzeTar(
             size,
           );
         } else {
-          if (metrics.wasmBytes + size > limits.wasmBytes)
-            throw new ArchiveError("file_limit_exceeded", "wasmBytes");
           const body = new Uint8Array(size);
           body.set(prefix);
           await input.take(body.subarray(prefix.length));

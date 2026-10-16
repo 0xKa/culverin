@@ -10,7 +10,6 @@ const limitNotes: Record<string, string> = {
   decompressed: `${mib(ARCHIVE_LIMITS.decompressed)} unpacked`,
   entries: `${count(ARCHIVE_LIMITS.entries)} archive entries`,
   regularFiles: `${count(ARCHIVE_LIMITS.regularFiles)} files`,
-  wasmBytes: `${mib(ARCHIVE_LIMITS.wasmBytes)} of source files to count`,
   paxBody: `${count(ARCHIVE_LIMITS.paxBody / 1024)} KiB of metadata for one entry`,
   paxTotal: `${mib(ARCHIVE_LIMITS.paxTotal)} of archive metadata`,
   retainedPaths: `${mib(ARCHIVE_LIMITS.retainedPaths)} of file paths`,

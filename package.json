@@ -19,6 +19,7 @@
     "test:wasm": "bun run build:wasm && bun tests/wasm-smoke.ts",
     "test:browser": "bun run build && bun run build:test-extension && bun tests/browser-smoke.ts",
     "bench:archive": "bun run build && bun tests/archive-benchmark.ts",
+    "test:long-count": "bun run build && bun tests/browser/long-count.ts",
     "measure:repos": "bun run build:wasm && bun scripts/measure-repositories.ts",
     "screenshots": "bun run build && bun tests/browser/screenshots.ts",
     "package": "bun run build && bun scripts/package.ts",

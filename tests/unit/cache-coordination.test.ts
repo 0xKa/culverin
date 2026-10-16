@@ -924,6 +924,73 @@ test("queued work expires before archive execution", async () => {
   expect(failed).toEqual(["2"]);
 });
 
+function queueHarness() {
+  const started: string[] = [];
+  const finishers: ((output: AnalysisOutput) => void)[] = [];
+  const failed: { owner: string; error: string }[] = [];
+  const coordinator = new AnalysisCoordinator(
+    (job) => {
+      started.push(job.resolution.repositoryId);
+      return new Promise((resolve) => finishers.push(resolve));
+    },
+    () => undefined,
+  );
+  const subscribe = (id: string, automatic: boolean, owner = id) =>
+    coordinator.subscribe(id, resolution(id), undefined, "", {
+      requestId: crypto.randomUUID(),
+      owner,
+      public: true,
+      automatic,
+      onProgress: () => undefined,
+      onComplete: () => undefined,
+      onFailure: (error) =>
+        failed.push({ owner, error: (error as Error).message }),
+    });
+  const finish = async () => {
+    finishers.shift()!({
+      result: await result(),
+      transport: { compressedBytes: 0, decompressedBytes: 0 },
+      wasmLinearMemoryBytes: 0,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+  return { coordinator, started, failed, subscribe, finish };
+}
+
+test("queued counts started by a click run before older automatic counts", async () => {
+  const { coordinator, started, subscribe, finish } = queueHarness();
+  expect(subscribe("1", true)).toBe(true);
+  expect(subscribe("2", true)).toBe(true);
+  expect(subscribe("3", true)).toBe(true);
+  expect(subscribe("4", false)).toBe(true);
+  expect(subscribe("3", false, "click")).toBe(true);
+  await finish();
+  expect(started).toEqual(["1", "3"]);
+  await finish();
+  expect(started).toEqual(["1", "3", "4"]);
+  await finish();
+  expect(started).toEqual(["1", "3", "4", "2"]);
+  coordinator.abortAll("cancel");
+});
+
+test("a click evicts the oldest queued automatic count when the queue is full", () => {
+  const { coordinator, failed, subscribe } = queueHarness();
+  expect(subscribe("active", true)).toBe(true);
+  for (let index = 0; index < QUEUED_JOBS; index++)
+    expect(subscribe(String(index), true)).toBe(true);
+  expect(subscribe("auto-overflow", true)).toBe(false);
+  expect(subscribe("click", false)).toBe(true);
+  expect(failed).toEqual([{ owner: "0", error: "analysis_canceled" }]);
+  expect(coordinator.status("0")).toBe("idle");
+  expect(coordinator.status("active")).toBe("running");
+  expect(coordinator.status("click")).toBe("queued");
+  for (let index = 1; index < QUEUED_JOBS; index++)
+    expect(subscribe(`click-${index}`, false)).toBe(true);
+  expect(subscribe("click-overflow", false)).toBe(false);
+  expect(coordinator.status("active")).toBe("running");
+  coordinator.abortAll("cancel");
+});
+
 test("subscription cap prevents a thirty-third owner from joining", async () => {
   const coordinator = new AnalysisCoordinator(
     () => new Promise<AnalysisOutput>(() => undefined),

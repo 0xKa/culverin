@@ -27,18 +27,12 @@ const defaults = [
 ];
 
 type Tracked =
-  | "compressed"
-  | "decompressed"
-  | "entries"
-  | "regularFiles"
-  | "wasmBytes"
-  | "retainedPaths";
+  "compressed" | "decompressed" | "entries" | "regularFiles" | "retainedPaths";
 const thresholds: Record<Tracked, number> = {
   compressed: ARCHIVE_LIMITS.compressed,
   decompressed: ARCHIVE_LIMITS.decompressed,
   entries: ARCHIVE_LIMITS.entries,
   regularFiles: ARCHIVE_LIMITS.regularFiles,
-  wasmBytes: ARCHIVE_LIMITS.wasmBytes,
   retainedPaths: ARCHIVE_LIMITS.retainedPaths,
 };
 
@@ -123,7 +117,6 @@ async function measure(
     compressed: Number.MAX_SAFE_INTEGER,
     decompressed: Number.MAX_SAFE_INTEGER,
     retainedPaths: Number.MAX_SAFE_INTEGER,
-    wasmBytes: Number.MAX_SAFE_INTEGER,
     paxTotal: Number.MAX_SAFE_INTEGER,
     get entries() {
       cross("entries", ++observed.entries);
@@ -161,7 +154,6 @@ async function measure(
         addFile: (path, bytes) => {
           analyzer.add_file(path, bytes);
           countedBytes += bytes.byteLength;
-          cross("wasmBytes", countedBytes);
           wasmPeak = Math.max(wasmPeak, memory.buffer.byteLength);
         },
         skipFile: (path, prefix, reason, size) => {

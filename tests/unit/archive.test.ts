@@ -507,7 +507,7 @@ describe("incremental tar parser", () => {
     }
   });
 
-  test("bounds total bytes passed to WASM", async () => {
+  test("counts source without a separate cumulative source limit", async () => {
     const chunk = new Uint8Array(64 * 1024);
     let file = 0;
     let remaining = 0;
@@ -536,24 +536,17 @@ describe("incremental tar parser", () => {
         remaining = ARCHIVE_LIMITS.file;
       },
     });
-    try {
-      await analyzeTar(
-        input,
-        {
-          classify: () => "counted",
-          addFile: () => undefined,
-          skipFile: () => undefined,
-          skipOther: () => undefined,
-        },
-        undefined,
-        undefined,
-        { ...ARCHIVE_LIMITS, wasmBytes: 2 * ARCHIVE_LIMITS.file },
-      );
-      throw new Error("expected WASM byte limit");
-    } catch (error) {
-      expect((error as ArchiveError).code).toBe("file_limit_exceeded");
-      expect((error as ArchiveError).limit).toBe("wasmBytes");
-    }
+    let added = 0;
+    const metrics = await analyzeTar(input, {
+      classify: () => "counted",
+      addFile: () => {
+        added++;
+      },
+      skipFile: () => undefined,
+      skipOther: () => undefined,
+    });
+    expect(added).toBe(3);
+    expect(metrics.wasmBytes).toBe(3 * ARCHIVE_LIMITS.file);
   });
 
   test("bounds retained names before inserting many long paths", async () => {

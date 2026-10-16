@@ -233,7 +233,7 @@ test("names the limit an analysis reached", () => {
     kind: "notice",
     label: "Too large to count",
     detail:
-      "The source snapshot exceeds the counting limit. The limit is 200,000 files.",
+      "The source snapshot exceeds the counting limit. The limit is 1,000,000 files.",
   });
   expect(
     rowView(
@@ -248,10 +248,10 @@ test("names the limit an analysis reached", () => {
     detail: "Repository metadata exceeds the safe limit.",
   });
   expect(
-    failureState("file_limit_exceeded", undefined, "wasmBytes"),
+    failureState("entry_limit_exceeded", undefined, "entries"),
   ).toMatchObject({
     detail:
-      "The source snapshot exceeds the counting limit. The limit is 1,024 MiB of source files to count.",
+      "The source snapshot has too many entries. The limit is 2,000,000 archive entries.",
   });
 });
 

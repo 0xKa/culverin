@@ -28,6 +28,7 @@ export type Subscriber = {
   requestId: string;
   owner: string;
   public: boolean;
+  automatic?: boolean;
   onProgress: (
     phase: "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
@@ -49,6 +50,7 @@ type Job = {
   controller: AbortController;
   subscribers: Map<string, Subscriber>;
   queuedAt: number;
+  startedAt?: number;
   deadlineMs: number;
   state: "queued" | "running";
   queueTimer?: ReturnType<typeof setTimeout>;
@@ -105,9 +107,18 @@ export class AnalysisCoordinator {
     this.pump();
   }
 
+  private manual(job: Job): boolean {
+    return [...job.subscribers.values()].some((item) => !item.automatic);
+  }
+
+  private queued(): Job[] {
+    return this.jobs.filter((item) => item.state === "queued");
+  }
+
   private pump(): void {
     if (this.active) return;
-    const job = this.jobs.find((item) => item.state === "queued");
+    const queued = this.queued();
+    const job = queued.find((item) => this.manual(item)) ?? queued[0];
     if (!job) return;
     if (this.now() - job.queuedAt >= QUEUE_WAIT_MS) {
       for (const subscriber of job.subscribers.values())
@@ -117,6 +128,7 @@ export class AnalysisCoordinator {
     }
     this.active = job;
     job.state = "running";
+    job.startedAt = this.now();
     clearTimeout(job.queueTimer);
     const deadline = setTimeout(
       () => job.controller.abort("deadline"),
@@ -178,11 +190,15 @@ export class AnalysisCoordinator {
       (item) => item.identity === identity && !item.controller.signal.aborted,
     );
     if (!job) {
-      if (
-        this.jobs.filter((item) => item.state === "queued").length >=
-        QUEUED_JOBS
-      )
-        return false;
+      const queued = this.queued();
+      if (queued.length >= QUEUED_JOBS) {
+        const evicted = subscriber.automatic
+          ? undefined
+          : queued.find((item) => !this.manual(item));
+        if (!evicted) return false;
+        for (const item of [...evicted.subscribers.values()])
+          this.detach(item.owner, item.requestId);
+      }
       job = {
         identity,
         resolution,

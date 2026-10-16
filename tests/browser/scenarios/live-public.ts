@@ -28,6 +28,7 @@ export async function runLivePublic(
         });
       }
     });
+    const notCounted = "Analyze checks GitHub and counts the source locally.";
     const livePage = await context.newPage();
     await livePage.goto("https://github.com/octocat/Hello-World", {
       waitUntil: "commit",
@@ -37,20 +38,15 @@ export async function runLivePublic(
     await livePopup
       .getByRole("button", { name: "Analyze repository" })
       .waitFor({ timeout: 30_000 });
-    await livePopup.getByText(/Ready to analyze/).waitFor({ timeout: 30_000 });
+    await livePopup.getByText(notCounted).waitFor({ timeout: 30_000 });
     const beforeClick = requests.filter(
       (request) => request.origin === "https://codeload.github.com",
     ).length;
     await livePopup.close();
-    await livePage.reload({ waitUntil: "commit", timeout: 60_000 });
+    await livePage.reload({ waitUntil: "load", timeout: 60_000 });
     livePopup = await openPopup(livePage);
-    await livePopup.getByText(/Ready to analyze/).waitFor({ timeout: 30_000 });
-    assert.equal(
-      requests.filter(
-        (request) => request.origin === "https://codeload.github.com",
-      ).length,
-      beforeClick,
-    );
+    await livePopup.getByText(notCounted).waitFor({ timeout: 30_000 });
+    assert.equal(requests.length, 0);
     await livePopup.getByRole("button", { name: "Analyze repository" }).click();
     await livePopup
       .getByText(/Analyzed locally.|Partial local analysis./)

@@ -4,6 +4,7 @@ import { abortError, waitFor } from "../../extension/src/archive/timeout";
 import {
   analyzeArchive,
   analyzeArchiveStream,
+  handleArchiveReply,
 } from "../../extension/src/archive/bridge";
 import {
   AnalysisCoordinator,
@@ -16,6 +17,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => {
   jest.useRealTimers();
+  delete (globalThis as { clients?: unknown }).clients;
   globalThis.chrome = originalChrome;
   globalThis.fetch = originalFetch;
 });
@@ -232,4 +234,75 @@ test("the coordinator gives active and queued jobs their longer allowances", asy
   expect(coordinator.status("1")).toBe("idle");
   expect(failures).toContain("deadline");
   expect(coordinator.subscriptionCount()).toBe(0);
+});
+
+test("chunks are transferred to the offscreen document instead of copied into messages", async () => {
+  const commands = bridge();
+  const offscreen = "chrome-extension://test/offscreen.html";
+  const posted: { message: Record<string, unknown>; transfer: unknown[] }[] =
+    [];
+  const ignored: boolean[] = [];
+  (globalThis as { clients?: unknown }).clients = {
+    matchAll: async () => [
+      {
+        url: "chrome-extension://test/popup.html",
+        postMessage: () => undefined,
+      },
+      {
+        url: offscreen,
+        postMessage: (
+          message: Record<string, unknown>,
+          transfer: unknown[],
+        ) => {
+          posted.push({ message, transfer });
+          const reply = {
+            target: "archive.reply",
+            jobId: message.jobId,
+            sequence: message.sequence,
+            response: { state: "ok" },
+          };
+          queueMicrotask(() => {
+            ignored.push(
+              handleArchiveReply({
+                source: { url: "chrome-extension://test/popup.html" },
+                data: reply,
+              }),
+            );
+            handleArchiveReply({ source: { url: offscreen }, data: reply });
+          });
+        },
+      },
+    ],
+  };
+  let source: ReadableStreamDefaultController<Uint8Array>;
+  const controller = new AbortController();
+  const pending = analyzeArchiveStream(
+    new ReadableStream<Uint8Array>({
+      start: (value) => {
+        source = value;
+      },
+    }),
+    { repositoryId: "1", sha: "a".repeat(40) },
+    controller.signal,
+    crypto.randomUUID(),
+  );
+  const rejection = pending.catch((error: unknown) => error);
+  await settle();
+  const value = new Uint8Array(3 * 1024 * 1024 + 5);
+  value[0] = 42;
+  source!.enqueue(value);
+  for (let index = 0; index < 4; index++) await settle();
+  expect(posted.map((item) => item.message.sequence)).toEqual([1, 2, 3, 4]);
+  expect(
+    posted.map((item) => (item.message.bytes as ArrayBuffer).byteLength),
+  ).toEqual([1024 * 1024, 1024 * 1024, 1024 * 1024, 5]);
+  expect(posted.every((item) => item.transfer[0] === item.message.bytes)).toBe(
+    true,
+  );
+  expect(new Uint8Array(posted[0]!.message.bytes as ArrayBuffer)[0]).toBe(42);
+  expect(value.byteLength).toBe(3 * 1024 * 1024 + 5);
+  expect(ignored).toEqual([false, false, false, false]);
+  expect(commands).not.toContain("archive.chunk");
+  controller.abort("cancel");
+  expect(await rejection).toMatchObject({ code: "analysis_canceled" });
 });

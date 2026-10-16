@@ -1,3 +1,4 @@
+import { listenForArchiveData } from "../../extension/src/archive/host";
 import { startDiagnosticHost } from "./analysis/host";
 startDiagnosticHost(
   () =>
@@ -5,3 +6,4 @@ startDiagnosticHost(
       type: "module",
     }),
 );
+listenForArchiveData();

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, jest, test } from "bun:test";
+import { encodeChunk } from "../../extension/src/archive/bridge";
 import {
   archiveHostActive,
+  handleArchiveData,
   handleArchiveHost,
   stopArchive,
 } from "../../extension/src/archive/host";
@@ -15,10 +17,13 @@ class FakeWorker {
   onmessage?: (event: MessageEvent) => void;
   onerror?: () => void;
   terminated = false;
+  messages: unknown[] = [];
   constructor() {
     workers.push(this);
   }
-  postMessage() {}
+  postMessage(message: unknown) {
+    this.messages.push(message);
+  }
   terminate() {
     this.terminated = true;
   }
@@ -47,7 +52,7 @@ afterEach(() => {
   globalThis.chrome = originalChrome;
 });
 
-function start() {
+function start(finishNow = true) {
   const jobId = crypto.randomUUID();
   const send = (
     type: string,
@@ -72,8 +77,8 @@ function start() {
   });
   expect(started).toHaveBeenCalledWith({ state: "started" });
   const finish = jest.fn();
-  send("archive.finish", finish);
-  return { send, finish };
+  if (finishNow) send("archive.finish", finish);
+  return { send, finish, jobId };
 }
 
 function advance(
@@ -141,4 +146,111 @@ test("startup reconciliation interrupts an orphan and leaves the host ready for 
   start();
   expect(latest()).not.toBe(orphan);
   expect(archiveHostActive()).toBe(true);
+});
+
+function chunks() {
+  return latest().messages.filter(
+    (
+      message,
+    ): message is { type: "chunk"; sequence: number; bytes: Uint8Array } =>
+      (message as { type?: string }).type === "chunk",
+  );
+}
+
+test("base64 chunks reach the worker in sequence", () => {
+  const { send } = start(false);
+  const respond = jest.fn();
+  expect(
+    send("archive.chunk", respond, {
+      sequence: 1,
+      bytes: encodeChunk(new Uint8Array([0, 1, 254, 255])),
+    }),
+  ).toBe(true);
+  expect(chunks()).toHaveLength(1);
+  expect([...chunks()[0]!.bytes]).toEqual([0, 1, 254, 255]);
+  latest().emit({ type: "ack", sequence: 1 });
+  expect(respond).toHaveBeenCalledWith({ state: "ok" });
+});
+
+test("malformed, oversized, and out-of-order base64 chunks are rejected", () => {
+  const { send } = start(false);
+  for (const extra of [
+    { sequence: 1, bytes: [1, 2, 3] },
+    { sequence: 1, bytes: "not base64!" },
+    { sequence: 1, bytes: "QUJD=" },
+    { sequence: 1, bytes: encodeChunk(new Uint8Array(1024 * 1024 + 1)) },
+    { sequence: 2, bytes: encodeChunk(new Uint8Array([1])) },
+  ]) {
+    const respond = jest.fn();
+    expect(send("archive.chunk", respond, extra)).toBe(false);
+    expect(respond).toHaveBeenCalledWith({
+      state: "failed",
+      code: "archive_invalid",
+    });
+  }
+  expect(chunks()).toHaveLength(0);
+});
+
+function serviceWorker(scriptURL = "chrome-extension://test/background.js") {
+  const replies: unknown[] = [];
+  return {
+    replies,
+    source: { scriptURL, postMessage: (value: unknown) => replies.push(value) },
+  };
+}
+
+test("transferred chunks from the extension service worker reach the worker", () => {
+  const { jobId } = start(false);
+  const { replies, source } = serviceWorker();
+  const buffer = new Uint8Array([7, 8, 9]).buffer;
+  expect(
+    handleArchiveData({
+      source,
+      data: {
+        target: "archive.data",
+        protocolVersion: 1,
+        jobId,
+        sequence: 1,
+        bytes: buffer,
+      },
+    }),
+  ).toBe(true);
+  expect(chunks()[0]!.bytes.buffer).toBe(buffer);
+  latest().emit({ type: "ack", sequence: 1 });
+  expect(replies).toEqual([
+    { target: "archive.reply", jobId, sequence: 1, response: { state: "ok" } },
+  ]);
+});
+
+test("data from another source, job, or sequence is not accepted", () => {
+  const { jobId } = start(false);
+  const data = (extra: Record<string, unknown> = {}) => ({
+    target: "archive.data",
+    protocolVersion: 1,
+    jobId,
+    sequence: 1,
+    bytes: new Uint8Array([1]).buffer,
+    ...extra,
+  });
+  const stranger = serviceWorker("https://example.com/background.js");
+  expect(handleArchiveData({ source: stranger.source, data: data() })).toBe(
+    false,
+  );
+  expect(handleArchiveData({ source: null, data: data() })).toBe(false);
+  expect(stranger.replies).toEqual([]);
+  const own = serviceWorker();
+  handleArchiveData({
+    source: own.source,
+    data: data({ jobId: crypto.randomUUID() }),
+  });
+  handleArchiveData({ source: own.source, data: data({ sequence: 2 }) });
+  handleArchiveData({ source: own.source, data: data({ bytes: [1] }) });
+  expect(
+    own.replies.map((reply) => (reply as { response: unknown }).response),
+  ).toEqual([
+    { state: "interrupted" },
+    { state: "failed", code: "archive_invalid" },
+    { state: "failed", code: "archive_invalid" },
+  ]);
+  expect(chunks()).toHaveLength(0);
 });

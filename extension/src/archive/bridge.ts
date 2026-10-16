@@ -25,7 +25,25 @@ type HostResponse = {
   wasmLinearMemoryBytes?: number;
 };
 
+type OffscreenClient = {
+  url: string;
+  postMessage(message: unknown, transfer: Transferable[]): void;
+};
+type ClientsScope = {
+  clients?: {
+    matchAll(options: {
+      includeUncontrolled: boolean;
+      type: "window";
+    }): Promise<OffscreenClient[]>;
+  };
+};
+type ReplyEvent = { data: unknown; source: unknown };
+
 let activeJobs = 0;
+const replies = new Map<
+  string,
+  { sequence: number; resolve: (value: HostResponse) => void }
+>();
 
 export function archiveBridgeActive(): boolean {
   return activeJobs > 0;
@@ -43,6 +61,69 @@ async function command(
     jobId,
     ...extra,
   }) as Promise<HostResponse>;
+}
+
+async function offscreenClient(): Promise<OffscreenClient | undefined> {
+  const url = chrome.runtime.getURL("offscreen.html");
+  const clients = await (globalThis as ClientsScope).clients
+    ?.matchAll({ includeUncontrolled: true, type: "window" })
+    .catch(() => undefined);
+  return clients?.find((client) => client.url === url);
+}
+
+export function handleArchiveReply(event: ReplyEvent): boolean {
+  const source = event.source as { url?: unknown } | null;
+  const value = event.data as Record<string, unknown> | null;
+  if (
+    source?.url !== chrome.runtime.getURL("offscreen.html") ||
+    !value ||
+    typeof value !== "object" ||
+    value.target !== "archive.reply" ||
+    typeof value.jobId !== "string"
+  )
+    return false;
+  const waiting = replies.get(value.jobId);
+  if (!waiting || value.sequence !== waiting.sequence) return false;
+  replies.delete(value.jobId);
+  waiting.resolve(value.response as HostResponse);
+  return true;
+}
+
+function sendData(
+  client: OffscreenClient,
+  jobId: string,
+  sequence: number,
+  bytes: Uint8Array,
+  signal: AbortSignal,
+): Promise<HostResponse> {
+  const reply = new Promise<HostResponse>((resolve) =>
+    replies.set(jobId, { sequence, resolve }),
+  );
+  const buffer = bytes.slice().buffer;
+  client.postMessage(
+    {
+      target: "archive.data",
+      protocolVersion: 1,
+      jobId,
+      sequence,
+      bytes: buffer,
+    },
+    [buffer],
+  );
+  return waitFor(
+    reply,
+    signal,
+    ARCHIVE_TIMEOUTS.workerIdle + ARCHIVE_TIMEOUTS.lease,
+  ).finally(() => {
+    if (replies.get(jobId)?.sequence === sequence) replies.delete(jobId);
+  });
+}
+
+export function encodeChunk(bytes: Uint8Array): string {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  return btoa(binary);
 }
 
 function requireState(value: HostResponse, state: string): void {
@@ -162,6 +243,7 @@ export async function analyzeArchiveStream(
       "started",
     );
     started = true;
+    const client = await offscreenClient();
     onProgress?.("downloading", 0);
     for (;;) {
       if (signal.aborted) throw abortError(signal);
@@ -182,13 +264,14 @@ export async function analyzeArchiveStream(
       ) {
         if (signal.aborted) throw abortError(signal);
         sequence++;
+        const bytes = value.subarray(offset, offset + ARCHIVE_LIMITS.chunk);
         requireState(
-          await command("archive.chunk", jobId, {
-            sequence,
-            bytes: Array.from(
-              value.subarray(offset, offset + ARCHIVE_LIMITS.chunk),
-            ),
-          }),
+          client
+            ? await sendData(client, jobId, sequence, bytes, signal)
+            : await command("archive.chunk", jobId, {
+                sequence,
+                bytes: encodeChunk(bytes),
+              }),
           "ok",
         );
       }

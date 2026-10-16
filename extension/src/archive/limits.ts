@@ -10,7 +10,7 @@ export const ARCHIVE_LIMITS = {
   paxBody: 64 * 1024,
   paxTotal: 2 * 1024 * 1024,
   retainedPaths: 32 * 1024 * 1024,
-  chunk: 64 * 1024,
+  chunk: 1024 * 1024,
 } as const;
 
 export const ARCHIVE_TIMEOUTS = {

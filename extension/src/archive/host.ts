@@ -51,6 +51,104 @@ function validMetrics(value: unknown): value is ArchiveMetrics {
   );
 }
 
+const encodedChunk = Math.ceil(ARCHIVE_LIMITS.chunk / 3) * 4;
+
+function decodeChunk(value: unknown): Uint8Array | undefined {
+  if (
+    typeof value !== "string" ||
+    value.length > encodedChunk ||
+    value.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(value)
+  )
+    return undefined;
+  let binary: string;
+  try {
+    binary = atob(value);
+  } catch {
+    return undefined;
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++)
+    bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function acceptChunk(
+  job: Active,
+  sequence: unknown,
+  bytes: Uint8Array | undefined,
+  respond: Reply,
+): boolean {
+  if (
+    job.outcome ||
+    job.pending ||
+    !bytes ||
+    bytes.byteLength > ARCHIVE_LIMITS.chunk ||
+    sequence !== job.sequence + 1
+  ) {
+    respond(job.outcome ?? { state: "failed", code: "archive_invalid" });
+    return false;
+  }
+  job.sequence++;
+  job.pending = respond;
+  job.worker.postMessage({ type: "chunk", sequence: job.sequence, bytes }, [
+    bytes.buffer,
+  ]);
+  return true;
+}
+
+export function handleArchiveData(event: {
+  data: unknown;
+  source: unknown;
+}): boolean {
+  const source = event.source as {
+    scriptURL?: unknown;
+    postMessage?: (message: unknown) => void;
+  } | null;
+  const value = event.data as Record<string, unknown> | null;
+  if (
+    !source ||
+    source.scriptURL !== chrome.runtime.getURL("background.js") ||
+    typeof source.postMessage !== "function" ||
+    !value ||
+    typeof value !== "object" ||
+    value.target !== "archive.data" ||
+    value.protocolVersion !== 1 ||
+    typeof value.jobId !== "string" ||
+    !Number.isSafeInteger(value.sequence)
+  )
+    return false;
+  const respond = (response: unknown) =>
+    source.postMessage!({
+      target: "archive.reply",
+      jobId: value.jobId,
+      sequence: value.sequence,
+      response,
+    });
+  const job = active;
+  if (!job || value.jobId !== job.id) {
+    respond({ state: "interrupted" });
+    return false;
+  }
+  return acceptChunk(
+    job,
+    value.sequence,
+    value.bytes instanceof ArrayBuffer
+      ? new Uint8Array(value.bytes)
+      : undefined,
+    respond,
+  );
+}
+
+export function listenForArchiveData(
+  container: ServiceWorkerContainer = navigator.serviceWorker,
+): void {
+  container.addEventListener("message", (event) => {
+    handleArchiveData(event);
+  });
+  container.startMessages();
+}
+
 export function archiveHostActive(): boolean {
   return Boolean(active);
 }
@@ -237,30 +335,13 @@ export function handleArchiveHost(
     respond({ state: "canceled" });
     return false;
   }
-  if (command.type === "archive.chunk") {
-    const bytes = command.bytes;
-    if (
-      job.outcome ||
-      job.pending ||
-      !Array.isArray(bytes) ||
-      bytes.length > 64 * 1024 ||
-      !bytes.every(
-        (value) => Number.isInteger(value) && value >= 0 && value <= 255,
-      ) ||
-      command.sequence !== job.sequence + 1
-    ) {
-      respond(job.outcome ?? { state: "failed", code: "archive_invalid" });
-      return false;
-    }
-    job.sequence++;
-    job.pending = respond;
-    const chunk = Uint8Array.from(bytes);
-    job.worker.postMessage(
-      { type: "chunk", sequence: job.sequence, bytes: chunk },
-      [chunk.buffer],
+  if (command.type === "archive.chunk")
+    return acceptChunk(
+      job,
+      command.sequence,
+      decodeChunk(command.bytes),
+      respond,
     );
-    return true;
-  }
   if (command.type === "archive.finish") {
     if (job.pending) {
       respond({ state: "failed", code: "archive_invalid" });

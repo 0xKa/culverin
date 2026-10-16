@@ -17,7 +17,7 @@ import { ARCHIVE_LIMITS } from "../extension/src/archive/limits";
 import { checksum, encoder, entry, octal } from "./tar-fixture";
 
 const mib = 1024 * 1024;
-const scenarios = [
+const allScenarios = [
   { name: "source-8-mib", files: 1, size: 8 * mib, excluded: false },
   { name: "source-32-mib", files: 1, size: 32 * mib, excluded: false },
   { name: "source-64-mib", files: 1, size: 64 * mib, excluded: false },
@@ -25,8 +25,22 @@ const scenarios = [
   { name: "source-total-1-gib", files: 128, size: 8 * mib, excluded: false },
   { name: "small-files-100000", files: 100_000, size: 128, excluded: false },
   { name: "excluded-1-gib", files: 1, size: 1024 * mib, excluded: true },
+  {
+    name: "incompressible-240-mib",
+    files: 60,
+    size: 4 * mib,
+    excluded: true,
+    random: true,
+  },
 ];
 const baseline = process.argv.includes("--baseline");
+const only = process.argv.indexOf("--only");
+const scenarios =
+  only < 0
+    ? allScenarios
+    : allScenarios.filter((item) =>
+        process.argv[only + 1]?.split(",").includes(item.name),
+      );
 const directory = resolve("extension/dist");
 const temporary = mkdtempSync(resolve(tmpdir(), "culverin-benchmark-"));
 const packageCopy = resolve(temporary, "extension");
@@ -34,7 +48,7 @@ cpSync(directory, packageCopy, { recursive: true });
 const chunk = encoder.encode(`${"fn f() {}".padEnd(63)}\n`.repeat(1024));
 const sha = "a".repeat(40);
 
-function* tar(scenario: (typeof scenarios)[number]): Generator<Uint8Array> {
+function* tar(scenario: (typeof allScenarios)[number]): Generator<Uint8Array> {
   for (let index = 0; index < scenario.files; index++) {
     const path = scenario.excluded
       ? `repo/vendor/blob-${index}.bin`
@@ -44,7 +58,11 @@ function* tar(scenario: (typeof scenarios)[number]): Generator<Uint8Array> {
     checksum(header);
     yield header;
     for (let offset = 0; offset < scenario.size; offset += chunk.length)
-      yield chunk.subarray(0, Math.min(chunk.length, scenario.size - offset));
+      yield "random" in scenario
+        ? crypto.getRandomValues(
+            new Uint8Array(Math.min(chunk.length, scenario.size - offset)),
+          )
+        : chunk.subarray(0, Math.min(chunk.length, scenario.size - offset));
     yield new Uint8Array((512 - (scenario.size % 512)) % 512);
   }
   yield new Uint8Array(1024);
@@ -223,6 +241,10 @@ try {
         limit: outcome.limit,
         compressedBytes: statSync(archivePath).size,
         elapsedMs: Math.round(elapsedMs),
+        downloadMiBPerSecond:
+          Math.round(
+            (statSync(archivePath).size / mib / (elapsedMs / 1000)) * 10,
+          ) / 10,
         javascriptHeapBytes: javascriptHeapBytes || null,
         wasmLinearMemoryBytes: outcome.wasmLinearMemoryBytes,
         transport: outcome.transport,

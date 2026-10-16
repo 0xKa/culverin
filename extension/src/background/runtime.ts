@@ -3,6 +3,7 @@ import {
   handleGithub,
   initializeGitHub,
 } from "./github";
+import { handleArchiveReply } from "../archive/bridge";
 import { followToolbarAccent } from "./toolbar-icon";
 type Handler = (
   message: unknown,
@@ -15,6 +16,9 @@ export function startBackground(additionalHandler?: Handler): void {
   started = true;
   initializeGitHub();
   followToolbarAccent();
+  self.addEventListener("message", (event) => {
+    handleArchiveReply(event as MessageEvent);
+  });
   chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
     if (handleArchiveCounting(message, sender)) return false;
     if (handleGithub(message, sender, respond)) return true;

@@ -6,22 +6,22 @@ Culverin counts a repository inside the browser, so every count is bounded in do
 
 Culverin does not decide before downloading. The repository size GitHub reports is shown in the popup but never used to accept or refuse a count, because it includes Git history and says little about the source snapshot. When a count starts, Culverin streams the GitHub tar.gz archive of the resolved commit and checks each limit as bytes arrive, as entries are read, and as source is counted. The first limit crossed stops the count, and no total is shown, so incomplete analysis is never presented as complete. A count that fails late may already have downloaded most of the archive.
 
-The only check before the body is read is GitHub's `Content-Length` header: when GitHub sends one above 256 MiB, the download is refused at once. GitHub usually streams archives without it, so the running byte count is what normally enforces the download limit.
+The only check before the body is read is GitHub's `Content-Length` header: when GitHub sends one above the job's download limit, the download is refused at once. GitHub usually streams archives without it, so the running byte count is what normally enforces the download limit.
 
 ## Limits that stop a count
 
-| Limit                                | Value                    | Message shown                                                                              |
-| ------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------ |
-| Compressed download                  | 256 MiB                  | The source snapshot exceeds the compressed-size limit. The limit is 256 MiB downloaded.    |
-| Unpacked archive                     | 2 GiB                    | The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked.      |
-| Archive entries                      | 2,000,000                | The source snapshot has too many entries. The limit is 2,000,000 archive entries.          |
-| Regular files                        | 1,000,000                | The source snapshot exceeds the counting limit. The limit is 1,000,000 files.              |
-| Metadata for one archive entry (PAX) | 64 KiB                   | Repository metadata exceeds the safe limit. The limit is 64 KiB of metadata for one entry. |
-| Archive metadata in total (PAX)      | 2 MiB                    | Repository metadata exceeds the safe limit. The limit is 2 MiB of archive metadata.        |
-| File paths in total                  | 128 MiB                  | Repository metadata exceeds the safe limit. The limit is 128 MiB of file paths.            |
-| One GitHub API response              | 1 MiB                    | Repository metadata exceeds the safe limit.                                                |
-| One file path                        | 4,096 bytes or 100 parts | The source snapshot is malformed.                                                          |
-| Counter memory after counting        | 512 MiB of WASM memory   | Local counting failed.                                                                     |
+| Limit                                | Value                                                                                  | Message shown                                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Compressed download                  | 512 MiB by default, set in Settings → Large repositories; 256 MiB for automatic counts | The source snapshot exceeds the compressed-size limit. The limit is 512 MiB downloaded. You can raise it in Settings → Large repositories. |
+| Unpacked archive                     | 8 × the download limit                                                                 | The source snapshot exceeds the expanded-size limit. The limit is 4,096 MiB unpacked.                                                      |
+| Archive entries                      | 2,000,000                                                                              | The source snapshot has too many entries. The limit is 2,000,000 archive entries.                                                          |
+| Regular files                        | 1,000,000                                                                              | The source snapshot exceeds the counting limit. The limit is 1,000,000 files.                                                              |
+| Metadata for one archive entry (PAX) | 64 KiB                                                                                 | Repository metadata exceeds the safe limit. The limit is 64 KiB of metadata for one entry.                                                 |
+| Archive metadata in total (PAX)      | 2 MiB                                                                                  | Repository metadata exceeds the safe limit. The limit is 2 MiB of archive metadata.                                                        |
+| File paths in total                  | 128 MiB                                                                                | Repository metadata exceeds the safe limit. The limit is 128 MiB of file paths.                                                            |
+| One GitHub API response              | 1 MiB                                                                                  | Repository metadata exceeds the safe limit.                                                                                                |
+| One file path                        | 4,096 bytes or 100 parts                                                               | The source snapshot is malformed.                                                                                                          |
+| Counter memory after counting        | 512 MiB of WASM memory                                                                 | Local counting failed.                                                                                                                     |
 
 Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits, so ignore rules cannot bring a repository under them. There is no separate limit on the amount of source passed to the counter: the counter keeps only per-language totals, so its memory does not grow with the source, and the unpacked limit bounds the work.
 

@@ -5,12 +5,10 @@ import {
   REF_LIMIT,
   type RefTarget,
 } from "./repository";
-import { ARCHIVE_LIMITS } from "../archive/limits";
 import { readRateLimit, readRateLimitBody, type RateLimit } from "./rate-limit";
 
 export const API_VERSION = "2026-03-10";
 export const METADATA_LIMIT = 1024 * 1024;
-export const ARCHIVE_LIMIT = ARCHIVE_LIMITS.compressed;
 export type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
 
 export type Resolution = {
@@ -49,6 +47,7 @@ export class AcquisitionError extends Error {
   constructor(
     readonly code: AcquisitionErrorCode,
     readonly retryAt?: number,
+    readonly limitBytes?: number,
   ) {
     super(code);
   }
@@ -408,6 +407,7 @@ export async function openArchive(
   resolution: Resolution,
   token: string | undefined,
   signal: AbortSignal,
+  limit: number,
 ): Promise<ReadableStream<Uint8Array>> {
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(resolution.sha))
     throw new AcquisitionError("download_failed");
@@ -438,9 +438,9 @@ export async function openArchive(
     throw new AcquisitionError("download_failed");
   }
   const length = Number(response.headers.get("content-length"));
-  if (Number.isFinite(length) && length > ARCHIVE_LIMIT) {
+  if (Number.isFinite(length) && length > limit) {
     await response.body?.cancel().catch(() => undefined);
-    throw new AcquisitionError("compressed_limit_exceeded");
+    throw new AcquisitionError("compressed_limit_exceeded", undefined, limit);
   }
   if (!response.body) throw new AcquisitionError("download_failed");
   return response.body;
@@ -451,9 +451,10 @@ export async function downloadArchive(
   resolution: Resolution,
   token: string | undefined,
   signal: AbortSignal,
+  limit: number,
 ): Promise<{ bytes: number; finalOrigin: "https://codeload.github.com" }> {
   const reader = (
-    await openArchive(fetcher, resolution, token, signal)
+    await openArchive(fetcher, resolution, token, signal, limit)
   ).getReader();
   let bytes = 0;
   try {
@@ -461,8 +462,12 @@ export async function downloadArchive(
       const { done, value } = await reader.read();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > ARCHIVE_LIMIT)
-        throw new AcquisitionError("compressed_limit_exceeded");
+      if (bytes > limit)
+        throw new AcquisitionError(
+          "compressed_limit_exceeded",
+          undefined,
+          limit,
+        );
     }
   } catch (error) {
     await reader.cancel().catch(() => undefined);
@@ -476,9 +481,20 @@ export async function downloadArchive(
 export function safeFailure(
   error: unknown,
   signal: AbortSignal,
-): { code: AcquisitionErrorCode; retryAt?: number } {
+): {
+  code: AcquisitionErrorCode;
+  retryAt?: number;
+  limit?: "compressed";
+  limitBytes?: number;
+} {
   if (error instanceof AcquisitionError)
-    return { code: error.code, retryAt: error.retryAt };
+    return {
+      code: error.code,
+      retryAt: error.retryAt,
+      ...(error.limitBytes === undefined
+        ? {}
+        : { limit: "compressed" as const, limitBytes: error.limitBytes }),
+    };
   if (signal.aborted)
     return {
       code:

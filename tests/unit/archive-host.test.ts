@@ -68,6 +68,7 @@ function start(finishNow = true) {
   const started = jest.fn();
   send("archive.start", started, {
     blockMs: 0,
+    limits: { decompressed: 2 * 1024 ** 3 },
     rules: {
       repositoryId: "1",
       commitSha: "a".repeat(40),
@@ -253,4 +254,71 @@ test("data from another source, job, or sequence is not accepted", () => {
     { state: "failed", code: "archive_invalid" },
   ]);
   expect(chunks()).toHaveLength(0);
+});
+
+test("a job starts only with a valid unpacked limit", () => {
+  for (const limits of [
+    undefined,
+    {},
+    { decompressed: 0 },
+    { decompressed: 32 * 1024 ** 3 + 1 },
+    { decompressed: 1024, compressed: 1024 },
+  ]) {
+    const respond = jest.fn();
+    handleArchiveHost(
+      {
+        target: "archive.host",
+        protocolVersion: 1,
+        jobId: crypto.randomUUID(),
+        type: "archive.start",
+        blockMs: 0,
+        limits,
+        rules: {
+          repositoryId: "1",
+          commitSha: "a".repeat(40),
+          disabledGroups: [],
+          exclusions: [],
+        },
+      },
+      { id: "test", url: "chrome-extension://test/background.js" },
+      respond,
+      false,
+    );
+    expect(respond).toHaveBeenCalledWith({
+      state: "failed",
+      code: "analysis_busy",
+    });
+  }
+  expect(archiveHostActive()).toBe(false);
+});
+
+test("a running job's unpacked limit can rise but never fall", () => {
+  const { send } = start(false);
+  expect(latest().messages[0]).toMatchObject({
+    type: "start",
+    decompressed: 2 * 1024 ** 3,
+  });
+  const raised = jest.fn();
+  send("archive.limits", raised, { limits: { decompressed: 4 * 1024 ** 3 } });
+  send("archive.limits", jest.fn(), { limits: { decompressed: 1024 } });
+  expect(raised).toHaveBeenCalledWith({ state: "ok" });
+  expect(latest().messages.slice(1)).toEqual([
+    { type: "limits", decompressed: 4 * 1024 ** 3 },
+    { type: "limits", decompressed: 4 * 1024 ** 3 },
+  ]);
+  latest().emit({
+    type: "result",
+    ok: false,
+    code: "decompressed_limit_exceeded",
+    limit: "decompressed",
+    limitBytes: 4 * 1024 ** 3,
+  });
+  const finish = jest.fn();
+  send("archive.finish", finish);
+  expect(finish).toHaveBeenCalledWith({
+    state: "failed",
+    code: "decompressed_limit_exceeded",
+    limit: "decompressed",
+    limitBytes: 4 * 1024 ** 3,
+  });
 });

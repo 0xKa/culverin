@@ -62,7 +62,7 @@ test("cancel and deadline aborts promptly end a pending operation", async () => 
   expect(jest.getTimerCount()).toBe(0);
 });
 
-function bridge() {
+function bridge(messages: Record<string, unknown>[] = []) {
   const commands: string[] = [];
   globalThis.chrome = {
     runtime: {
@@ -70,6 +70,7 @@ function bridge() {
       getContexts: async () => [{}],
       sendMessage: async (message: { type: string }) => {
         commands.push(message.type);
+        messages.push(message);
         return { state: message.type === "archive.start" ? "started" : "ok" };
       },
     },
@@ -305,4 +306,53 @@ test("chunks are transferred to the offscreen document instead of copied into me
   expect(commands).not.toContain("archive.chunk");
   controller.abort("cancel");
   expect(await rejection).toMatchObject({ code: "analysis_canceled" });
+});
+
+test("the download check follows the job's limit as it rises", async () => {
+  const messages: Record<string, unknown>[] = [];
+  bridge(messages);
+  let source: ReadableStreamDefaultController<Uint8Array>;
+  const limits = { compressed: 4, decompressed: 32 };
+  let raise: () => void = () => undefined;
+  const pending = analyzeArchiveStream(
+    new ReadableStream<Uint8Array>({
+      start: (value) => {
+        source = value;
+      },
+    }),
+    { repositoryId: "1", sha: "a".repeat(40) },
+    new AbortController().signal,
+    crypto.randomUUID(),
+    0,
+    undefined,
+    undefined,
+    limits,
+    (listener) => {
+      raise = listener;
+    },
+  );
+  const rejection = pending.catch((error: unknown) => error);
+  await settle();
+  expect(messages.find((item) => item.type === "archive.start")).toMatchObject({
+    limits: { decompressed: 32 },
+  });
+  source!.enqueue(new Uint8Array(3));
+  await settle();
+  Object.assign(limits, { compressed: 10, decompressed: 80 });
+  raise();
+  await settle();
+  expect(messages.find((item) => item.type === "archive.limits")).toMatchObject(
+    { limits: { decompressed: 80 } },
+  );
+  source!.enqueue(new Uint8Array(5));
+  await settle();
+  source!.enqueue(new Uint8Array(5));
+  expect(await rejection).toMatchObject({
+    code: "compressed_limit_exceeded",
+    limit: "compressed",
+    limitBytes: 10,
+  });
+  expect(messages.filter((item) => item.type === "archive.chunk")).toHaveLength(
+    2,
+  );
 });

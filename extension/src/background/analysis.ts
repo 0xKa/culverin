@@ -17,7 +17,8 @@ export type PublicClient = {
   ) => void;
 };
 
-import { ARCHIVE_TIMEOUTS } from "../archive/limits";
+import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS } from "../archive/limits";
+import { readDownloadLimit } from "../counting/download-limit";
 import { readCountTrigger } from "../counting/trigger";
 import {
   resolutionIdentity,
@@ -70,6 +71,7 @@ export function createPublicAnalysis(
         reply({ type: "analysis.failed", code: "invalid_repository" });
         return;
       }
+      const granted = resources.takeAutoGrant(owner);
       if (request.type === "analysis.status") {
         const state = coordinator.status(owner);
         reply({
@@ -261,6 +263,11 @@ export function createPublicAnalysis(
             client.isAlive() &&
             (await claimAutoCount(resolutionIdentity(envelope, rules.hash)));
           if (controller.signal.aborted || !client.isAlive()) return;
+          if (autoCount)
+            resources.grantAutoCount(
+              owner,
+              resolutionIdentity(envelope, rules.hash),
+            );
           reply({
             type: "repository.cache_miss",
             resolution: envelope,
@@ -273,6 +280,10 @@ export function createPublicAnalysis(
         pending.delete(owner);
         await clearInterrupted(owner);
         const semantic = resolutionIdentity(envelope, rules.hash);
+        const automatic = granted === semantic;
+        const downloadLimit = automatic
+          ? DOWNLOAD_LIMITS.automatic
+          : await readDownloadLimit(resources.chrome.storage.sync);
         const stale = await disconnected();
         if (controller.signal.aborted || !client.isAlive()) return;
         if (stale) {
@@ -292,6 +303,8 @@ export function createPublicAnalysis(
             requestId: request.requestId,
             owner,
             public: true,
+            automatic,
+            limit: downloadLimit,
             onProgress: (phase, processedBytes) =>
               client.progress(request, phase, processedBytes),
             onComplete: async (output, current) => {
@@ -352,6 +365,7 @@ export function createPublicAnalysis(
                       code,
                       "retryAt" in failure ? failure.retryAt : undefined,
                       "limit" in failure ? failure.limit : undefined,
+                      "limitBytes" in failure ? failure.limitBytes : undefined,
                     ),
                   }),
               );
@@ -390,7 +404,12 @@ export function createPublicAnalysis(
           if (client.isAlive())
             reply({
               type: "analysis.failed",
-              ...publicFailure(code, failure.retryAt),
+              ...publicFailure(
+                code,
+                failure.retryAt,
+                "limit" in failure ? failure.limit : undefined,
+                "limitBytes" in failure ? failure.limitBytes : undefined,
+              ),
             });
         }
       } finally {

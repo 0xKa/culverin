@@ -23,6 +23,9 @@ import { validId } from "../github/public-protocol";
 import { readIgnore } from "../ignore/settings";
 import { createRateLimitTracker } from "./rate-limits";
 
+const AUTO_GRANTS = 64;
+const AUTO_GRANT_MS = 10_000;
+
 export function createBackgroundResources(
   chrome: typeof globalThis.chrome,
   fetch: Fetcher,
@@ -80,6 +83,8 @@ export function createBackgroundResources(
           job.id,
           progress,
           job.ignore,
+          job.limits,
+          job.onLimitsRaised,
         )),
     saveMarkers,
   );
@@ -122,12 +127,29 @@ export function createBackgroundResources(
     { requestId: string; controller: AbortController }
   >();
 
+  const autoGrants = new Map<string, { identity: string; at: number }>();
+  function grantAutoCount(owner: string, identity: string): void {
+    autoGrants.delete(owner);
+    if (autoGrants.size >= AUTO_GRANTS)
+      autoGrants.delete(autoGrants.keys().next().value!);
+    autoGrants.set(owner, { identity, at: Date.now() });
+  }
+  function takeAutoGrant(owner: string): string | undefined {
+    const grant = autoGrants.get(owner);
+    autoGrants.delete(owner);
+    return grant && Date.now() - grant.at < AUTO_GRANT_MS
+      ? grant.identity
+      : undefined;
+  }
+
   function detachPending(prefix: string): void {
     for (const [owner, value] of pending)
       if (owner.startsWith(prefix)) {
         value.controller.abort("navigation");
         pending.delete(owner);
       }
+    for (const owner of autoGrants.keys())
+      if (owner.startsWith(prefix)) autoGrants.delete(owner);
   }
 
   async function interrupted(owner: string): Promise<boolean> {
@@ -205,7 +227,11 @@ export function createBackgroundResources(
           : error instanceof Error && error.message === "analysis_canceled"
             ? { code: "analysis_canceled" as const }
             : error instanceof ArchiveError
-              ? { code: error.code, limit: error.limit }
+              ? {
+                  code: error.code,
+                  limit: error.limit,
+                  limitBytes: error.limitBytes,
+                }
               : safeFailure(error, signal);
   }
 
@@ -221,6 +247,8 @@ export function createBackgroundResources(
     defaultRulesHash,
     currentRules,
     claimAutoCount,
+    grantAutoCount,
+    takeAutoGrant,
     coordinator,
     ready,
     pending,

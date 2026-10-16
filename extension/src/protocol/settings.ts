@@ -65,7 +65,13 @@ export type SettingsPayload =
         | "busy"
         | "checked";
     }
-  | { state: "failed"; code: PublicErrorCode; retryAt?: number; limit?: string }
+  | {
+      state: "failed";
+      code: PublicErrorCode;
+      retryAt?: number;
+      limit?: string;
+      limitBytes?: number;
+    }
   | { state: "resolved"; resolution: ResolutionEnvelope }
   | ({ state: "analyzed"; resolution: ResolutionEnvelope } & AnalysisOutput);
 export type SettingsReply = SettingsEnvelope & SettingsPayload;
@@ -206,7 +212,7 @@ export function validSettingsReply(
       );
     case "failed":
       return (
-        exact(value, [...fields, "code"], ["retryAt", "limit"]) &&
+        exact(value, [...fields, "code"], ["retryAt", "limit", "limitBytes"]) &&
         validFailureDetails(value)
       );
     case "resolved":

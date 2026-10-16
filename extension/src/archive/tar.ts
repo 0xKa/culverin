@@ -20,6 +20,7 @@ export class ArchiveError extends Error {
   constructor(
     readonly code: ArchiveErrorCode,
     readonly limit?: keyof typeof ARCHIVE_LIMITS,
+    readonly limitBytes?: number,
   ) {
     super(code);
   }
@@ -209,7 +210,11 @@ class ByteReader {
       if (!(value instanceof Uint8Array)) return invalid();
       this.bytes += value.byteLength;
       if (this.bytes > this.limits.decompressed)
-        throw new ArchiveError("decompressed_limit_exceeded", "decompressed");
+        throw new ArchiveError(
+          "decompressed_limit_exceeded",
+          "decompressed",
+          this.limits.decompressed,
+        );
       this.onProgress?.(this.bytes);
       this.chunk = value;
       this.offset = 0;

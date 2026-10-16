@@ -248,6 +248,39 @@ test("names the limit an analysis reached", () => {
     detail: "Repository metadata exceeds the safe limit.",
   });
   expect(
+    failureState(
+      "compressed_limit_exceeded",
+      undefined,
+      "compressed",
+      512 * 1024 ** 2,
+    ),
+  ).toMatchObject({
+    detail:
+      "The source snapshot exceeds the compressed-size limit. The limit is 512 MiB downloaded. You can raise it in Settings → Large repositories.",
+  });
+  expect(
+    failureState(
+      "compressed_limit_exceeded",
+      undefined,
+      "compressed",
+      4096 * 1024 ** 2,
+    ),
+  ).toMatchObject({
+    detail:
+      "The source snapshot exceeds the compressed-size limit. The limit is 4,096 MiB downloaded.",
+  });
+  expect(
+    failureState(
+      "decompressed_limit_exceeded",
+      undefined,
+      "decompressed",
+      4096 * 1024 ** 2,
+    ),
+  ).toMatchObject({
+    detail:
+      "The source snapshot exceeds the expanded-size limit. The limit is 4,096 MiB unpacked.",
+  });
+  expect(
     failureState("entry_limit_exceeded", undefined, "entries"),
   ).toMatchObject({
     detail:

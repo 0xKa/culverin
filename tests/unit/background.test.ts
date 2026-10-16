@@ -6,6 +6,7 @@ import { createPublicAnalysis } from "../../extension/src/background/analysis";
 import { createSettingsHandler } from "../../extension/src/background/settings";
 import { createSenderGates } from "../../extension/src/background/senders";
 import { COUNT_TRIGGER_KEY } from "../../extension/src/counting/trigger";
+import { DOWNLOAD_LIMIT_KEY } from "../../extension/src/counting/download-limit";
 import { aboutVisibility } from "../../extension/src/repository-page/visibility";
 import {
   PAGE_COUNT_FORMAT_KEY,
@@ -63,6 +64,7 @@ function fixture() {
   } as unknown as typeof chrome;
   const calls: string[] = [];
   const tokens: (string | undefined)[] = [];
+  const limits: number[] = [];
   let visibility = "public";
   const branches: Record<string, string> = {
     main: "a".repeat(40),
@@ -161,6 +163,7 @@ function fixture() {
   }) as typeof fetch;
   const resources = createBackgroundResources(browser, fetcher, async (job) => {
     tokens.push(job.token);
+    limits.push(job.limits.compressed);
     return {
       result: await result("42", job.resolution.sha),
       transport: { compressedBytes: 0, decompressedBytes: 0 },
@@ -174,11 +177,12 @@ function fixture() {
     page: boolean,
     force = false,
     target?: { path: string; exact: boolean },
+    navigationId: string = crypto.randomUUID(),
   ): Promise<PublicPayload> {
     const request: PublicRequest = {
       protocolVersion: 1,
       requestId: crypto.randomUUID(),
-      navigationId: crypto.randomUUID(),
+      navigationId,
       type,
       repository: { owner: "culverin", name: "sample" },
     };
@@ -204,6 +208,7 @@ function fixture() {
     run,
     calls,
     tokens,
+    limits,
     local,
     session,
     sync,
@@ -274,6 +279,42 @@ test("surface policies avoid requests on open and only opt-in page lookups claim
     "autoCount",
   );
   expect(api.tokens).toEqual([]);
+});
+
+test("only the request that follows an automatic-count lookup is limited to 256 MiB", async () => {
+  const mib = 1024 * 1024;
+  const automatic = fixture();
+  automatic.sync.values[COUNT_TRIGGER_KEY] = "open";
+  automatic.sync.values[DOWNLOAD_LIMIT_KEY] = 2048;
+  const navigation = crypto.randomUUID();
+  expect(
+    await automatic.run(
+      "repository.lookup",
+      true,
+      false,
+      undefined,
+      navigation,
+    ),
+  ).toMatchObject({ autoCount: true });
+  expect(
+    await automatic.run("analysis.request", true, false, undefined, navigation),
+  ).toMatchObject({ type: "analysis.completed" });
+  expect(automatic.limits).toEqual([256 * mib]);
+
+  const clicked = fixture();
+  clicked.sync.values[COUNT_TRIGGER_KEY] = "open";
+  clicked.sync.values[DOWNLOAD_LIMIT_KEY] = 2048;
+  const other = crypto.randomUUID();
+  expect(
+    await clicked.run("repository.lookup", true, false, undefined, other),
+  ).toMatchObject({ autoCount: true });
+  await clicked.run("analysis.status", true, false, undefined, other);
+  await clicked.run("analysis.request", true, false, undefined, other);
+  expect(clicked.limits).toEqual([2048 * mib]);
+
+  const unset = fixture();
+  await unset.run("analysis.request", true);
+  expect(unset.limits).toEqual([512 * mib]);
 });
 
 test("same-commit forced analysis refreshes metadata and reuses results; private visibility purges public results", async () => {

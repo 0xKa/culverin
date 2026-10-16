@@ -1,4 +1,5 @@
 import { ARCHIVE_TIMEOUTS } from "../archive/limits";
+import { readDownloadLimit } from "../counting/download-limit";
 import { resolutionIdentity } from "../github/cache";
 import {
   fetchRateLimit,
@@ -158,6 +159,7 @@ export function createSettingsHandler(
           await clearInterrupted(owner);
           const rules = await currentRules();
           const semantic = resolutionIdentity(envelope, rules.hash);
+          const limit = await readDownloadLimit(resources.chrome.storage.sync);
           if (controller.signal.aborted) return;
           const identity = auth.token
             ? `authorized:${auth.generation}:${semantic}`
@@ -171,6 +173,7 @@ export function createSettingsHandler(
               requestId: request.requestId,
               owner,
               public: false,
+              limit,
               onProgress: () => undefined,
               onComplete: async (analysis, current) => {
                 if (!coordinator.isSubscribed(owner, request.requestId)) return;

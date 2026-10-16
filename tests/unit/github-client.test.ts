@@ -2,7 +2,6 @@ import { validRepository } from "../../extension/src/github/repository";
 import { expect, test } from "bun:test";
 import {
   AcquisitionError,
-  ARCHIVE_LIMIT,
   downloadArchive,
   METADATA_LIMIT,
   refCandidates,
@@ -10,6 +9,8 @@ import {
   safeFailure,
   type Fetcher,
 } from "../../extension/src/github/client";
+
+const ARCHIVE_LIMIT = 512 * 1024 * 1024;
 
 const sha = "a".repeat(40);
 const controller = new AbortController();
@@ -429,6 +430,7 @@ test("reports a throttled archive separately from the API rate limit", async () 
     resolution,
     undefined,
     controller.signal,
+    ARCHIVE_LIMIT,
   ).catch((error: unknown) => error)) as AcquisitionError;
   expect(throttledFailure.code).toBe("archive_throttled");
   expect(throttledFailure.retryAt).toBeUndefined();
@@ -447,6 +449,7 @@ test("reports a throttled archive separately from the API rate limit", async () 
     resolution,
     undefined,
     controller.signal,
+    ARCHIVE_LIMIT,
   ).catch((error: unknown) => error)) as AcquisitionError;
   expect(delayedFailure.code).toBe("archive_throttled");
   expect(delayedFailure.retryAt).toBeGreaterThanOrEqual(before + 20_000);
@@ -460,9 +463,13 @@ test("reports a throttled archive separately from the API rate limit", async () 
       },
     )) as Fetcher;
   expect(
-    await downloadArchive(api, resolution, undefined, controller.signal).catch(
-      (error: unknown) => error,
-    ),
+    await downloadArchive(
+      api,
+      resolution,
+      undefined,
+      controller.signal,
+      ARCHIVE_LIMIT,
+    ).catch((error: unknown) => error),
   ).toMatchObject({ code: "rate_limited" });
 });
 
@@ -479,14 +486,26 @@ test("rejects wrong archive origin before reading and checks content length", as
   const wrong = (async () =>
     response("body", "https://evil.example/archive")) as Fetcher;
   expect(
-    downloadArchive(wrong, resolution, undefined, controller.signal),
+    downloadArchive(
+      wrong,
+      resolution,
+      undefined,
+      controller.signal,
+      ARCHIVE_LIMIT,
+    ),
   ).rejects.toMatchObject({ code: "download_failed" });
   const huge = (async () =>
     response("", "https://codeload.github.com/archive", 200, {
       "content-length": String(ARCHIVE_LIMIT + 1),
     })) as Fetcher;
   expect(
-    downloadArchive(huge, resolution, undefined, controller.signal),
+    downloadArchive(
+      huge,
+      resolution,
+      undefined,
+      controller.signal,
+      ARCHIVE_LIMIT,
+    ),
   ).rejects.toMatchObject({ code: "compressed_limit_exceeded" });
 });
 
@@ -509,7 +528,13 @@ test("streams and discards archive bytes with a hard count", async () => {
     );
   }) as Fetcher;
   expect(
-    await downloadArchive(fetcher, resolution, "secret", controller.signal),
+    await downloadArchive(
+      fetcher,
+      resolution,
+      "secret",
+      controller.signal,
+      ARCHIVE_LIMIT,
+    ),
   ).toEqual({ bytes: 3, finalOrigin: "https://codeload.github.com" });
   expect(request?.cache).toBe("no-store");
   expect(request?.credentials).toBe("omit");
@@ -537,6 +562,7 @@ test("accepts archive response lengths above the former 50 MiB limit", async () 
       },
       undefined,
       controller.signal,
+      ARCHIVE_LIMIT,
     ),
   ).resolves.toEqual({ bytes: 4, finalOrigin: "https://codeload.github.com" });
 });
@@ -571,7 +597,13 @@ test("rejects a streaming archive overrun and cancels the reader", async () => {
       },
     }) as Response;
   await expect(
-    downloadArchive(fetcher, resolution, undefined, controller.signal),
+    downloadArchive(
+      fetcher,
+      resolution,
+      undefined,
+      controller.signal,
+      ARCHIVE_LIMIT,
+    ),
   ).rejects.toMatchObject({
     code: "compressed_limit_exceeded",
   });

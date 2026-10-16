@@ -1,7 +1,12 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import { defaultIgnore, type IgnoreSettings } from "../counter/rules";
 import type { ResolutionEnvelope } from "./public-protocol";
-import { ARCHIVE_TIMEOUTS } from "../archive/limits";
+import {
+  ARCHIVE_TIMEOUTS,
+  DOWNLOAD_LIMITS,
+  jobLimits,
+  type JobLimits,
+} from "../archive/limits";
 
 export const QUEUED_JOBS = 8;
 export const QUEUE_WAIT_MS = ARCHIVE_TIMEOUTS.queue;
@@ -29,6 +34,7 @@ export type Subscriber = {
   owner: string;
   public: boolean;
   automatic?: boolean;
+  limit?: number;
   onProgress: (
     phase: "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
@@ -46,6 +52,8 @@ type Job = {
   token?: string;
   generation: string;
   ignore: IgnoreSettings;
+  limits: JobLimits;
+  raised: Set<() => void>;
   id: string;
   controller: AbortController;
   subscribers: Map<string, Subscriber>;
@@ -76,6 +84,8 @@ export class AnalysisCoordinator {
         token?: string;
         generation: string;
         ignore: IgnoreSettings;
+        limits: Readonly<JobLimits>;
+        onLimitsRaised: (listener: () => void) => void;
         signal: AbortSignal;
       },
       progress: (
@@ -143,6 +153,8 @@ export class AnalysisCoordinator {
         token: job.token,
         generation: job.generation,
         ignore: job.ignore,
+        limits: job.limits,
+        onLimitsRaised: (listener) => job.raised.add(listener),
         signal: job.controller.signal,
       },
       progress,
@@ -205,6 +217,8 @@ export class AnalysisCoordinator {
         token,
         generation,
         ignore,
+        limits: jobLimits(DOWNLOAD_LIMITS.automatic),
+        raised: new Set(),
         id: crypto.randomUUID(),
         controller: new AbortController(),
         subscribers: new Map(),
@@ -223,6 +237,15 @@ export class AnalysisCoordinator {
       }, QUEUE_WAIT_MS);
     }
     job.subscribers.set(subscriber.requestId, subscriber);
+    const limit =
+      subscriber.limit ??
+      (subscriber.automatic
+        ? DOWNLOAD_LIMITS.automatic
+        : DOWNLOAD_LIMITS.fallback);
+    if (limit > job.limits.compressed) {
+      Object.assign(job.limits, jobLimits(limit));
+      for (const listener of job.raised) listener();
+    }
     this.notify();
     if (job.state === "queued" && this.active) subscriber.onProgress("queued");
     this.pump();

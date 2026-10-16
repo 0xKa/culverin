@@ -1,4 +1,5 @@
 import init, { Analyzer } from "../wasm/instance/culverin_counter.js";
+import { ARCHIVE_LIMITS } from "./limits";
 import { analyzeTar, ArchiveError } from "./tar";
 
 export function startArchiveWorker(
@@ -6,8 +7,9 @@ export function startArchiveWorker(
 ): void {
   type Chunk = { type: "chunk"; sequence: number; bytes: Uint8Array };
   type Command =
-    | { type: "start"; rules: string; blockMs: number }
+    | { type: "start"; rules: string; blockMs: number; decompressed: number }
     | Chunk
+    | { type: "limits"; decompressed: number }
     | { type: "finish" };
 
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -15,6 +17,9 @@ export function startArchiveWorker(
   let wanted = false;
   let ended = false;
   let started = false;
+  const limits: { -readonly [Key in keyof typeof ARCHIVE_LIMITS]: number } = {
+    ...ARCHIVE_LIMITS,
+  };
 
   function deliver(): void {
     if (!controller || !wanted) return;
@@ -34,6 +39,7 @@ export function startArchiveWorker(
     const command = event.data;
     if (command.type === "start" && !started) {
       started = true;
+      limits.decompressed = command.decompressed;
       const input = new ReadableStream<Uint8Array>(
         {
           start(value) {
@@ -119,6 +125,7 @@ export function startArchiveWorker(
             },
             undefined,
             activity,
+            limits,
           );
           const result: unknown = JSON.parse(active.finish());
           wasmLinearMemoryBytes = Math.max(
@@ -139,6 +146,8 @@ export function startArchiveWorker(
             code:
               error instanceof ArchiveError ? error.code : "archive_invalid",
             limit: error instanceof ArchiveError ? error.limit : undefined,
+            limitBytes:
+              error instanceof ArchiveError ? error.limitBytes : undefined,
           });
         } finally {
           try {
@@ -153,6 +162,10 @@ export function startArchiveWorker(
     if (command.type === "chunk" && started && !pending && !ended) {
       pending = command;
       deliver();
+      return;
+    }
+    if (command.type === "limits" && started) {
+      limits.decompressed = Math.max(limits.decompressed, command.decompressed);
       return;
     }
     if (command.type === "finish" && started && !ended) {

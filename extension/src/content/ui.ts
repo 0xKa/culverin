@@ -96,9 +96,10 @@ export function failureState(
   code: PublicErrorCode,
   retryAt?: number,
   limit?: string,
+  limitBytes?: number,
 ): VisibleRowState {
   if (code === "analysis_canceled") return { kind: "idle" };
-  const detail = failureMessages[code] + limitNote(limit);
+  const detail = failureMessages[code] + limitNote(limit, limitBytes);
   if (code === "rate_limited")
     return {
       kind: "notice",

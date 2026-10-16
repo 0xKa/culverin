@@ -991,6 +991,45 @@ test("a click evicts the oldest queued automatic count when the queue is full", 
   coordinator.abortAll("cancel");
 });
 
+test("a click joining an automatic count raises its limits without restarting it", () => {
+  const mib = 1024 * 1024;
+  const seen: { compressed: number; decompressed: number }[] = [];
+  let limits: { compressed: number; decompressed: number } | undefined;
+  let raised = 0;
+  const coordinator = new AnalysisCoordinator(
+    (job) => {
+      limits = job.limits;
+      seen.push({ ...job.limits });
+      job.onLimitsRaised(() => raised++);
+      return new Promise<AnalysisOutput>(() => undefined);
+    },
+    () => undefined,
+  );
+  const join = (owner: string, automatic: boolean, limit?: number) =>
+    coordinator.subscribe("same", resolution(), undefined, "", {
+      requestId: crypto.randomUUID(),
+      owner,
+      public: true,
+      automatic,
+      limit,
+      onProgress: () => undefined,
+      onComplete: () => undefined,
+      onFailure: () => undefined,
+    });
+  expect(join("page", true)).toBe(true);
+  expect(seen).toEqual([{ compressed: 256 * mib, decompressed: 2048 * mib }]);
+  expect(join("other-page", true)).toBe(true);
+  expect(raised).toBe(0);
+  expect(join("click", false, 1024 * mib)).toBe(true);
+  expect(limits).toEqual({ compressed: 1024 * mib, decompressed: 8192 * mib });
+  expect(raised).toBe(1);
+  expect(join("smaller", false, 512 * mib)).toBe(true);
+  expect(limits?.compressed).toBe(1024 * mib);
+  expect(raised).toBe(1);
+  expect(seen).toHaveLength(1);
+  coordinator.abortAll("cancel");
+});
+
 test("subscription cap prevents a thirty-third owner from joining", async () => {
   const coordinator = new AnalysisCoordinator(
     () => new Promise<AnalysisOutput>(() => undefined),

@@ -537,6 +537,47 @@ export async function runPageCounting(
 
   assert.equal(await summary.count(), 1);
 
+  const largeSettings = await context.newPage();
+  await largeSettings.goto(
+    `chrome-extension://${new URL(worker.url()).host}/settings.html#large-repositories`,
+  );
+  await largeSettings
+    .getByRole("heading", { name: "Large repositories" })
+    .waitFor();
+  await largeSettings
+    .locator('input[name="download-limit"][value="512"]:checked')
+    .waitFor();
+  assert.deepEqual(
+    await largeSettings
+      .locator('input[name="download-limit"]')
+      .evaluateAll((inputs) =>
+        inputs.map((input) => input.parentElement?.textContent),
+      ),
+    ["256 MiB", "512 MiB (default)", "1 GiB", "2 GiB", "4 GiB"],
+  );
+  assert.match(
+    (await largeSettings.locator("#download-limit-hint").textContent()) ?? "",
+    /^Counts that start when you open a repository page stop at 256 MiB\.$/,
+  );
+  await largeSettings
+    .locator('input[name="download-limit"][value="1024"]')
+    .check();
+  await largeSettings.waitForFunction(async () => {
+    const stored = await chrome.storage.sync.get("culverin.downloadLimit");
+    return stored["culverin.downloadLimit"] === 1024;
+  });
+  await largeSettings
+    .locator('input[name="download-limit"][value="512"]')
+    .check();
+  await largeSettings.waitForFunction(
+    async () =>
+      !(
+        "culverin.downloadLimit" in
+        (await chrome.storage.sync.get("culverin.downloadLimit"))
+      ),
+  );
+  await largeSettings.close();
+
   const countingSettings = await context.newPage();
 
   await countingSettings.goto(

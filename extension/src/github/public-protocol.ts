@@ -1,3 +1,4 @@
+import { DOWNLOAD_LIMITS } from "../archive/limits";
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import {
   validShownItems,
@@ -133,6 +134,7 @@ export type PublicReply = {
       code: PublicErrorCode;
       retryAt?: number;
       limit?: string;
+      limitBytes?: number;
     }
   | { type: "analysis.canceled"; targetRequestId: string }
   | {
@@ -367,13 +369,19 @@ const codes: PublicErrorCode[] = [
   "internal_error",
 ];
 
+const validLimitBytes = (value: unknown): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) > 0 &&
+  (value as number) <= DOWNLOAD_LIMITS.maximum * DOWNLOAD_LIMITS.unpackedRatio;
+
 export function publicFailure(
   code: unknown,
   retryAt?: unknown,
   limit?: unknown,
+  limitBytes?: unknown,
 ): Pick<
   Extract<PublicReply, { type: "analysis.failed" }>,
-  "code" | "retryAt" | "limit"
+  "code" | "retryAt" | "limit" | "limitBytes"
 > {
   return {
     code: codes.includes(code as PublicErrorCode)
@@ -387,6 +395,7 @@ export function publicFailure(
     ...(typeof limit === "string" && /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(limit)
       ? { limit }
       : {}),
+    ...(validLimitBytes(limitBytes) ? { limitBytes } : {}),
   };
 }
 
@@ -397,7 +406,8 @@ export function validFailureDetails(value: Record<string, unknown>): boolean {
       (Number.isSafeInteger(value.retryAt) && (value.retryAt as number) > 0)) &&
     (value.limit === undefined ||
       (typeof value.limit === "string" &&
-        /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(value.limit)))
+        /^[A-Za-z][A-Za-z0-9]{0,40}$/.test(value.limit))) &&
+    (value.limitBytes === undefined || validLimitBytes(value.limitBytes))
   );
 }
 
@@ -452,6 +462,7 @@ export function validPublicReply(
         "code",
         ...(value.retryAt === undefined ? [] : ["retryAt"]),
         ...(value.limit === undefined ? [] : ["limit"]),
+        ...(value.limitBytes === undefined ? [] : ["limitBytes"]),
       ]) && validFailureDetails(value)
     );
   if (value.type === "analysis.canceled")
@@ -494,7 +505,7 @@ export function validPublicReply(
       (value.processedBytes === undefined ||
         (Number.isSafeInteger(value.processedBytes) &&
           (value.processedBytes as number) >= 0 &&
-          (value.processedBytes as number) <= 50 * 1024 * 1024))
+          (value.processedBytes as number) <= DOWNLOAD_LIMITS.maximum))
     );
   return false;
 }

@@ -6,6 +6,11 @@ import {
   type CountTriggerStorage,
 } from "../../extension/src/counting/trigger";
 import {
+  DOWNLOAD_LIMIT_KEY,
+  downloadLimit,
+  readDownloadLimit,
+} from "../../extension/src/counting/download-limit";
+import {
   AUTO_COUNT_ENTRIES,
   AUTO_COUNT_KEY,
   autoCountClaims,
@@ -77,4 +82,29 @@ test("does not claim when session storage fails", async () => {
     set: () => Promise.resolve(),
   });
   expect(await claim("a")).toBe(false);
+});
+
+test("reads the download limit in MiB and falls back to 512 MiB", async () => {
+  expect(await readDownloadLimit(memory())).toBe(512 * 1024 * 1024);
+  expect(await readDownloadLimit(memory({ [DOWNLOAD_LIMIT_KEY]: 4096 }))).toBe(
+    4096 * 1024 * 1024,
+  );
+  for (const value of [300, "1024", 8192, 256 * 1024 * 1024])
+    expect(
+      await readDownloadLimit(memory({ [DOWNLOAD_LIMIT_KEY]: value })),
+    ).toBe(512 * 1024 * 1024);
+  expect(
+    await readDownloadLimit({
+      ...memory(),
+      get: () => Promise.reject(new Error("unavailable")),
+    }),
+  ).toBe(512 * 1024 * 1024);
+});
+
+test("stores only a non-default download limit", async () => {
+  const storage = memory();
+  await downloadLimit.write(1024, storage);
+  expect(storage.values).toEqual({ [DOWNLOAD_LIMIT_KEY]: 1024 });
+  await downloadLimit.write(512, storage);
+  expect(storage.values).toEqual({});
 });

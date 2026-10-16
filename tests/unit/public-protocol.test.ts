@@ -734,6 +734,60 @@ test("validates envelope, correlation, and safe errors", () => {
   expect(publicFailure("rate_limited", Infinity).retryAt).toBeUndefined();
 });
 
+test("failures carry the job's limit in bytes only when it is a plausible limit", () => {
+  const requestId = crypto.randomUUID();
+  const navigationId = crypto.randomUUID();
+  const failure = (extra: Record<string, unknown>) =>
+    validPublicReply(
+      {
+        protocolVersion: 1,
+        requestId,
+        navigationId,
+        type: "analysis.failed",
+        code: "compressed_limit_exceeded",
+        limit: "compressed",
+        ...extra,
+      },
+      requestId,
+      navigationId,
+    );
+  expect(failure({ limitBytes: 512 * 1024 ** 2 })).toBe(true);
+  expect(failure({})).toBe(true);
+  for (const limitBytes of [0, -1, 1.5, "512", 32 * 1024 ** 3 + 1])
+    expect(failure({ limitBytes })).toBe(false);
+  expect(
+    publicFailure("compressed_limit_exceeded", undefined, "compressed", 1024),
+  ).toEqual({
+    code: "compressed_limit_exceeded",
+    limit: "compressed",
+    limitBytes: 1024,
+  });
+  expect(
+    publicFailure("compressed_limit_exceeded", undefined, "compressed", 0),
+  ).not.toHaveProperty("limitBytes");
+});
+
+test("download progress is accepted up to the largest download limit", () => {
+  const requestId = crypto.randomUUID();
+  const navigationId = crypto.randomUUID();
+  const progress = (processedBytes: number) =>
+    validPublicReply(
+      {
+        protocolVersion: 1,
+        requestId,
+        navigationId,
+        type: "analysis.progress",
+        phase: "downloading",
+        processedBytes,
+      },
+      requestId,
+      navigationId,
+    );
+  expect(progress(300 * 1024 ** 2)).toBe(true);
+  expect(progress(4096 * 1024 ** 2)).toBe(true);
+  expect(progress(4096 * 1024 ** 2 + 1)).toBe(false);
+});
+
 test("repository identity comparisons preserve casing without matching renamed or missing targets", () => {
   const repository = { owner: "Culverin", name: "Sample" };
   expect(

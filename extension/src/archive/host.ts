@@ -1,7 +1,7 @@
 import { validateResult } from "../counter/result";
 import { normalizeIgnore } from "../counter/rules";
 import { ARCHIVE_LIMITS, type ArchiveMetrics } from "./tar";
-import { ARCHIVE_TIMEOUTS } from "./limits";
+import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS } from "./limits";
 
 function validIgnore(value: unknown): boolean {
   try {
@@ -17,6 +17,7 @@ type Active = {
   id: string;
   worker: Worker;
   sequence: number;
+  decompressed: number;
   pending?: Reply;
   finish?: Reply;
   outcome?: unknown;
@@ -27,15 +28,18 @@ type Active = {
 
 let active: Active | undefined;
 
-function validMetrics(value: unknown): value is ArchiveMetrics {
+function validMetrics(
+  value: unknown,
+  decompressed: number,
+): value is ArchiveMetrics {
   if (!value || typeof value !== "object") return false;
   const metrics = value as Record<string, unknown>;
   const bounds: Record<keyof ArchiveMetrics, number> = {
-    decompressedBytes: ARCHIVE_LIMITS.decompressed,
+    decompressedBytes: decompressed,
     entries: ARCHIVE_LIMITS.entries,
     regularFiles: ARCHIVE_LIMITS.regularFiles,
     specialEntries: ARCHIVE_LIMITS.entries,
-    wasmBytes: ARCHIVE_LIMITS.decompressed,
+    wasmBytes: decompressed,
     retainedPathBytes: ARCHIVE_LIMITS.retainedPaths,
   };
   return (
@@ -149,6 +153,23 @@ export function listenForArchiveData(
   container.startMessages();
 }
 
+function validDecompressed(value: unknown): value is number {
+  return (
+    Number.isSafeInteger(value) &&
+    (value as number) > 0 &&
+    (value as number) <= DOWNLOAD_LIMITS.maximum * DOWNLOAD_LIMITS.unpackedRatio
+  );
+}
+
+function validLimits(value: unknown): value is { decompressed: number } {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Object.keys(value).join("|") === "decompressed" &&
+    validDecompressed((value as { decompressed: unknown }).decompressed)
+  );
+}
+
 export function archiveHostActive(): boolean {
   return Boolean(active);
 }
@@ -221,6 +242,7 @@ export function handleArchiveHost(
       !Number.isInteger(command.blockMs) ||
       (command.blockMs as number) < 0 ||
       (command.blockMs as number) > 10_000 ||
+      !validLimits(command.limits) ||
       !command.rules ||
       typeof command.rules !== "object"
     ) {
@@ -248,6 +270,7 @@ export function handleArchiveHost(
       id: command.jobId,
       worker,
       sequence: 0,
+      decompressed: command.limits.decompressed,
       lease: setTimeout(
         () => stop({ state: "interrupted" }),
         ARCHIVE_TIMEOUTS.lease,
@@ -284,7 +307,7 @@ export function handleArchiveHost(
         const outcome =
           value.ok === true &&
           validateResult(value.result) &&
-          validMetrics(value.metrics) &&
+          validMetrics(value.metrics, job.decompressed) &&
           Number.isSafeInteger(value.wasmLinearMemoryBytes) &&
           (value.wasmLinearMemoryBytes as number) >= 0 &&
           (value.wasmLinearMemoryBytes as number) <= 512 * 1024 * 1024
@@ -302,6 +325,9 @@ export function handleArchiveHost(
                     : "counter_failed",
                 limit:
                   typeof value.limit === "string" ? value.limit : undefined,
+                limitBytes: Number.isSafeInteger(value.limitBytes)
+                  ? value.limitBytes
+                  : undefined,
               };
         job.outcome = outcome;
         if (job.pending) {
@@ -316,6 +342,7 @@ export function handleArchiveHost(
       type: "start",
       rules: JSON.stringify(rules),
       blockMs: command.blockMs,
+      decompressed: job.decompressed,
     });
     respond({ state: "started" });
     return false;
@@ -327,6 +354,16 @@ export function handleArchiveHost(
   }
   if (command.type === "archive.renew") {
     renew(job);
+    respond({ state: "ok" });
+    return false;
+  }
+  if (command.type === "archive.limits") {
+    if (!validLimits(command.limits)) {
+      respond({ state: "failed", code: "archive_invalid" });
+      return false;
+    }
+    job.decompressed = Math.max(job.decompressed, command.limits.decompressed);
+    job.worker.postMessage({ type: "limits", decompressed: job.decompressed });
     respond({ state: "ok" });
     return false;
   }

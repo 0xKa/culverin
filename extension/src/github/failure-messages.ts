@@ -1,4 +1,4 @@
-import { ARCHIVE_LIMITS } from "../archive/limits";
+import { ARCHIVE_LIMITS, DOWNLOAD_LIMITS } from "../archive/limits";
 import type { PublicErrorCode } from "./public-protocol";
 
 const mib = (bytes: number) =>
@@ -15,9 +15,24 @@ const limitNotes: Record<string, string> = {
   retainedPaths: `${mib(ARCHIVE_LIMITS.retainedPaths)} of file paths`,
 };
 
-export function limitNote(limit?: string): string {
-  const note = limit === undefined ? undefined : limitNotes[limit];
-  return note ? ` The limit is ${note}.` : "";
+const sizedNotes: Record<string, (bytes: number) => string> = {
+  compressed: (bytes) => `${mib(bytes)} downloaded`,
+  decompressed: (bytes) => `${mib(bytes)} unpacked`,
+};
+
+export function limitNote(limit?: string, limitBytes?: number): string {
+  if (limit === undefined) return "";
+  const note =
+    limitBytes !== undefined && sizedNotes[limit]
+      ? sizedNotes[limit](limitBytes)
+      : limitNotes[limit];
+  if (!note) return "";
+  const raise =
+    limit === "compressed" &&
+    (limitBytes ?? ARCHIVE_LIMITS.compressed) < DOWNLOAD_LIMITS.maximum
+      ? " You can raise it in Settings → Large repositories."
+      : "";
+  return ` The limit is ${note}.${raise}`;
 }
 
 export const failureMessages: Record<PublicErrorCode, string> = {

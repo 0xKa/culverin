@@ -240,7 +240,11 @@ async function finishAnalysis(
       detail: failureMessages.internal_error,
     });
   else if (reply.code === "rate_limited") rateLimit(current, reply.retryAt);
-  else setState(current, failureState(reply.code, reply.retryAt, reply.limit));
+  else
+    setState(
+      current,
+      failureState(reply.code, reply.retryAt, reply.limit, reply.limitBytes),
+    );
 }
 
 async function analyze(current: View): Promise<void> {

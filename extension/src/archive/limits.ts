@@ -1,6 +1,25 @@
+const MIB = 1024 * 1024;
+
+export const DOWNLOAD_LIMITS = {
+  choices: [256 * MIB, 512 * MIB, 1024 * MIB, 2048 * MIB, 4096 * MIB],
+  automatic: 256 * MIB,
+  fallback: 512 * MIB,
+  maximum: 4096 * MIB,
+  unpackedRatio: 8,
+} as const;
+
+export type JobLimits = { compressed: number; decompressed: number };
+
+export function jobLimits(compressed: number): JobLimits {
+  return {
+    compressed,
+    decompressed: compressed * DOWNLOAD_LIMITS.unpackedRatio,
+  };
+}
+
 export const ARCHIVE_LIMITS = {
-  compressed: 256 * 1024 * 1024,
-  decompressed: 2 * 1024 * 1024 * 1024,
+  compressed: DOWNLOAD_LIMITS.automatic,
+  decompressed: DOWNLOAD_LIMITS.automatic * DOWNLOAD_LIMITS.unpackedRatio,
   entries: 2_000_000,
   regularFiles: 1_000_000,
   file: 8 * 1024 * 1024,

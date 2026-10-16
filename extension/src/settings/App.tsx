@@ -1,6 +1,7 @@
 import {
   EyeOff,
   Gauge,
+  HardDriveDownload,
   History as HistoryIcon,
   Info,
   KeyRound,
@@ -15,6 +16,7 @@ import { AppearanceSection } from "./AppearanceSection";
 import { CountingSection } from "./CountingSection";
 import { GitHubSection } from "./GitHubSection";
 import { IgnoreSection } from "./IgnoreSection";
+import { LargeRepositoriesSection } from "./LargeRepositoriesSection";
 import { RepositoryPageSection } from "./RepositoryPageSection";
 import {
   initialSection,
@@ -33,6 +35,7 @@ const sectionIcons: Record<SectionId, LucideIcon> = {
   "repository-page": PanelsTopLeft,
   counting: Gauge,
   ignore: EyeOff,
+  "large-repositories": HardDriveDownload,
   github: KeyRound,
   storage: HistoryIcon,
   about: Info,
@@ -138,6 +141,7 @@ export function App() {
           <IgnoreSection hidden={active !== "ignore"} />
           <StorageSection hidden={active !== "storage"} />
           <CountingSection hidden={active !== "counting"} />
+          <LargeRepositoriesSection hidden={active !== "large-repositories"} />
           <RepositoryPageSection hidden={active !== "repository-page"} />
           <GitHubSection hidden={active !== "github"} />
           <AboutSection hidden={active !== "about"} />

@@ -128,7 +128,7 @@ export function createPopupController(
   function handleFailure(
     reply: Extract<PublicReply, { type: "analysis.failed" }>,
   ): void {
-    let message = errors[reply.code] + limitNote(reply.limit);
+    let message = errors[reply.code] + limitNote(reply.limit, reply.limitBytes);
     dispatch({ type: "connect", label: connectLabels[reply.code] });
     if (reply.code !== "rate_limited") {
       retryUntil = 0;

@@ -7,7 +7,12 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { openArchive, type Resolution } from "../github/client";
-import { ARCHIVE_TIMEOUTS } from "./limits";
+import {
+  ARCHIVE_TIMEOUTS,
+  DOWNLOAD_LIMITS,
+  jobLimits,
+  type JobLimits,
+} from "./limits";
 import { abortError, waitFor } from "./timeout";
 import {
   ARCHIVE_LIMITS,
@@ -20,6 +25,7 @@ type HostResponse = {
   state: string;
   code?: string;
   limit?: string;
+  limitBytes?: number;
   result?: unknown;
   metrics?: ArchiveMetrics;
   wasmLinearMemoryBytes?: number;
@@ -152,6 +158,7 @@ function requireState(value: HostResponse, state: string): void {
   throw new ArchiveError(
     code,
     limit as keyof typeof ARCHIVE_LIMITS | undefined,
+    Number.isSafeInteger(value?.limitBytes) ? value.limitBytes : undefined,
   );
 }
 
@@ -165,6 +172,8 @@ export async function analyzeArchive(
     processedBytes?: number,
   ) => void,
   ignore: IgnoreSettings = defaultIgnore,
+  limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
+  onLimitsRaised?: (listener: () => void) => void,
 ): Promise<{
   result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
@@ -178,6 +187,7 @@ export async function analyzeArchive(
         resolution,
         token,
         AbortSignal.any([signal, download.signal]),
+        limits.compressed,
       ),
       signal,
       ARCHIVE_TIMEOUTS.networkIdle,
@@ -190,6 +200,8 @@ export async function analyzeArchive(
       0,
       onProgress,
       ignore,
+      limits,
+      onLimitsRaised,
     );
   } finally {
     download.abort();
@@ -207,6 +219,8 @@ export async function analyzeArchiveStream(
     processedBytes?: number,
   ) => void,
   ignore: IgnoreSettings = defaultIgnore,
+  limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
+  onLimitsRaised?: (listener: () => void) => void,
 ): Promise<{
   result: AnalysisResultV2;
   transport: ArchiveMetrics & { compressedBytes: number };
@@ -223,6 +237,15 @@ export async function analyzeArchiveStream(
     void reader.cancel().catch(() => undefined);
   };
   signal.addEventListener("abort", onAbort, { once: true });
+  let sentDecompressed = limits.decompressed;
+  const syncLimits = () => {
+    if (!started || limits.decompressed <= sentDecompressed) return;
+    sentDecompressed = limits.decompressed;
+    void command("archive.limits", jobId, {
+      limits: { decompressed: sentDecompressed },
+    }).catch(() => undefined);
+  };
+  onLimitsRaised?.(syncLimits);
   const lease = setInterval(() => {
     if (started) void command("archive.renew", jobId).catch(() => undefined);
   }, ARCHIVE_TIMEOUTS.renew);
@@ -239,10 +262,12 @@ export async function analyzeArchiveStream(
           exclusions: ignore.exclusions,
         },
         blockMs,
+        limits: { decompressed: sentDecompressed },
       }),
       "started",
     );
     started = true;
+    syncLimits();
     const client = await offscreenClient();
     onProgress?.("downloading", 0);
     for (;;) {
@@ -254,8 +279,12 @@ export async function analyzeArchiveStream(
       );
       if (done) break;
       compressedBytes += value.byteLength;
-      if (compressedBytes > ARCHIVE_LIMITS.compressed)
-        throw new ArchiveError("compressed_limit_exceeded", "compressed");
+      if (compressedBytes > limits.compressed)
+        throw new ArchiveError(
+          "compressed_limit_exceeded",
+          "compressed",
+          limits.compressed,
+        );
       onProgress?.("downloading", compressedBytes);
       for (
         let offset = 0;

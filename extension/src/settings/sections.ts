@@ -3,6 +3,7 @@ export const sections = [
   { id: "repository-page", label: "Repository page", group: "Display" },
   { id: "counting", label: "When to count", group: "Counting" },
   { id: "ignore", label: "Ignored files", group: "Counting" },
+  { id: "large-repositories", label: "Large repositories", group: "Counting" },
   { id: "github", label: "GitHub", group: "Account & data" },
   { id: "storage", label: "Saved results", group: "Account & data" },
   { id: "about", label: "About" },

@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  fixedLimits,
+  sizeLabel,
+} from "../../extension/src/settings/large-repositories";
+import {
   initialSection,
+  sectionGroups,
   parseSection,
   readSection,
   rememberSection,
@@ -46,4 +51,33 @@ test("remembers the section and tolerates unavailable storage", () => {
   };
   expect(readSection(broken)).toBeNull();
   expect(() => rememberSection("storage", broken)).not.toThrow();
+});
+
+test("groups Large repositories under Counting after Ignored files", () => {
+  expect(
+    sectionGroups
+      .find((group) => group.name === "Counting")
+      ?.sections.map((section) => section.id),
+  ).toEqual(["counting", "ignore", "large-repositories"]);
+  expect(parseSection("#large-repositories")).toBe("large-repositories");
+});
+
+test("describes download sizes and the fixed limits from the constants", () => {
+  expect([256, 512, 1024, 2048, 4096].map(sizeLabel)).toEqual([
+    "256 MiB",
+    "512 MiB",
+    "1 GiB",
+    "2 GiB",
+    "4 GiB",
+  ]);
+  expect(fixedLimits).toEqual([
+    { label: "Unpacked size", value: "8 times the download limit" },
+    { label: "Archive entries", value: "2,000,000" },
+    { label: "Files", value: "1,000,000" },
+    {
+      label: "Source files over 8 MiB",
+      value: "Skipped, and the total is marked partial",
+    },
+    { label: "Time per count", value: "60 minutes" },
+  ]);
 });

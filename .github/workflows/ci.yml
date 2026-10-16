@@ -85,3 +85,6 @@ jobs:
         env:
           CHROME_BIN: ""
         run: bun run verify
+
+      - name: Validate extension package
+        run: bun scripts/package.ts

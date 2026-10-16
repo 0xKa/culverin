@@ -19,6 +19,7 @@ export const RESOLUTION_BYTES = 512 * 1024;
 export const RESOLUTION_TTL = 60_000;
 export const PUBLIC_RESOLUTION_TTL = 20 * 60_000;
 export const RESOLUTION_KEY = "github.resolutions";
+export const ACCESS_REFRESH = 60 * 60_000;
 
 type Entry = {
   identity: string;
@@ -183,6 +184,16 @@ export function cachedResultSummaries(
     .sort((a, b) => b.lastAccess - a.lastAccess);
 }
 
+function sameResolution(a: ResolutionEnvelope, b: ResolutionEnvelope): boolean {
+  const label = (value: ResolutionEnvelope) =>
+    JSON.stringify(
+      Object.entries(value)
+        .filter(([key]) => key !== "resolvedAt")
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+  return label(a) === label(b);
+}
+
 function lru(a: Entry, b: Entry): number {
   return (
     a.lastAccess - b.lastAccess ||
@@ -300,8 +311,14 @@ export class ResultCache {
         await this.persist(snapshot);
         return undefined;
       }
+      const now = this.now();
+      if (
+        sameResolution(entry.resolution, resolution) &&
+        now - entry.lastAccess < ACCESS_REFRESH
+      )
+        return entry.result;
       entry.resolution = resolution;
-      entry.lastAccess = this.now();
+      entry.lastAccess = now;
       entry.bytes = bytes({ ...entry, bytes: 0 });
       await this.persist(snapshot);
       return entry.result;

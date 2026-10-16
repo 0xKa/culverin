@@ -1,6 +1,7 @@
 import { result } from "./support/result";
 import { describe, expect, test } from "bun:test";
 import {
+  ACCESS_REFRESH,
   cachedResultSummaries,
   PUBLIC_CACHE_KEY,
   PUBLIC_CACHE_BYTES,
@@ -273,6 +274,48 @@ describe("public result cache", () => {
     expect(listed[0]!.bytes).toBeGreaterThan(0);
     expect(cachedResultSummaries(undefined)).toEqual([]);
     expect(cachedResultSummaries({ version: 2, entries: [] })).toEqual([]);
+  });
+
+  test("writes cache hits only for label changes or stale access times", async () => {
+    let now = 1_000;
+    const storage = new MemoryStorage();
+    let writes = 0;
+    const set = storage.set.bind(storage);
+    storage.set = async (items) => {
+      writes++;
+      await set(items);
+    };
+    const cache = new PublicResultCache(storage, () => now);
+    const hash = await effectiveRulesHash(defaultIgnore);
+    const stored = () =>
+      cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])[0]!;
+    await cache.put(resolution(), await result());
+    writes = 0;
+    for (let index = 0; index < 10; index++) {
+      now += 1_000;
+      expect(
+        await cache.get({ ...resolution(), resolvedAt: now }, hash),
+      ).toBeDefined();
+    }
+    expect(writes).toBe(0);
+    expect(stored().lastAccess).toBe(1_000);
+    now += 1_000;
+    expect(await cache.get(resolution("42", "renamed"), hash)).toBeDefined();
+    expect(writes).toBe(1);
+    expect(stored()).toMatchObject({ name: "renamed", lastAccess: now });
+    const renamed = now;
+    now += ACCESS_REFRESH - 1;
+    await cache.get(resolution("42", "renamed"), hash);
+    expect(writes).toBe(1);
+    now += 1;
+    await cache.get(resolution("42", "renamed"), hash);
+    expect(writes).toBe(2);
+    expect(stored().lastAccess).toBe(renamed + ACCESS_REFRESH);
+    const reopened = new PublicResultCache(storage, () => now);
+    expect(await reopened.get(resolution("42", "renamed"), hash)).toBeDefined();
+    await reopened.delete(stored().identity);
+    expect(writes).toBe(3);
+    expect(cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])).toEqual([]);
   });
 
   test("finds cached results by repository name under the same rules", async () => {

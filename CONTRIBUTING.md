@@ -70,6 +70,7 @@ Import popup and settings interface icons from `lucide-preact` rather than addin
 
 - [Architecture](docs/architecture.md)
 - [Result semantics](docs/result-semantics.md)
+- [Limits](docs/limits.md)
 - [Browser tests](docs/browser-tests.md)
 - [Archive performance](docs/archive-performance.md)
 - [Privacy](docs/privacy.md)

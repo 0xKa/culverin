@@ -37,7 +37,7 @@ A source file over 8 MiB is not counted. The count continues, the result is mark
 
 - A count stops when it stalls, not after a fixed time: the download fails if GitHub sends nothing for 30 seconds, and the archive worker is stopped after 60 seconds without download or counting activity.
 - No count runs for more than 60 minutes from when its job starts.
-- A queued count may wait 60 minutes for its turn before failing as busy.
+- A queued count may wait 60 minutes for its turn before failing as busy. The popup shows Waiting for another count while a count is queued, and a live timer once it runs.
 - One count runs at a time. Up to eight more can wait in the queue, and at most 32 popups and pages can follow counts at once.
 - Counts started by a click or from the popup run before queued counts that started when a repository page opened. When the queue is full, a click cancels the oldest queued automatic count, whose page row returns to Analyze with Culverin, instead of failing as busy.
 

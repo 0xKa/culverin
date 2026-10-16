@@ -21,6 +21,7 @@ afterEach(() => {
 function popup(
   query = async () => [{ id: 1, url: "https://github.com/culverin/sample" }],
   holdLookup = false,
+  status: Record<string, unknown> = { state: "idle" },
 ) {
   let connects = 0;
   const events: PopupEvent[] = [];
@@ -64,7 +65,7 @@ function popup(
                   requestId: request.requestId,
                   navigationId: request.navigationId,
                   type: "analysis.status",
-                  state: "idle",
+                  ...status,
                 }),
               );
           },
@@ -420,4 +421,113 @@ test("badges summarize outcomes and only waiting failures keep a visible note", 
   jest.advanceTimersByTime(121_000);
   expect(lastStatus(ui.events)).toMatchObject({ label: "Rate limited" });
   expect(lastStatus(ui.events)?.note).toBeUndefined();
+});
+
+test("times a running count and says how long it took or ran before stopping", async () => {
+  jest.useFakeTimers();
+  const ui = popup();
+  await settle();
+  const view = () => ui.events.reduce(reduce, initialView);
+  const last = () => ui.requests.at(-1)!;
+
+  const counted = ui.controller.analyze();
+  const request = last();
+  ui.reply(request, { type: "analysis.progress", phase: "queued" });
+  expect(view().timer).toEqual({ queued: true });
+  expect(view().status.detail).toBe("Waiting for another count");
+  const startedAt = Date.now() - 5_000;
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "downloading",
+    startedAt,
+  });
+  expect(view().timer).toEqual({ startedAt });
+  ui.reply(request, { ...(await completedResult()), durationMs: 124_000 });
+  await counted;
+  expect(view().timer).toBeUndefined();
+  expect(view().duration).toBe("Counted in 2m 04s");
+
+  const saved = ui.controller.analyze(true);
+  expect(view().duration).toBeUndefined();
+  ui.reply(last(), {
+    ...(await completedResult()),
+    fromCache: true,
+    durationMs: 42_000,
+  });
+  await saved;
+  expect(view().duration).toBe("Took 42s when counted");
+
+  const old = ui.controller.analyze(true);
+  ui.reply(last(), { ...(await completedResult()), fromCache: true });
+  await old;
+  expect(view().duration).toBeUndefined();
+
+  const failed = ui.controller.analyze(true);
+  const failing = last();
+  ui.reply(failing, {
+    type: "analysis.progress",
+    phase: "counting",
+    startedAt: Date.now() - 190_000,
+  });
+  ui.reply(failing, { type: "analysis.failed", code: "analysis_timeout" });
+  await failed;
+  expect(view().duration).toBe("Stopped after 3m 10s");
+
+  const early = ui.controller.analyze(true);
+  ui.reply(last(), { type: "analysis.failed", code: "network_unavailable" });
+  await early;
+  expect(view().duration).toBeUndefined();
+
+  void ui.controller.analyze(true);
+  ui.reply(last(), {
+    type: "analysis.progress",
+    phase: "downloading",
+    startedAt: Date.now() - 61_000,
+  });
+  await ui.controller.cancel();
+  expect(view().duration).toBe("Stopped after 1m 01s");
+  expect(view().timer).toBeUndefined();
+});
+
+test("a reopened popup times a running count from when it started", async () => {
+  const startedAt = Date.now() - 102_000;
+  const ui = popup(undefined, true, { state: "running", startedAt });
+  await settle();
+  ui.reply(
+    ui.requests.find((item) => item.type === "repository.lookup")!,
+    {
+      type: "repository.not_cached",
+    },
+  );
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (ui.events.some((item) => item.type === "timer")) break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const view = ui.events.reduce(reduce, initialView);
+  expect(view.cancelVisible).toBe(true);
+  expect(view.timer).toEqual({ startedAt });
+});
+
+test("a saved result shows how long its count took when known", async () => {
+  jest.useFakeTimers();
+  for (const [durationMs, text] of [
+    [3_000, "Took 3s when counted"],
+    [undefined, undefined],
+  ] as const) {
+    const ui = popup(undefined, true);
+    await settle();
+    const lookup = ui.requests.find(
+      (item) => item.type === "repository.lookup",
+    )!;
+    const { result, resolution } = await completedResult();
+    ui.reply(lookup, {
+      type: "repository.cache_hit",
+      result,
+      resolution,
+      ...(durationMs === undefined ? {} : { durationMs }),
+    });
+    await settle();
+    expect(ui.events.reduce(reduce, initialView).duration).toBe(text);
+    ui.controller.dispose();
+  }
 });

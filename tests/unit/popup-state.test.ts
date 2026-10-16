@@ -113,3 +113,17 @@ test("shows and hides the GitHub settings action", () => {
   expect(reduce(shown, { type: "connect" }).connect).toBeUndefined();
   expect(reduce(shown, { type: "left" }).connect).toBeUndefined();
 });
+
+test("shows a timer only while busy and keeps the last duration", () => {
+  let view = reduce(initialView, { type: "busy", busy: true, disabled: true });
+  view = reduce(view, { type: "timer", value: { queued: true } });
+  expect(view.timer).toEqual({ queued: true });
+  view = reduce(view, { type: "timer", value: { startedAt: 1_000 } });
+  expect(view.timer).toEqual({ startedAt: 1_000 });
+  view = reduce(view, { type: "duration", value: "Counted in 42s" });
+  view = reduce(view, { type: "busy", busy: false, disabled: false });
+  expect(view.timer).toBeUndefined();
+  expect(view.duration).toBe("Counted in 42s");
+  view = reduce(view, { type: "left" });
+  expect(view.duration).toBeUndefined();
+});

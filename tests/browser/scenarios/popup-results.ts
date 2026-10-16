@@ -197,6 +197,18 @@ export async function runPopupResults(
 
   assert.equal(await resumedPopup.locator("#analyze").isVisible(), false);
 
+  const timer = resumedPopup.locator("#analysis-loader #analysis-timer");
+
+  await timer.waitFor();
+
+  assert.equal(await timer.getAttribute("aria-hidden"), "true");
+
+  await resumedPopup.waitForFunction(() =>
+    /^0:0[1-9]$|^[1-9]/.test(
+      document.querySelector("#analysis-timer")?.textContent ?? "",
+    ),
+  );
+
   await worker.evaluate(() =>
     (
       globalThis as typeof globalThis & { fixtureRelease?: () => void }
@@ -210,6 +222,16 @@ export async function runPopupResults(
   await resumedPopup.getByText("1 code lines", { exact: true }).waitFor();
 
   assert.equal(await resumedPopup.locator("#analysis-loader").count(), 0);
+
+  assert.match(
+    (await resumedPopup.locator("#status-duration").textContent()) ?? "",
+    /^Counted in \d+s$/,
+  );
+
+  assert.match(
+    (await resumedPopup.locator("#status").textContent()) ?? "",
+    /^Analyzed locally\. Counted in \d+s$/,
+  );
 
   await resumedPopup
     .getByText("Counted all 14 files.", { exact: true })
@@ -327,9 +349,9 @@ export async function runPopupResults(
     true,
   );
 
-  assert.equal(
-    await resumedPopup.locator("#status").textContent(),
-    "Analyzed locally.",
+  assert.match(
+    (await resumedPopup.locator("#status").textContent()) ?? "",
+    /^Analyzed locally\. Counted in \d+s$/,
   );
 
   const badge = resumedPopup.getByRole("img", { name: "Fresh" });
@@ -697,9 +719,9 @@ export async function runPopupResults(
 
   await restartPopup.locator("#cancel").waitFor({ state: "hidden" });
 
-  assert.equal(
-    await restartPopup.locator("#status").textContent(),
-    "Analyzed locally.",
+  assert.match(
+    (await restartPopup.locator("#status").textContent()) ?? "",
+    /^Analyzed locally\. Counted in \d+s$/,
   );
 
   assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);

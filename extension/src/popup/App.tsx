@@ -16,6 +16,7 @@ import { Status } from "../ui/Status";
 import { StatusBadge } from "../ui/StatusBadge";
 import { UsageMeter } from "../ui/UsageMeter";
 import { createPopupController, openSettings } from "./controller";
+import { ElapsedTimer } from "./ElapsedTimer";
 import { Details, OversizedFiles, Sizes, Totals } from "./ResultParts";
 import { initialView, reduce, type PopupView } from "./state";
 
@@ -110,8 +111,17 @@ export function App() {
             className="mt-px"
           />
         </div>
+        {view.duration && !view.pending && (
+          <p
+            id="status-duration"
+            className="text-muted tabular m-0 mt-1 text-right text-xs"
+          >
+            {view.duration}
+          </p>
+        )}
         <Status id="status" className="sr-only">
-          {!view.pending && view.status.detail}
+          {!view.pending && <span>{view.status.detail}</span>}
+          {!view.pending && view.duration && <span> {view.duration}</span>}
         </Status>
         <section id="analysis" hidden={view.pending || !view.analysisVisible}>
           {result && <Totals key={result.commit} result={result} />}
@@ -142,6 +152,18 @@ export function App() {
               className="rise-in text-accent-text mt-3 flex flex-col items-center gap-2 pt-2"
             >
               <DotLoader />
+              {view.timer &&
+                ("queued" in view.timer ? (
+                  <span
+                    id="analysis-timer"
+                    aria-hidden="true"
+                    className="text-muted text-xs"
+                  >
+                    Waiting for another count
+                  </span>
+                ) : (
+                  <ElapsedTimer startedAt={view.timer.startedAt} />
+                ))}
               <Button
                 id="cancel"
                 type="button"

@@ -123,12 +123,14 @@ export type PublicReply = {
       type: "repository.cache_hit";
       resolution: ResolutionEnvelope;
       result: AnalysisResultV2;
+      durationMs?: number;
     }
   | {
       type: "analysis.completed";
       resolution: ResolutionEnvelope;
       result: AnalysisResultV2;
       fromCache: boolean;
+      durationMs?: number;
     }
   | {
       type: "analysis.failed";
@@ -141,6 +143,7 @@ export type PublicReply = {
   | {
       type: "analysis.status";
       state: "idle" | "queued" | "running" | "interrupted";
+      startedAt?: number;
     }
   | { type: "popup.opened"; opened: boolean }
   | { type: "settings.opened"; opened: boolean }
@@ -155,6 +158,7 @@ export type PublicReply = {
       phase:
         "queued" | "resolving" | "downloading" | "decompressing" | "counting";
       processedBytes?: number;
+      startedAt?: number;
     }
 );
 
@@ -371,6 +375,15 @@ const codes: PublicErrorCode[] = [
   "internal_error",
 ];
 
+const validStartedAt = (value: unknown): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) > 0 &&
+  (value as number) <= Date.now() + 60_000;
+const validDurationMs = (value: unknown): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) >= 0 &&
+  (value as number) <= 24 * 60 * 60 * 1000;
+
 const validLimitBytes = (value: unknown): value is number =>
   Number.isSafeInteger(value) &&
   (value as number) > 0 &&
@@ -449,9 +462,11 @@ export function validPublicReply(
         "resolution",
         "result",
         ...(value.type === "analysis.completed" ? ["fromCache"] : []),
+        ...(value.durationMs === undefined ? [] : ["durationMs"]),
       ]) &&
       (value.type !== "analysis.completed" ||
         typeof value.fromCache === "boolean") &&
+      (value.durationMs === undefined || validDurationMs(value.durationMs)) &&
       validEnvelope(value.resolution) &&
       validateResult(value.result) &&
       value.result.repository.id === value.resolution.repositoryId &&
@@ -474,10 +489,16 @@ export function validPublicReply(
     );
   if (value.type === "analysis.status")
     return (
-      exact(value, [...base, "state"]) &&
+      exact(value, [
+        ...base,
+        "state",
+        ...(value.startedAt === undefined ? [] : ["startedAt"]),
+      ]) &&
       ["idle", "queued", "running", "interrupted"].includes(
         value.state as string,
-      )
+      ) &&
+      (value.startedAt === undefined ||
+        (value.state === "running" && validStartedAt(value.startedAt)))
     );
   if (value.type === "display")
     return (
@@ -496,7 +517,10 @@ export function validPublicReply(
         ...base,
         "phase",
         ...(value.processedBytes === undefined ? [] : ["processedBytes"]),
+        ...(value.startedAt === undefined ? [] : ["startedAt"]),
       ]) &&
+      (value.startedAt === undefined ||
+        (value.phase !== "queued" && validStartedAt(value.startedAt))) &&
       [
         "queued",
         "resolving",

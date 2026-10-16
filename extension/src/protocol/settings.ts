@@ -228,7 +228,9 @@ export function validSettingsReply(
           "result",
           "transport",
           "wasmLinearMemoryBytes",
+          ...(value.durationMs === undefined ? [] : ["durationMs"]),
         ]) ||
+        (value.durationMs !== undefined && !nonnegative(value.durationMs)) ||
         !validEnvelope(value.resolution) ||
         !record(value.transport) ||
         !exact(

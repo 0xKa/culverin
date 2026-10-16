@@ -14,6 +14,8 @@ export type PopupView = {
   reanalyze: boolean;
   connect?: string;
   apiLimit?: ApiLimitView;
+  timer?: { queued: true } | { startedAt: number };
+  duration?: string;
 };
 
 export const initialView: PopupView = {
@@ -38,7 +40,9 @@ export type PopupEvent =
   | { type: "repository"; value: string }
   | { type: "details"; open: boolean }
   | { type: "apiLimit"; value?: ApiLimitView }
-  | { type: "connect"; label?: string };
+  | { type: "connect"; label?: string }
+  | { type: "timer"; value?: { queued: true } | { startedAt: number } }
+  | { type: "duration"; value?: string };
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
   switch (event.type) {
@@ -53,6 +57,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         ...view,
         analyzeDisabled: event.disabled,
         cancelVisible: event.busy,
+        ...(event.busy ? {} : { timer: undefined }),
       };
     case "lookup":
       return { ...view, analyzeDisabled: true };
@@ -89,5 +94,11 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
       return view.connect === event.label
         ? view
         : { ...view, connect: event.label };
+    case "timer":
+      return { ...view, timer: event.value };
+    case "duration":
+      return view.duration === event.value
+        ? view
+        : { ...view, duration: event.value };
   }
 }

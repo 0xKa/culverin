@@ -804,7 +804,7 @@ function disconnect(api: ReturnType<typeof fixture>) {
 }
 function disconnectDuring(
   api: ReturnType<typeof fixture>,
-  method: "get" | "put",
+  method: "getWithDuration" | "put",
   order: "before" | "after",
 ) {
   const results = api.resources.privateResults;
@@ -835,7 +835,7 @@ test("a private result read before Disconnect is not delivered after it", async 
     type: "analysis.completed",
     fromCache: false,
   });
-  disconnectDuring(api, "get", "after");
+  disconnectDuring(api, "getWithDuration", "after");
   expect(await api.run("analysis.request", false)).toEqual({
     type: "analysis.failed",
     code: "analysis_interrupted",
@@ -848,7 +848,7 @@ test("a private result read before Disconnect is not delivered after it", async 
 test("a private analysis pending during Disconnect does not start with the old credential", async () => {
   const api = fixture();
   await connectPrivate(api);
-  disconnectDuring(api, "get", "after");
+  disconnectDuring(api, "getWithDuration", "after");
   expect(await api.run("analysis.request", false)).toEqual({
     type: "analysis.failed",
     code: "analysis_interrupted",

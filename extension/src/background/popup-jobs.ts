@@ -63,18 +63,20 @@ export function createPopupJobs(
       phase:
         "resolving" | "queued" | "downloading" | "decompressing" | "counting",
       processedBytes?: number,
+      startedAt?: number,
     ) => void;
     settle: (payload: PublicPayload) => void;
   } {
     const entry: PageJob = { ...job };
     pageJobs.set(tabId, entry);
     return {
-      progress: (phase, processedBytes) => {
+      progress: (phase, processedBytes, startedAt) => {
         if (pageJobs.get(tabId) !== entry || !entry.viewer) return;
         postToPopup(entry.viewer.port, entry.viewer.request, {
           type: "analysis.progress",
           phase,
           ...(processedBytes === undefined ? {} : { processedBytes }),
+          ...(startedAt === undefined ? {} : { startedAt }),
         });
       },
       settle: (payload) => {
@@ -176,6 +178,17 @@ export function createPopupJobs(
     coordinator.detach(job.owner, job.requestId);
   }
 
+  function runningStatus(owner: string): PublicPayload {
+    if (coordinator.status(owner) === "queued")
+      return { type: "analysis.status", state: "queued" };
+    const startedAt = coordinator.startedAt(owner);
+    return {
+      type: "analysis.status",
+      state: "running",
+      ...(startedAt === undefined ? {} : { startedAt }),
+    };
+  }
+
   function handlePopupMessage(port: chrome.runtime.Port, value: unknown): void {
     if (!validPopupPublicRequest(value)) return;
     const { tabId, reanalyze, ...publicRequest } = value;
@@ -244,13 +257,7 @@ export function createPopupJobs(
           pageJobAlive(pageJob)
         ) {
           pageJob.viewer = { port, request: publicRequest };
-          reply({
-            type: "analysis.status",
-            state:
-              coordinator.status(pageJob.owner) === "queued"
-                ? "queued"
-                : "running",
-          });
+          reply(runningStatus(pageJob.owner));
           return;
         }
         if (!running || !sameRepository(repository, running.repository)) {
@@ -258,13 +265,7 @@ export function createPopupJobs(
           return;
         }
         running.viewer = { port, request: publicRequest };
-        reply({
-          type: "analysis.status",
-          state:
-            coordinator.status(running.owner) === "queued"
-              ? "queued"
-              : "running",
-        });
+        reply(runningStatus(running.owner));
         return;
       }
       const owner = popupOwner(tabId, publicRequest.navigationId);
@@ -308,7 +309,7 @@ export function createPopupJobs(
         force: reanalyze === true,
         isAlive: () => popupJobs.get(tabId) === next,
         reply: (_current, payload) => settlePopupJob(tabId, next, payload),
-        progress: (_current, phase, processedBytes) => {
+        progress: (_current, phase, processedBytes, startedAt) => {
           if (popupJobs.get(tabId) !== next) return;
           sendProgress(tabId, next, phase);
           const viewer = next.viewer;
@@ -317,6 +318,7 @@ export function createPopupJobs(
             type: "analysis.progress",
             phase,
             ...(processedBytes === undefined ? {} : { processedBytes }),
+            ...(startedAt === undefined ? {} : { startedAt }),
           });
         },
       });

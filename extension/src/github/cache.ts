@@ -28,6 +28,7 @@ type Entry = {
   storedAt: number;
   lastAccess: number;
   bytes: number;
+  durationMs?: number;
 };
 
 type Snapshot = { version: 1; entries: Entry[] };
@@ -71,6 +72,10 @@ const exact = (value: Record<string, unknown>, keys: string[]) =>
   Object.keys(value).sort().join("|") === keys.sort().join("|");
 const validTime = (value: unknown): value is number =>
   Number.isSafeInteger(value) && (value as number) > 0;
+export const validDuration = (value: unknown): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) >= 0 &&
+  (value as number) <= 24 * 60 * 60 * 1000;
 
 export function resultIdentity(result: AnalysisResultV2): string {
   return JSON.stringify([
@@ -115,7 +120,9 @@ function validEntry(value: unknown, visibility: Visibility): value is Entry {
       "storedAt",
       "lastAccess",
       "bytes",
+      ...(value.durationMs === undefined ? [] : ["durationMs"]),
     ]) ||
+    (value.durationMs !== undefined && !validDuration(value.durationMs)) ||
     typeof value.identity !== "string" ||
     !validTime(value.storedAt) ||
     !validTime(value.lastAccess) ||
@@ -295,6 +302,19 @@ export class ResultCache {
     resolution: ResolutionEnvelope,
     rulesHash: string,
   ): Promise<AnalysisResultV2 | undefined> {
+    return (await this.getWithDuration(resolution, rulesHash))?.result;
+  }
+
+  async getWithDuration(
+    resolution: ResolutionEnvelope,
+    rulesHash: string,
+  ): Promise<{ result: AnalysisResultV2; durationMs?: number } | undefined> {
+    const counted = (entry: Entry) => ({
+      result: entry.result,
+      ...(entry.durationMs === undefined
+        ? {}
+        : { durationMs: entry.durationMs }),
+    });
     return this.serial(async () => {
       if (
         resolution.visibility !== this.options.visibility ||
@@ -316,18 +336,19 @@ export class ResultCache {
         sameResolution(entry.resolution, resolution) &&
         now - entry.lastAccess < ACCESS_REFRESH
       )
-        return entry.result;
+        return counted(entry);
       entry.resolution = resolution;
       entry.lastAccess = now;
       entry.bytes = bytes({ ...entry, bytes: 0 });
       await this.persist(snapshot);
-      return entry.result;
+      return counted(entry);
     });
   }
 
   async put(
     resolution: ResolutionEnvelope,
     result: AnalysisResultV2,
+    durationMs?: number,
   ): Promise<void> {
     return this.serial(async () => {
       if (
@@ -351,6 +372,7 @@ export class ResultCache {
         storedAt: this.now(),
         lastAccess: this.now(),
         bytes: 0,
+        ...(validDuration(durationMs) ? { durationMs } : {}),
       };
       entry.bytes = bytes(entry);
       snapshot.entries.push(entry);

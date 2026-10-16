@@ -33,6 +33,7 @@ import {
 import { defaultNumberFormats, formatClockTime } from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
 import { subscribeNumberFormats } from "../appearance/numbers";
+import { durationText } from "./duration";
 
 const errors: Record<PublicErrorCode, string> = {
   ...failureMessages,
@@ -86,6 +87,7 @@ export function createPopupController(
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let retryUntil = 0;
   let shownStatus: PopupStatus | undefined;
+  let runningSince: number | undefined;
 
   function setStatus(value: PopupStatus): void {
     shownStatus = value;
@@ -94,6 +96,26 @@ export function createPopupController(
 
   function fail(code: PublicErrorCode): void {
     setStatus(failureStatus(code, errors[code]));
+  }
+
+  function running(startedAt: number | undefined, queued = false): void {
+    if (queued) {
+      runningSince = undefined;
+      dispatch({ type: "timer", value: { queued: true } });
+    } else if (startedAt !== undefined && startedAt !== runningSince) {
+      runningSince = startedAt;
+      dispatch({ type: "timer", value: { startedAt } });
+    }
+  }
+
+  function showStopped(): void {
+    dispatch({
+      type: "duration",
+      value:
+        runningSince === undefined
+          ? undefined
+          : durationText.stopped(Date.now() - runningSince),
+    });
   }
 
   function setBusy(busy: boolean): void {
@@ -184,13 +206,14 @@ export function createPopupController(
     }
     const requestId = activeRequestId;
     if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
-    if (value.type === "analysis.progress")
+    if (value.type === "analysis.progress") {
+      running(value.startedAt, value.phase === "queued");
       setStatus(
         value.phase === "resolving" && reanalyzedSha
           ? statuses.checkingUpdates
           : progressStatuses[value.phase],
       );
-    else void finishAnalysis(requestId, value);
+    } else void finishAnalysis(requestId, value);
   }
 
   function connect(): chrome.runtime.Port {
@@ -206,6 +229,7 @@ export function createPopupController(
       waiting.clear();
       const requestId = activeRequestId;
       if (requestId) {
+        showStopped();
         fail("analysis_interrupted");
         stopWatching(requestId);
       }
@@ -280,6 +304,13 @@ export function createPopupController(
           setStatus(statuses.rulesChanged);
         } else {
           showResult(reply.result, reply.resolution);
+          dispatch({
+            type: "duration",
+            value:
+              reply.durationMs === undefined
+                ? undefined
+                : durationText.saved(reply.durationMs),
+          });
           setStatus(statuses.cached);
         }
         return true;
@@ -305,6 +336,7 @@ export function createPopupController(
   function stopWatching(requestId: string): void {
     if (activeRequestId !== requestId) return;
     activeRequestId = undefined;
+    runningSince = undefined;
     setBusy(false);
   }
 
@@ -320,6 +352,15 @@ export function createPopupController(
         setStatus(statuses.rulesChanged);
       } else {
         showResult(reply.result, reply.resolution);
+        dispatch({
+          type: "duration",
+          value:
+            reply.durationMs === undefined
+              ? undefined
+              : reply.fromCache
+                ? durationText.saved(reply.durationMs)
+                : durationText.counted(reply.durationMs),
+        });
         setStatus(
           reply.fromCache && reply.resolution.sha === reanalyzedSha
             ? statuses.upToDate
@@ -330,8 +371,11 @@ export function createPopupController(
                 : statuses.partial,
         );
       }
-    } else if (reply.type === "analysis.failed") handleFailure(reply);
-    else fail("internal_error");
+    } else {
+      showStopped();
+      if (reply.type === "analysis.failed") handleFailure(reply);
+      else fail("internal_error");
+    }
     stopWatching(requestId);
   }
 
@@ -344,6 +388,9 @@ export function createPopupController(
     reanalyzedSha = reanalyze ? shownSha : undefined;
     if (!pending) return;
     watchAnalysis(pending.requestId);
+    runningSince = undefined;
+    dispatch({ type: "timer" });
+    dispatch({ type: "duration" });
     setBusy(true);
     if (!reanalyze) clearResult();
     dispatch({ type: "connect" });
@@ -351,7 +398,10 @@ export function createPopupController(
     try {
       await finishAnalysis(pending.requestId, await pending.response);
     } catch {
-      if (activeRequestId === pending.requestId) fail("analysis_interrupted");
+      if (activeRequestId === pending.requestId) {
+        showStopped();
+        fail("analysis_interrupted");
+      }
       stopWatching(pending.requestId);
     }
   }
@@ -369,6 +419,7 @@ export function createPopupController(
     ) {
       watchAnalysis(pending.requestId);
       setBusy(true);
+      running(reply.startedAt, reply.state === "queued");
       reanalyzedSha = shownSha;
       setStatus(
         reply.state === "queued" ? progressStatuses.queued : statuses.running,
@@ -382,6 +433,8 @@ export function createPopupController(
     const requestId = activeRequestId;
     if (!requestId) return;
     activeRequestId = undefined;
+    showStopped();
+    runningSince = undefined;
     setBusy(false);
     fail("analysis_canceled");
     const pending = send("analysis.cancel", { targetRequestId: requestId });

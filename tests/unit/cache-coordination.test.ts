@@ -1094,3 +1094,85 @@ test("confirmed private visibility stops active public subscribers", async () =>
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(events).toEqual(["failed"]);
 });
+
+test("saved results keep how long their count took, and older results still load", async () => {
+  const storage = new MemoryStorage();
+  const hash = await effectiveRulesHash(defaultIgnore);
+  await new PublicResultCache(storage).put(
+    resolution(),
+    await result(),
+    124_000,
+  );
+  expect(
+    await new PublicResultCache(storage).getWithDuration(resolution(), hash),
+  ).toMatchObject({ durationMs: 124_000 });
+  const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
+    entries: Record<string, unknown>[];
+  };
+  const { durationMs, ...older } = snapshot.entries[0]!;
+  expect(durationMs).toBe(124_000);
+  older.bytes = new TextEncoder().encode(
+    JSON.stringify({ ...older, bytes: 0 }),
+  ).byteLength;
+  storage.values[PUBLIC_CACHE_KEY] = { version: 1, entries: [older] };
+  const legacy = await new PublicResultCache(storage).getWithDuration(
+    resolution(),
+    hash,
+  );
+  expect(legacy?.result).toBeDefined();
+  expect(legacy).not.toHaveProperty("durationMs");
+  expect(cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])).toHaveLength(
+    1,
+  );
+  storage.values[PUBLIC_CACHE_KEY] = {
+    version: 1,
+    entries: [{ ...older, durationMs: -1 }],
+  };
+  expect(cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])).toEqual([]);
+  const invalid = new PublicResultCache(new MemoryStorage());
+  await invalid.put(resolution(), await result(), Number.NaN);
+  expect(await invalid.getWithDuration(resolution(), hash)).not.toHaveProperty(
+    "durationMs",
+  );
+});
+
+test("subscribers learn when a job started and how long it took", async () => {
+  let now = 10_000;
+  let finish: (output: AnalysisOutput) => void = () => undefined;
+  let progress: (phase: "downloading") => void = () => undefined;
+  const coordinator = new AnalysisCoordinator(
+    (_job, report) => {
+      progress = report;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+    () => undefined,
+    () => now,
+  );
+  const seen: (number | undefined)[] = [];
+  let completed: AnalysisOutput | undefined;
+  coordinator.subscribe("job", resolution(), undefined, "", {
+    requestId: crypto.randomUUID(),
+    owner: "page",
+    public: true,
+    onProgress: (_phase, _bytes, startedAt) => seen.push(startedAt),
+    onComplete: (output) => {
+      completed = output;
+    },
+    onFailure: () => undefined,
+  });
+  expect(coordinator.startedAt("page")).toBe(10_000);
+  expect(coordinator.startedAt("other")).toBeUndefined();
+  now = 12_000;
+  progress("downloading");
+  expect(seen).toEqual([10_000]);
+  now = 134_000;
+  finish({
+    result: await result(),
+    transport: { compressedBytes: 0, decompressedBytes: 0 },
+    wasmLinearMemoryBytes: 0,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(completed?.durationMs).toBe(124_000);
+});

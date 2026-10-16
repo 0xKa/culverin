@@ -31,6 +31,7 @@ export function createPublicTransport(
     phase:
       "resolving" | "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
+    startedAt?: number,
   ): void {
     const message: PublicReply = {
       protocolVersion: 1,
@@ -39,6 +40,7 @@ export function createPublicTransport(
       navigationId: request.navigationId,
       phase,
       ...(processedBytes === undefined ? {} : { processedBytes }),
+      ...(startedAt === undefined ? {} : { startedAt }),
     };
     void chrome.tabs
       .sendMessage(tabId, message, { documentId })
@@ -139,9 +141,16 @@ export function createPublicTransport(
         tracked?.settle(payload);
         respond(publicReply(current, payload));
       },
-      progress: (current, phase, processedBytes) => {
-        tracked?.progress(phase, processedBytes);
-        publicProgress(tabId, documentId, current, phase, processedBytes);
+      progress: (current, phase, processedBytes, startedAt) => {
+        tracked?.progress(phase, processedBytes, startedAt);
+        publicProgress(
+          tabId,
+          documentId,
+          current,
+          phase,
+          processedBytes,
+          startedAt,
+        );
       },
     });
     return true;

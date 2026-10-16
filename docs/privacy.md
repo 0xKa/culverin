@@ -38,7 +38,7 @@ Aggregate results are kept in the extension's local storage so they can be shown
 - how many files the commit contains, how many were counted, and how many were skipped for each reason, with the total size of all files at that commit and of the files counted;
 - for a partial result, the path within the repository and the size of each file that was too large to count, up to 256 files;
 - the counter and rules versions and a SHA-256 fingerprint of your ignore rules, which keeps results counted under different rules apart;
-- when the result was stored and when it was last shown.
+- when the result was stored, when it was last shown, and, for results counted from this version on, how long the count took.
 
 Failed and canceled analyses are not stored. Session storage holds short-lived job state, GitHub's most recent API rate-limit counts, repository metadata from the last 20 minutes, the list of automatic counts already tried, and, while you are connecting, the pending code or token, all cleared when the browser closes.
 

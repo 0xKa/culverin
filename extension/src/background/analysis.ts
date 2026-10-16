@@ -14,6 +14,7 @@ export type PublicClient = {
     phase:
       "resolving" | "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
+    startedAt?: number,
   ) => void;
 };
 
@@ -74,6 +75,7 @@ export function createPublicAnalysis(
       const granted = resources.takeAutoGrant(owner);
       if (request.type === "analysis.status") {
         const state = coordinator.status(owner);
+        const startedAt = coordinator.startedAt(owner);
         reply({
           type: "analysis.status",
           state:
@@ -82,6 +84,9 @@ export function createPublicAnalysis(
               : (await interrupted(owner))
                 ? "interrupted"
                 : "idle",
+          ...(state === "running" && startedAt !== undefined
+            ? { startedAt }
+            : {}),
         });
         return;
       }
@@ -218,9 +223,14 @@ export function createPublicAnalysis(
         if (resolved.fresh && refs.isCurrent(resolved.epoch))
           results.allowRepository(envelope);
         const rules = await currentRules();
-        const cached = await results
-          .get(envelope, rules.hash)
+        const saved = await results
+          .getWithDuration(envelope, rules.hash)
           .catch(() => undefined);
+        const cached = saved?.result;
+        const savedDuration =
+          saved?.durationMs === undefined
+            ? {}
+            : { durationMs: saved.durationMs };
         if (controller.signal.aborted || !client.isAlive()) return;
         if (await disconnected()) {
           reply({ type: "analysis.failed", code: "analysis_interrupted" });
@@ -244,6 +254,7 @@ export function createPublicAnalysis(
               type: "repository.cache_hit",
               resolution: envelope,
               result: cached,
+              ...savedDuration,
             });
           else
             reply({
@@ -251,6 +262,7 @@ export function createPublicAnalysis(
               resolution: envelope,
               result: cached,
               fromCache: true,
+              ...savedDuration,
             });
           return;
         }
@@ -305,8 +317,8 @@ export function createPublicAnalysis(
             public: true,
             automatic,
             limit: downloadLimit,
-            onProgress: (phase, processedBytes) =>
-              client.progress(request, phase, processedBytes),
+            onProgress: (phase, processedBytes, startedAt) =>
+              client.progress(request, phase, processedBytes, startedAt),
             onComplete: async (output, current) => {
               if (
                 !coordinator.isSubscribed(owner, request.requestId) ||
@@ -330,7 +342,9 @@ export function createPublicAnalysis(
                 return;
               }
               const labelled = withRef(current, envelope.ref);
-              await results.put(labelled, output.result).catch(() => undefined);
+              await results
+                .put(labelled, output.result, output.durationMs)
+                .catch(() => undefined);
               if (await disconnected()) {
                 await results
                   .delete(resultIdentity(output.result))
@@ -347,6 +361,9 @@ export function createPublicAnalysis(
                   resolution: labelled,
                   result: output.result,
                   fromCache: false,
+                  ...(output.durationMs === undefined
+                    ? {}
+                    : { durationMs: output.durationMs }),
                 });
             },
             onFailure: (error, signal) => {

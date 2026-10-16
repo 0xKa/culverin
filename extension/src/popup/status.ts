@@ -96,7 +96,7 @@ export const statuses = {
 };
 
 export const progressStatuses = {
-  queued: status("Queued", "neutral", "idle", "Queued for local analysis…"),
+  queued: status("Queued", "neutral", "idle", "Waiting for another count"),
   resolving: status(
     "Checking",
     "accent",

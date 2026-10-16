@@ -27,6 +27,7 @@ export type AnalysisOutput = {
     decompressedBytes: number;
   };
   wasmLinearMemoryBytes: number;
+  durationMs?: number;
 };
 
 export type Subscriber = {
@@ -38,6 +39,7 @@ export type Subscriber = {
   onProgress: (
     phase: "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
+    startedAt?: number,
   ) => void;
   onComplete: (
     output: AnalysisOutput,
@@ -168,9 +170,13 @@ export class AnalysisCoordinator {
                 job.controller.signal,
               );
           } else {
+            const completed = {
+              ...output,
+              durationMs: Math.max(0, this.now() - (job.startedAt ?? 0)),
+            };
             await Promise.all(
               [...job.subscribers.values()].map((subscriber) =>
-                subscriber.onComplete(output, job.resolution),
+                subscriber.onComplete(completed, job.resolution),
               ),
             );
           }
@@ -285,6 +291,14 @@ export class AnalysisCoordinator {
     for (const item of subscriptions) this.detach(item.owner, item.requestId);
   }
 
+  startedAt(owner: string): number | undefined {
+    return this.jobs.find((item) =>
+      [...item.subscribers.values()].some(
+        (subscriber) => subscriber.owner === owner,
+      ),
+    )?.startedAt;
+  }
+
   status(owner: string): "idle" | "queued" | "running" {
     const job = this.jobs.find((item) =>
       [...item.subscribers.values()].some(
@@ -324,7 +338,7 @@ export class AnalysisCoordinator {
     job.phase = rank;
     job.lastProgress = now;
     for (const subscriber of job.subscribers.values())
-      subscriber.onProgress(phase, processedBytes);
+      subscriber.onProgress(phase, processedBytes, job.startedAt);
   }
 
   subscriptionCount(): number {

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { completedResult } from "./support/result";
 import { pageContext } from "../../extension/src/content/repository";
 import {
   pageRepository,
@@ -801,4 +802,47 @@ test("repository identity comparisons preserve casing without matching renamed o
   ).toBe(false);
   expect(sameRepository(undefined, repository)).toBe(false);
   expect(sameRepository(repository, undefined)).toBe(false);
+});
+
+test("start times and durations are optional and bounded", async () => {
+  const requestId = crypto.randomUUID();
+  const navigationId = crypto.randomUUID();
+  const valid = (value: Record<string, unknown>) =>
+    validPublicReply(
+      { protocolVersion: 1, requestId, navigationId, ...value },
+      requestId,
+      navigationId,
+    );
+  const startedAt = Date.now() - 60_000;
+  expect(
+    valid({ type: "analysis.progress", phase: "counting", startedAt }),
+  ).toBe(true);
+  expect(valid({ type: "analysis.progress", phase: "queued", startedAt })).toBe(
+    false,
+  );
+  expect(
+    valid({
+      type: "analysis.progress",
+      phase: "counting",
+      startedAt: Date.now() + 3_600_000,
+    }),
+  ).toBe(false);
+  expect(valid({ type: "analysis.status", state: "running", startedAt })).toBe(
+    true,
+  );
+  expect(valid({ type: "analysis.status", state: "queued", startedAt })).toBe(
+    false,
+  );
+  const completed = await completedResult();
+  expect(valid({ ...completed, durationMs: 124_000 })).toBe(true);
+  expect(valid({ ...completed, durationMs: -1 })).toBe(false);
+  expect(valid({ ...completed, durationMs: 1.5 })).toBe(false);
+  expect(
+    valid({
+      type: "repository.cache_hit",
+      result: completed.result,
+      resolution: completed.resolution,
+      durationMs: 0,
+    }),
+  ).toBe(true);
 });

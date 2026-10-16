@@ -15,7 +15,7 @@ Code rows show a small marker beside the language name and a bar in the language
 | High contrast light | at most 0.4   |
 | High contrast dark  | at least 0.9  |
 
-`tests/unit/language-palette.test.ts` reads these bounds and the track and background colors from `styles.css` and checks every palette and fallback color, at full and subdued chroma, in all four modes. Change a bound or a theme color only with that test passing. The rules use plain `oklch()` with `var()`, `clamp()`, and `calc()`, which Chrome 120 supports, rather than relative color syntax. In forced-color mode the colors are not applied, and bars and swatches use the system text color.
+`tests/unit/language-palette.test.ts` reads these bounds and the track and background colors from `styles.css` and checks every palette and fallback color, at full and subdued chroma, in all four modes. Change a bound or a theme color only with that test passing. The rules use plain `oklch()` with `var()`, `clamp()`, and `calc()`, which Chrome 127 supports, rather than relative color syntax. In forced-color mode the colors are not applied, and bars and swatches use the system text color.
 
 ## Sources
 

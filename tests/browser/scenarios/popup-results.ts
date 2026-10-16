@@ -454,7 +454,7 @@ export async function runPopupResults(
 
   await page.mouse.move(0, 0);
 
-  const restartPopup = await openPopup(page);
+  let restartPopup = await openPopup(page);
 
   const cachedStatus =
     "Cached local analysis, checked on GitHub in the last 20 minutes. Select Reanalyze to check for a newer commit.";
@@ -548,6 +548,53 @@ export async function runPopupResults(
   assert.equal(fixtures.apiRequests, beforeReanalyzeApiRequests + 2);
 
   assert.equal(fixtures.archiveRequests, beforeReanalyzeArchiveRequests);
+
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+
+  fixtures.metadataGate = new Promise<void>((resolve) => {
+    releaseMetadata = resolve;
+  });
+
+  await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
+
+  await restartPopup.getByText("Checking for updates…").waitFor();
+
+  await restartPopup.close();
+
+  restartPopup = await openPopup(page);
+
+  await restartPopup
+    .getByText("Analysis in progress. Closing the popup does not stop it.")
+    .waitFor();
+
+  await restartPopup.getByRole("button", { name: "Cancel analysis" }).waitFor();
+
+  await restartPopup.locator("#analysis-loader .culverin-dots").waitFor();
+
+  assert.equal(await restartPopup.locator("#analyze").isVisible(), false);
+
+  await restartPopup.locator("#details > summary").click();
+
+  assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
+
+  fixtures.metadataGate = undefined;
+
+  releaseMetadata();
+
+  await restartPopup
+    .getByText(
+      "No new commit since the last analysis. Showing the cached result.",
+    )
+    .waitFor();
+
+  assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);
+
+  assert.equal(
+    await restartPopup.locator("#analyze").textContent(),
+    "Reanalyze",
+  );
+
+  assert.equal(await restartPopup.locator("#analyze").isEnabled(), true);
 
   assert.deepEqual(await resultSnapshot(), beforeReanalyzeResult);
 

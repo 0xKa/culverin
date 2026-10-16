@@ -275,6 +275,7 @@ export function createPopupController(
           showResult(reply.result, reply.resolution);
           setStatus(statuses.cached);
         }
+        return true;
       } else if (reply.type === "analysis.failed") handleFailure(reply);
       else fail("internal_error");
     } catch {
@@ -361,7 +362,7 @@ export function createPopupController(
     ) {
       watchAnalysis(pending.requestId);
       setBusy(true);
-      clearResult();
+      reanalyzedSha = shownSha;
       setStatus(
         reply.state === "queued" ? progressStatuses.queued : statuses.running,
       );

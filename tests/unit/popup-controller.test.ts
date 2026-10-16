@@ -378,6 +378,32 @@ test("badges summarize outcomes and only waiting failures keep a visible note", 
     detail: "The source snapshot could not be downloaded.",
   });
 
+  const capped = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "auto_download_limit",
+    limitBytes: 512 * 1024 * 1024,
+  });
+  await capped;
+  expect(lastStatus(ui.events)).toEqual({
+    label: "Too large",
+    tone: "warning",
+    mark: "failed",
+    detail: "Too large to count automatically. Click to count up to 512 MiB.",
+  });
+
+  const oversized = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "compressed_limit_exceeded",
+    limit: "compressed",
+    limitBytes: 1024 * 1024 * 1024,
+  });
+  await oversized;
+  expect(lastStatus(ui.events)?.detail).toBe(
+    "The source snapshot exceeds the compressed-size limit. The limit is 1,024 MiB downloaded. You can raise it in Settings → Large repositories.",
+  );
+
   const limited = ui.controller.analyze();
   ui.reply(ui.requests.at(-1)!, {
     type: "analysis.failed",

@@ -7,6 +7,7 @@ import { createSettingsHandler } from "../../extension/src/background/settings";
 import { createSenderGates } from "../../extension/src/background/senders";
 import { COUNT_TRIGGER_KEY } from "../../extension/src/counting/trigger";
 import { DOWNLOAD_LIMIT_KEY } from "../../extension/src/counting/download-limit";
+import { ArchiveError } from "../../extension/src/archive/tar";
 import { aboutVisibility } from "../../extension/src/repository-page/visibility";
 import {
   PAGE_COUNT_FORMAT_KEY,
@@ -65,6 +66,7 @@ function fixture() {
   const calls: string[] = [];
   const tokens: (string | undefined)[] = [];
   const limits: number[] = [];
+  let failure: ((compressed: number) => unknown) | undefined;
   let visibility = "public";
   const branches: Record<string, string> = {
     main: "a".repeat(40),
@@ -164,6 +166,7 @@ function fixture() {
   const resources = createBackgroundResources(browser, fetcher, async (job) => {
     tokens.push(job.token);
     limits.push(job.limits.compressed);
+    if (failure) throw failure(job.limits.compressed);
     return {
       result: await result("42", job.resolution.sha),
       transport: { compressedBytes: 0, decompressedBytes: 0 },
@@ -209,6 +212,9 @@ function fixture() {
     calls,
     tokens,
     limits,
+    fail: (next: (compressed: number) => unknown) => {
+      failure = next;
+    },
     local,
     session,
     sync,
@@ -315,6 +321,54 @@ test("only the request that follows an automatic-count lookup is limited to 256 
   const unset = fixture();
   await unset.run("analysis.request", true);
   expect(unset.limits).toEqual([512 * mib]);
+});
+
+test("an automatic count that reaches its fixed limit offers a count with the user's limit", async () => {
+  const mib = 1024 * 1024;
+  const automaticFailure = async (
+    setting: number | undefined,
+    error: (compressed: number) => unknown,
+  ) => {
+    const api = fixture();
+    api.sync.values[COUNT_TRIGGER_KEY] = "open";
+    if (setting) api.sync.values[DOWNLOAD_LIMIT_KEY] = setting;
+    api.fail(error);
+    const navigation = crypto.randomUUID();
+    await api.run("repository.lookup", true, false, undefined, navigation);
+    return api.run("analysis.request", true, false, undefined, navigation);
+  };
+  const download = (compressed: number) =>
+    new ArchiveError("compressed_limit_exceeded", "compressed", compressed);
+  const unpacked = (compressed: number) =>
+    new ArchiveError(
+      "decompressed_limit_exceeded",
+      "decompressed",
+      compressed * 8,
+    );
+  expect(await automaticFailure(undefined, download)).toEqual({
+    type: "analysis.failed",
+    code: "auto_download_limit",
+    limitBytes: 512 * mib,
+  });
+  expect(await automaticFailure(2048, unpacked)).toEqual({
+    type: "analysis.failed",
+    code: "auto_download_limit",
+    limitBytes: 2048 * mib,
+  });
+  expect(await automaticFailure(256, download)).toEqual({
+    type: "analysis.failed",
+    code: "compressed_limit_exceeded",
+    limit: "compressed",
+    limitBytes: 256 * mib,
+  });
+  const clicked = fixture();
+  clicked.fail(download);
+  expect(await clicked.run("analysis.request", true)).toEqual({
+    type: "analysis.failed",
+    code: "compressed_limit_exceeded",
+    limit: "compressed",
+    limitBytes: 512 * mib,
+  });
 });
 
 test("same-commit forced analysis refreshes metadata and reuses results; private visibility purges public results", async () => {

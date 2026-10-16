@@ -306,3 +306,22 @@ test("marks a total that leaves out files too large to count", () => {
       .count,
   ).toBe("1.2k");
 });
+
+test("an automatic count over its fixed limit offers a click that counts with the user's limit", () => {
+  const state = failureState(
+    "auto_download_limit",
+    undefined,
+    undefined,
+    512 * 1024 ** 2,
+  );
+  expect(state).toEqual({
+    kind: "recover",
+    label: "Too large to count automatically",
+    detail: "Too large to count automatically. Click to count up to 512 MiB.",
+  });
+  expect(rowView(state)).toEqual({
+    label: "Too large to count automatically",
+    title: "Too large to count automatically. Click to count up to 512 MiB.",
+    action: "analyze",
+  });
+});

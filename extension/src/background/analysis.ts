@@ -357,18 +357,48 @@ export function createPublicAnalysis(
                   limit,
                   "retryAt" in failure ? failure.retryAt : undefined,
                 );
-              void accessFailure(failure.code, auth, repository, false).then(
-                (code) =>
+              const limitBytes =
+                "limitBytes" in failure ? failure.limitBytes : undefined;
+              const capped =
+                automatic &&
+                ((failure.code === "compressed_limit_exceeded" &&
+                  limitBytes === DOWNLOAD_LIMITS.automatic) ||
+                  (failure.code === "decompressed_limit_exceeded" &&
+                    limitBytes ===
+                      DOWNLOAD_LIMITS.automatic *
+                        DOWNLOAD_LIMITS.unpackedRatio));
+              void (async () => {
+                const manualLimit = capped
+                  ? await readDownloadLimit(resources.chrome.storage.sync)
+                  : 0;
+                if (manualLimit > DOWNLOAD_LIMITS.automatic) {
                   reply({
                     type: "analysis.failed",
                     ...publicFailure(
-                      code,
-                      "retryAt" in failure ? failure.retryAt : undefined,
-                      "limit" in failure ? failure.limit : undefined,
-                      "limitBytes" in failure ? failure.limitBytes : undefined,
+                      "auto_download_limit",
+                      undefined,
+                      undefined,
+                      manualLimit,
                     ),
-                  }),
-              );
+                  });
+                  return;
+                }
+                const code = await accessFailure(
+                  failure.code,
+                  auth,
+                  repository,
+                  false,
+                );
+                reply({
+                  type: "analysis.failed",
+                  ...publicFailure(
+                    code,
+                    "retryAt" in failure ? failure.retryAt : undefined,
+                    "limit" in failure ? failure.limit : undefined,
+                    limitBytes,
+                  ),
+                });
+              })();
             },
           },
           ARCHIVE_TIMEOUTS.job,

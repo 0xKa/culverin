@@ -7,7 +7,7 @@ import {
   formatPageCount,
 } from "../repository-page/format";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
-import { failureMessages, limitNote } from "../github/failure-messages";
+import { failureDetail } from "../github/failure-messages";
 import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
 
 export type AnalysisPhase = Extract<
@@ -23,6 +23,7 @@ export type RowState =
   | { kind: "running"; phase: AnalysisPhase }
   | CompleteState
   | { kind: "retry"; detail: string }
+  | { kind: "recover"; label: string; detail: string }
   | { kind: "notice"; label: string; detail: string }
   | { kind: "connect"; label: string; detail: string };
 
@@ -99,7 +100,13 @@ export function failureState(
   limitBytes?: number,
 ): VisibleRowState {
   if (code === "analysis_canceled") return { kind: "idle" };
-  const detail = failureMessages[code] + limitNote(limit, limitBytes);
+  const detail = failureDetail(code, limit, limitBytes);
+  if (code === "auto_download_limit")
+    return {
+      kind: "recover",
+      label: "Too large to count automatically",
+      detail,
+    };
   if (code === "rate_limited")
     return {
       kind: "notice",
@@ -162,6 +169,8 @@ export function rowView(
       title: state.detail,
       action: "analyze",
     };
+  if (state.kind === "recover")
+    return { label: state.label, title: state.detail, action: "analyze" };
   if (state.kind === "connect")
     return {
       label: state.label,

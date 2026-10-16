@@ -97,6 +97,7 @@ export type PublicErrorCode =
   | "decompressed_limit_exceeded"
   | "entry_limit_exceeded"
   | "file_limit_exceeded"
+  | "auto_download_limit"
   | "archive_invalid"
   | "archive_unsupported"
   | "analysis_timeout"
@@ -359,6 +360,7 @@ const codes: PublicErrorCode[] = [
   "decompressed_limit_exceeded",
   "entry_limit_exceeded",
   "file_limit_exceeded",
+  "auto_download_limit",
   "archive_invalid",
   "archive_unsupported",
   "analysis_timeout",

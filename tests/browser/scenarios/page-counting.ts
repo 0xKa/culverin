@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { checksum, entry, octal } from "../../tar-fixture";
 import type { runLivePublic } from "./live-public";
 export async function runPageCounting(
   state: Awaited<ReturnType<typeof runLivePublic>>,
@@ -730,6 +731,151 @@ export async function runPageCounting(
   await page.getByText("0 lines of code", { exact: true }).waitFor();
 
   assert.equal(fixtures.apiRequests, beforeRestartedLookup);
+
+  const cacheBeforeCap = await settingsPage.evaluate(() =>
+    chrome.storage.local.get("culverin.public-results.v1"),
+  );
+  const capWorker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent("serviceworker"));
+  const blobHeader = entry("repo/vendor/blob.bin", new Uint8Array(0));
+  octal(blobHeader, 124, 12, 300 * 1024 * 1024);
+  checksum(blobHeader);
+  await capWorker.evaluate(
+    ({ sha, source, header }) => {
+      const scope = globalThis as typeof globalThis & {
+        capRequests?: number;
+        restoreFetch?: () => void;
+      };
+      const original = globalThis.fetch;
+      scope.capRequests = 0;
+      scope.restoreFetch = () => {
+        globalThis.fetch = original;
+      };
+      globalThis.fetch = (async (input, init) => {
+        if (!String(input).endsWith(`/tarball/${sha}`))
+          return original(input, init);
+        scope.capRequests!++;
+        let sent = 0;
+        const size = 300 * 1024 * 1024;
+        const tar = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(Uint8Array.from(source));
+            controller.enqueue(Uint8Array.from(header));
+          },
+          pull(controller) {
+            if (sent === size) {
+              controller.enqueue(new Uint8Array(1024));
+              controller.close();
+              return;
+            }
+            const chunk = crypto.getRandomValues(
+              new Uint8Array(Math.min(65_536, size - sent)),
+            );
+            sent += chunk.byteLength;
+            controller.enqueue(chunk);
+          },
+        });
+        const response = new Response(
+          tar.pipeThrough(
+            new CompressionStream("gzip") as unknown as ReadableWritablePair<
+              Uint8Array,
+              Uint8Array
+            >,
+          ),
+          { status: 200, headers: { "content-type": "application/gzip" } },
+        );
+        Object.defineProperty(response, "url", {
+          value: `https://codeload.github.com/culverin/bootstrap-fixture/legacy.tar.gz/${sha}`,
+        });
+        return response;
+      }) as typeof fetch;
+    },
+    {
+      sha: publicSha,
+      source: [
+        ...entry(
+          "repo/src/main.rs",
+          new TextEncoder().encode("fn main() {}\n".repeat(3)),
+        ),
+      ],
+      header: [...blobHeader],
+    },
+  );
+  const capRequests = () =>
+    capWorker.evaluate(
+      () => (globalThis as { capRequests?: number }).capRequests,
+    );
+
+  await clearPublicCache();
+
+  await page.reload();
+
+  const recovery = page.getByRole("button", {
+    name: "Too large to count automatically",
+  });
+
+  await recovery.waitFor({ timeout: 120_000 });
+
+  assert.equal(
+    await recovery.getAttribute("title"),
+    "Too large to count automatically. Click to count up to 512 MiB.",
+  );
+
+  assert.equal(await capRequests(), 1);
+
+  await recovery.click();
+
+  await page
+    .getByText("3 lines of code", { exact: true })
+    .waitFor({ timeout: 120_000 });
+
+  assert.equal(await capRequests(), 2);
+
+  await settingsPage.evaluate(async () => {
+    const stored = (await chrome.storage.local.get(
+      "culverin.public-results.v1",
+    )) as {
+      "culverin.public-results.v1"?: { entries: { identity: string }[] };
+    };
+    for (const { identity } of stored["culverin.public-results.v1"]?.entries ??
+      [])
+      await chrome.runtime.sendMessage({
+        protocolVersion: 1,
+        type: "cache.delete",
+        requestId: crypto.randomUUID(),
+        navigationId: crypto.randomUUID(),
+        scope: "public",
+        identity,
+      });
+  });
+
+  await page.reload();
+
+  await countButton.waitFor();
+
+  await page.waitForTimeout(500);
+
+  assert.equal(await capRequests(), 2);
+
+  await capWorker.evaluate(() =>
+    (globalThis as { restoreFetch?: () => void }).restoreFetch?.(),
+  );
+
+  await settingsPage.evaluate(
+    (cache) => chrome.storage.local.set(cache),
+    cacheBeforeCap,
+  );
+
+  const capRestart = await context.newCDPSession(page);
+
+  await capRestart.send("ServiceWorker.enable");
+
+  await capRestart.send("ServiceWorker.stopAllWorkers");
+
+  await capRestart.detach();
+
+  await page.waitForTimeout(500);
 
   await countingSettings.reload();
 

@@ -25,6 +25,10 @@ The only check before the body is read is GitHub's `Content-Length` header: when
 
 Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits, so ignore rules cannot bring a repository under them. There is no separate limit on the amount of source passed to the counter: the counter keeps only per-language totals, so its memory does not grow with the source, and the unpacked limit bounds the work.
 
+## Automatic counts
+
+When the When to count setting counts repositories as their pages open, those counts always stop at 256 MiB downloaded, or 2 GiB unpacked, whatever the Large repositories setting says, so opening a page never starts a larger download than that. When such a count reaches that limit and the setting is higher, the page row reads Too large to count automatically, and its tooltip says `Too large to count automatically. Click to count up to 512 MiB.` with the current setting. Clicking it, or Analyze in the popup, starts an ordinary count with the setting's limit. Culverin does not try the automatic count again for that commit in the same browser session. A click that joins an automatic count already running raises that count's limits without restarting it.
+
 ## Limit that skips a file
 
 A source file over 8 MiB is not counted. The count continues, the result is marked partial, the page row ends the total with `+`, and the popup lists the skipped files with links to them on GitHub. The popup lists up to 256 such files.

@@ -156,6 +156,7 @@ const failures: Record<PublicErrorCode, [string, StatusTone]> = {
   decompressed_limit_exceeded: ["Too large", "error"],
   entry_limit_exceeded: ["Too large", "error"],
   file_limit_exceeded: ["Too large", "error"],
+  auto_download_limit: ["Too large", "warning"],
   archive_invalid: ["Unreadable", "error"],
   archive_unsupported: ["Unsupported", "error"],
   analysis_timeout: ["Timed out", "error"],

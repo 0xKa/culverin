@@ -5,7 +5,11 @@ import {
   tabRepository,
   type PageRepository,
 } from "../github/repository";
-import { failureMessages, limitNote } from "../github/failure-messages";
+import {
+  failureDetail,
+  failureMessages,
+  limitNote,
+} from "../github/failure-messages";
 import {
   POPUP_PORT,
   validPublicReply,
@@ -128,7 +132,10 @@ export function createPopupController(
   function handleFailure(
     reply: Extract<PublicReply, { type: "analysis.failed" }>,
   ): void {
-    let message = errors[reply.code] + limitNote(reply.limit, reply.limitBytes);
+    let message =
+      reply.code === "auto_download_limit"
+        ? failureDetail(reply.code, reply.limit, reply.limitBytes)
+        : errors[reply.code] + limitNote(reply.limit, reply.limitBytes);
     dispatch({ type: "connect", label: connectLabels[reply.code] });
     if (reply.code !== "rate_limited") {
       retryUntil = 0;

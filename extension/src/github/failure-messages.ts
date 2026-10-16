@@ -61,6 +61,7 @@ export const failureMessages: Record<PublicErrorCode, string> = {
     "The source snapshot exceeds the expanded-size limit.",
   entry_limit_exceeded: "The source snapshot has too many entries.",
   file_limit_exceeded: "The source snapshot exceeds the counting limit.",
+  auto_download_limit: "Too large to count automatically.",
   archive_invalid: "The source snapshot is malformed.",
   archive_unsupported: "This source snapshot format is unsupported.",
   analysis_timeout: "Analysis timed out. Try again.",
@@ -70,3 +71,13 @@ export const failureMessages: Record<PublicErrorCode, string> = {
   counter_failed: "Local counting failed.",
   internal_error: "Analysis failed. Try again.",
 };
+
+export function failureDetail(
+  code: PublicErrorCode,
+  limit?: string,
+  limitBytes?: number,
+): string {
+  if (code === "auto_download_limit")
+    return `${failureMessages[code]}${limitBytes ? ` Click to count up to ${mib(limitBytes)}.` : ""}`;
+  return failureMessages[code] + limitNote(limit, limitBytes);
+}

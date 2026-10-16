@@ -1,6 +1,6 @@
 # Privacy
 
-Effective 2026-10-13.
+Effective 2026-10-16.
 
 Culverin counts lines of code in GitHub repositories inside your browser. Public repositories need no account; to count private repositories you can connect your GitHub account. Culverin has no backend, account of its own, telemetry, analytics, or advertising. The developer does not collect, receive, sell, or share any data about you or the repositories you view.
 
@@ -31,7 +31,16 @@ Either way, the extension asks GitHub for your username to show which account is
 
 Source code is streamed to a packaged analysis worker, counted in memory, and discarded. Archives and source files are never written to storage.
 
-Complete aggregate results for public repositories are kept in the extension's local storage so they can be shown again without another download. Results for private repositories are kept the same way, separately, up to 100 results or 2 MiB, and contain the same fields. Each result holds the repository name and ID, default branch, the branch, tag, or commit it was looked up under when that is not the default branch, commit, the repository size reported by GitHub, the time it was stored, file and line counts per language, and the total size of the files at that commit. At most 200 results or 5 MiB are kept; the least recently used results are evicted first. Partial, failed, and canceled results are not stored. Session storage holds short-lived job state, GitHub's most recent API rate-limit counts, repository metadata from the last 20 minutes, the list of automatic counts already tried, and, while you are connecting, the pending code or token, all cleared when the browser closes.
+Aggregate results are kept in the extension's local storage so they can be shown again without another download. This includes complete results and partial results, which are kept when some files were too large to count. At most 200 results or 5 MiB are kept for public repositories. Results for private repositories are kept separately, up to 100 results or 2 MiB, and contain the same fields. In both, the least recently used results are evicted first. Each result holds:
+
+- the repository owner, name, ID, and visibility, its default branch, the branch, tag, or commit it was looked up under when that is not the default branch, the commit, the repository size reported by GitHub, and when GitHub last confirmed that commit;
+- file and line counts per language, and, for files not recognized as a language, up to 100 file extensions with their file and line counts and how many more extensions there were;
+- how many files the commit contains, how many were counted, and how many were skipped for each reason, with the total size of all files at that commit and of the files counted;
+- for a partial result, the path within the repository and the size of each file that was too large to count, up to 256 files;
+- the counter and rules versions and a SHA-256 fingerprint of your ignore rules, which keeps results counted under different rules apart;
+- when the result was stored and when it was last shown.
+
+Failed and canceled analyses are not stored. Session storage holds short-lived job state, GitHub's most recent API rate-limit counts, repository metadata from the last 20 minutes, the list of automatic counts already tried, and, while you are connecting, the pending code or token, all cleared when the browser closes.
 
 If you connect GitHub, the extension keeps your GitHub username and token, and for the GitHub App the refresh token and expiry times, in its local storage so you don't have to connect again after restarting the browser. This storage is not encrypted by Culverin, and anyone with access to your browser profile could read it. The GitHub App token can only read the repositories you chose; a personal access token can do whatever you allowed when you created it.
 

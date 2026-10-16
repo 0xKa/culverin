@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn counter_metadata() -> String {
-    "{\"name\":\"tokei\",\"version\":\"15.0.0\",\"wrapperVersion\":\"3\"}".into()
+    "{\"name\":\"tokei\",\"version\":\"15.0.0\",\"wrapperVersion\":\"4\"}".into()
 }
 
 #[wasm_bindgen]

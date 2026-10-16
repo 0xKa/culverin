@@ -22,7 +22,7 @@ const result: AnalysisResultV2 = {
   engine: {
     name: "tokei",
     version: "15.0.0",
-    wrapperVersion: "3",
+    wrapperVersion: "4",
     rulesProfile: "source-v1",
     rulesVersion: "2",
     rulesHash: "b".repeat(64),

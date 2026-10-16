@@ -8,7 +8,7 @@ use crate::model::{
 use crate::rules::{RULES_VERSION, Rules};
 
 const COVERAGE_VERSION: &str = "2";
-const WRAPPER_VERSION: &str = "3";
+const WRAPPER_VERSION: &str = "4";
 pub(crate) const MAX_OVERSIZED_FILES: usize = 256;
 use std::collections::BTreeMap;
 

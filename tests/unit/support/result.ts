@@ -15,7 +15,7 @@ export async function result(
     engine: {
       name: "tokei",
       version: "15.0.0",
-      wrapperVersion: "3",
+      wrapperVersion: "4",
       rulesProfile: "source-v1",
       rulesVersion: "2",
       rulesHash: await effectiveRulesHash(defaultIgnore),

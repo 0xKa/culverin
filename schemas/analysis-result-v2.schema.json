@@ -42,7 +42,7 @@
           "const": "15.0.0"
         },
         "wrapperVersion": {
-          "const": "3"
+          "const": "4"
         },
         "rulesProfile": {
           "const": "source-v1"

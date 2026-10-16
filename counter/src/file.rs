@@ -29,7 +29,7 @@ pub(crate) fn language(path: &str, prefix: &[u8]) -> Option<LanguageType> {
             return Some(*kind);
         }
     }
-    env_shebang(prefix).or_else(|| text_name(name))
+    shebang(prefix).or_else(|| text_name(name))
 }
 
 fn text_name(name: &str) -> Option<LanguageType> {
@@ -55,22 +55,53 @@ fn text_name(name: &str) -> Option<LanguageType> {
     .then_some(LanguageType::Text)
 }
 
-fn env_shebang(prefix: &[u8]) -> Option<LanguageType> {
+fn shebang(prefix: &[u8]) -> Option<LanguageType> {
     let first = prefix.split(|b| *b == b'\n').next()?;
-    let line = std::str::from_utf8(first).ok()?;
-    let command = line
-        .strip_prefix("#!/usr/bin/env ")?
-        .split_whitespace()
+    let line = std::str::from_utf8(first).ok()?.strip_prefix("#!")?;
+    let mut words = line.split_whitespace();
+    let mut command = words.next()?.rsplit('/').next()?;
+    if command == "env" {
+        command = loop {
+            let word = words.next()?;
+            match word {
+                "-u" | "--unset" | "-C" | "--chdir" | "-P" => {
+                    words.next()?;
+                }
+                _ if word.starts_with("-S") && word.len() > 2 => break &word[2..],
+                _ if word.starts_with("--split-string=") => break &word[15..],
+                _ if word.starts_with('-') || word.contains('=') => {}
+                _ => break word,
+            }
+        }
+        .rsplit('/')
         .next()?;
-    let command = command.trim_start_matches("-S ");
-    match command {
-        "python" | "python3" => Some(LanguageType::Python),
-        "node" => Some(LanguageType::JavaScript),
-        "bash" => Some(LanguageType::Bash),
-        "ruby" => Some(LanguageType::Ruby),
-        "perl" => Some(LanguageType::Perl),
-        _ => None,
     }
+    interpreter(command)
+        .or_else(|| interpreter(command.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.')))
+}
+
+fn interpreter(command: &str) -> Option<LanguageType> {
+    Some(match command {
+        "awk" => LanguageType::AWK,
+        "bash" => LanguageType::Bash,
+        "crystal" => LanguageType::Crystal,
+        "csh" => LanguageType::CShell,
+        "cython" => LanguageType::Cython,
+        "elvish" => LanguageType::Elvish,
+        "fish" => LanguageType::Fish,
+        "groovy" => LanguageType::Groovy,
+        "just" => LanguageType::Just,
+        "ksh" => LanguageType::Ksh,
+        "node" | "nodejs" => LanguageType::JavaScript,
+        "perl" => LanguageType::Perl,
+        "perl6" | "raku" => LanguageType::Raku,
+        "python" => LanguageType::Python,
+        "racket" => LanguageType::Racket,
+        "ruby" => LanguageType::Ruby,
+        "sh" => LanguageType::Sh,
+        "zsh" => LanguageType::Zsh,
+        _ => return None,
+    })
 }
 
 pub(crate) fn decode(bytes: &[u8]) -> Option<Cow<'_, [u8]>> {

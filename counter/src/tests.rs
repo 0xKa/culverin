@@ -189,7 +189,7 @@ fn malformed_utf8_counts_exactly_and_bad_utf16_is_binary() {
     );
     assert_eq!(
         serde_json::to_value(&result).unwrap()["engine"]["wrapperVersion"],
-        json!("3")
+        json!("4")
     );
 }
 
@@ -457,6 +457,49 @@ fn known_extensionless_documents_count_as_plain_text() {
     assert_eq!(text.counts.code, 0);
     assert_eq!(text.counts.comments, 12);
     assert_eq!(text.counts.blanks, 6);
+}
+
+#[test]
+fn recognizes_shebang_interpreters_through_env_options_and_paths() {
+    let mut analyzer = CounterAnalyzer::new(rules(&[])).unwrap();
+    for (line, language) in [
+        ("#!/usr/bin/env -S python3 -u", Some("Python")),
+        ("#!/usr/bin/env -S node --no-warnings", Some("JavaScript")),
+        ("#!/usr/bin/env -Spython3", Some("Python")),
+        ("#!/usr/bin/env --split-string=ruby -w", Some("Ruby")),
+        ("#!/usr/bin/env -i PATH=/usr/bin python3", Some("Python")),
+        ("#!/usr/bin/env -u HOME bash", Some("BASH")),
+        ("#!/usr/bin/env -S /usr/bin/perl -w", Some("Perl")),
+        ("#!/bin/env python3\r", Some("Python")),
+        ("#!/usr/bin/env python3.12", Some("Python")),
+        ("#!/usr/bin/python3", Some("Python")),
+        ("#!/usr/local/bin/node", Some("JavaScript")),
+        ("#! /usr/bin/env sh", Some("Shell")),
+        ("#!/usr/bin/env zsh", Some("Zsh")),
+        ("#!/usr/bin/env fish", Some("Fish")),
+        ("#!/usr/bin/env perl6", Some("Raku")),
+        ("#!/usr/bin/env", None),
+        ("#!/usr/bin/env -S", None),
+        ("#!/usr/bin/env -u bash", None),
+        ("#!/usr/bin/env -S deno run", None),
+        ("#!/usr/bin/envy python", None),
+        ("#!/usr/bin/pythonista", None),
+        ("# /usr/bin/python3", None),
+    ] {
+        let file = analyzer
+            .add_file("bin/tool", format!("{line}\nprint(1)\n").as_bytes())
+            .unwrap();
+        assert_eq!(file.language.as_deref(), language, "{line}");
+        assert_eq!(
+            file.kind,
+            if language.is_some() {
+                "counted"
+            } else {
+                "unsupported_language"
+            },
+            "{line}"
+        );
+    }
 }
 
 fn kind(rules: &Rules, path: &str) -> &'static str {

@@ -7,6 +7,7 @@ export type FixtureState = {
   authorization?: string;
   mode: "ok" | "empty" | "rate" | "slow" | "shared" | "private";
   branches: Record<string, string>;
+  tags: Record<string, string>;
   slowArchiveStarted?: () => void;
   metadataGate?: Promise<void>;
 };
@@ -19,6 +20,7 @@ export function createFixtures(sha: string): FixtureState {
     apiRequests: 0,
     mode: "ok",
     branches: {},
+    tags: {},
   };
 }
 
@@ -86,20 +88,21 @@ sync();
           status: 200,
           contentType: "application/json",
           body: JSON.stringify(
-            listing[1] === "heads"
-              ? Object.entries(fixtures.branches)
-                  .filter(([name]) => name.startsWith(prefix))
-                  .map(([name, sha]) => ({
-                    ref: `refs/heads/${name}`,
-                    object: { sha, type: "commit" },
-                  }))
-              : [],
+            Object.entries(
+              listing[1] === "heads" ? fixtures.branches : fixtures.tags,
+            )
+              .filter(([name]) => name.startsWith(prefix))
+              .map(([name, sha]) => ({
+                ref: `refs/${listing[1]}/${name}`,
+                object: { sha, type: "commit" },
+              })),
           ),
         });
       }
       const ref = /\/commits\/(.+)$/.exec(url.pathname)?.[1];
       if (ref !== undefined) {
-        const sha = fixtures.branches[decodeURIComponent(ref)];
+        const name = decodeURIComponent(ref);
+        const sha = fixtures.tags[name] ?? fixtures.branches[name];
         return sha
           ? route.fulfill({
               status: 200,

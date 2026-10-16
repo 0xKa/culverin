@@ -19,6 +19,7 @@ export async function runBranchCounting(
   const branchSha = "b".repeat(40);
   const longBranch = "add-a-very-long-oauth-login-flow-for-enterprise-accounts";
   const longSha = "c".repeat(40);
+  const tagSha = "d".repeat(40);
 
   await clearPublicCache();
   fixtures.mode = "ok";
@@ -53,7 +54,7 @@ export async function runBranchCounting(
     },
     {
       bytes: [...readFileSync("tests/fixtures/archive-source.tar.gz")],
-      shas: [publicSha, branchSha, longSha],
+      shas: [publicSha, branchSha, longSha, tagSha],
     },
   );
   const archives = () =>
@@ -251,6 +252,57 @@ export async function runBranchCounting(
     chrome.storage.sync.remove("culverin.countTrigger"),
   );
 
+  fixtures.branches = { main: publicSha };
+  fixtures.tags = { "main/v2": tagSha };
+  for (const cachedDefault of [false, true]) {
+    await clearPublicCache();
+    if (cachedDefault) {
+      await page.evaluate(() =>
+        history.pushState({}, "", "/culverin/bootstrap-fixture"),
+      );
+      await page.getByText("Analyze with Culverin").click();
+      await page.getByText(/ lines? of code$/).waitFor();
+    }
+    await page.evaluate(() =>
+      history.pushState(
+        {},
+        "",
+        "/culverin/bootstrap-fixture/blob/main%2Fv2/src/app.ts",
+      ),
+    );
+    await summary.waitFor({ state: "detached" });
+    const beforePopup = fixtures.apiRequests;
+    const beforeArchives = (await archives()).length;
+    const tagPopup = await openPopup(page);
+    await tagPopup
+      .getByText("Analyze checks GitHub and counts the source locally.")
+      .waitFor();
+    assert.equal(fixtures.apiRequests, beforePopup);
+    assert.equal((await archives()).length, beforeArchives);
+    await tagPopup.getByRole("button", { name: "Analyze repository" }).click();
+    await tagPopup.getByText("Analyzed locally.").waitFor();
+    assert.match(
+      (await tagPopup.locator("#revision").textContent()) ?? "",
+      /^main\/v2, commit d{12}$/,
+    );
+    assert.deepEqual((await archives()).slice(beforeArchives), [tagSha]);
+    await tagPopup.close();
+    const beforeReuse = fixtures.apiRequests;
+    await page.evaluate(() =>
+      history.pushState({}, "", "/culverin/bootstrap-fixture/tree/main%2Fv2"),
+    );
+    await page.getByText(/ lines? of code$/).waitFor();
+    const reused = await openPopup(page);
+    await reused.locator("#revision").waitFor({ state: "visible" });
+    assert.match(
+      (await reused.locator("#revision").textContent()) ?? "",
+      /^main\/v2, commit d{12}$/,
+    );
+    assert.equal(fixtures.apiRequests, beforeReuse);
+    assert.equal((await archives()).length, beforeArchives + 1);
+    await reused.close();
+  }
+
   await page.evaluate(() =>
     history.replaceState({}, "", "/culverin/bootstrap-fixture"),
   );
@@ -261,6 +313,7 @@ export async function runBranchCounting(
     if (scope.branchFetch) globalThis.fetch = scope.branchFetch;
   });
   fixtures.branches = {};
+  fixtures.tags = {};
   await clearPublicCache();
   return { ...state };
 }

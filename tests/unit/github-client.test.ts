@@ -120,7 +120,10 @@ test("resolves the longest branch or tag a page names, even when a tag shares a 
                 ref: `refs/${kind}/${name}`,
                 object:
                   kind === "heads"
-                    ? { sha: branchSha.toUpperCase(), type: "commit" }
+                    ? {
+                        sha: (name === "main" ? sha : branchSha).toUpperCase(),
+                        type: "commit",
+                      }
                     : { sha: tagObject, type: "tag" },
               })),
           ),
@@ -169,11 +172,32 @@ test("resolves the longest branch or tag a page names, even when a tag shares a 
     ref: undefined,
     nested: undefined,
   });
-  expect(await resolve({ path: "main/src/app.ts", exact: false })).toEqual({
-    urls: [`${commits}main`],
+  expect(
+    await resolve(
+      { path: "main/src/app.ts", exact: false },
+      { heads: ["main"] },
+    ),
+  ).toEqual({
+    urls: listings("main"),
     sha,
     ref: undefined,
-    nested: undefined,
+    nested: false,
+  });
+  const defaultCollision = { heads: ["main"], tags: ["main/v2"] };
+  for (const path of ["main/v2", "main/v2/src/app.ts"])
+    expect(await resolve({ path, exact: false }, defaultCollision)).toEqual({
+      urls: [...listings("main"), `${commits}main%2Fv2`],
+      sha: tagSha,
+      ref: "main/v2",
+      nested: false,
+    });
+  expect(
+    await resolve({ path: "main/src/app.ts", exact: false }, defaultCollision),
+  ).toEqual({
+    urls: listings("main"),
+    sha,
+    ref: undefined,
+    nested: true,
   });
   expect(
     await resolve(

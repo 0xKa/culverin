@@ -65,6 +65,7 @@ function fixture() {
   const tokens: (string | undefined)[] = [];
   let visibility = "public";
   const branches: Record<string, string> = {
+    main: "a".repeat(40),
     "ding-dong": "b".repeat(40),
     "feature/x": "c".repeat(40),
     "same-as-main": "a".repeat(40),
@@ -330,7 +331,7 @@ test("branch pages resolve their own commit, share results by commit, and keep t
   });
   expect(
     await api.run("repository.lookup", false, false, browse("main/src/app.ts")),
-  ).toMatchObject({ type: "repository.cache_hit" });
+  ).toEqual({ type: "repository.not_cached" });
   expect(api.calls).toHaveLength(2);
   const branch = await api.run(
     "analysis.request",
@@ -412,6 +413,89 @@ test("branch pages resolve their own commit, share results by commit, and keep t
     await api.run("analysis.request", false, false, page("deleted")),
   ).toEqual({ type: "analysis.failed", code: "ref_unavailable" });
   expect(api.tokens).toHaveLength(3);
+});
+
+test("a tag under the default branch resolves correctly with a cold or cached default branch", async () => {
+  for (const cachedDefault of [false, true]) {
+    const api = fixture();
+    api.tags["main/v2"] = "d".repeat(40);
+    const browse = (path: string) => ({ path, exact: false });
+    if (cachedDefault) await api.run("analysis.request", false);
+    const calls = api.calls.length;
+    for (const path of ["main/v2", "main/v2/src/app.ts"])
+      expect(
+        await api.run("repository.lookup", false, false, browse(path)),
+      ).toEqual({ type: "repository.not_cached" });
+    expect(api.calls).toHaveLength(calls);
+    expect(
+      await api.run(
+        "analysis.request",
+        false,
+        false,
+        browse("main/v2/src/app.ts"),
+      ),
+    ).toMatchObject({
+      type: "analysis.completed",
+      fromCache: false,
+      resolution: { ref: "main/v2", sha: "d".repeat(40) },
+    });
+    const resolvedCalls = api.calls.length;
+    for (const path of ["main/v2", "main/v2/docs"])
+      expect(
+        await api.run("repository.lookup", false, false, browse(path)),
+      ).toMatchObject({
+        type: "repository.cache_hit",
+        resolution: { ref: "main/v2", sha: "d".repeat(40) },
+      });
+    expect(api.calls).toHaveLength(resolvedCalls);
+    expect(api.tokens).toHaveLength(cachedDefault ? 2 : 1);
+  }
+});
+
+test("default branch folder reuse requires ruling out nested refs and keeps the default label", async () => {
+  for (const nested of [false, true]) {
+    const api = fixture();
+    if (nested) api.tags["main/v2"] = "d".repeat(40);
+    const browse = (path: string) => ({ path, exact: false });
+    await api.run("analysis.request", false);
+    expect(
+      await api.run("repository.lookup", false, false, browse("main/docs")),
+    ).toEqual({ type: "repository.not_cached" });
+    expect(api.calls).toHaveLength(2);
+    const resolved = await api.run(
+      "analysis.request",
+      false,
+      false,
+      browse("main/src/app.ts"),
+    );
+    expect(resolved).toMatchObject({
+      type: "analysis.completed",
+      fromCache: true,
+      resolution: { defaultBranch: "main", sha: "a".repeat(40) },
+    });
+    expect(resolved).not.toHaveProperty("resolution.ref");
+    expect(api.tokens).toHaveLength(1);
+    expect(api.calls).toHaveLength(5);
+    const folder = await api.run(
+      "repository.lookup",
+      false,
+      false,
+      browse("main/v2/docs"),
+    );
+    expect(folder).toMatchObject({
+      type: nested ? "repository.not_cached" : "repository.cache_hit",
+    });
+    expect(api.calls).toHaveLength(5);
+    expect(
+      await api.run("repository.lookup", false, false, {
+        path: "main",
+        exact: true,
+      }),
+    ).toMatchObject({
+      type: "repository.cache_hit",
+      resolution: { sha: "a".repeat(40) },
+    });
+  }
 });
 
 test("a tag sharing a branch prefix never stands in for the branch", async () => {

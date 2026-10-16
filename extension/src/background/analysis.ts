@@ -183,7 +183,7 @@ export function createPublicAnalysis(
                 client.force,
                 (envelope) => [
                   `${base}@${refLabel(envelope)}`,
-                  ...(envelope.ref === undefined || nested === false
+                  ...(nested === false
                     ? [`${base}@${refLabel(envelope)}/`]
                     : []),
                   ...(envelope.ref === undefined ? [base] : []),

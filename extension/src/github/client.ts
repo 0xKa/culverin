@@ -386,16 +386,13 @@ export async function resolveRepository(
       Number.isSafeInteger(size) && (size as number) >= 0
         ? (size as number)
         : null,
-    ...(ref === undefined ? {} : { ref }),
+    ...(ref === undefined || ref === branch ? {} : { ref }),
     ...(nested === undefined ? {} : { nested }),
   };
 }
 
 function defaultTarget(target: RefTarget, branch: string): boolean {
-  return (
-    target.path === branch ||
-    (!target.exact && target.path.startsWith(`${branch}/`))
-  );
+  return target.path === branch;
 }
 
 export function refCandidates(target: RefTarget, branch: string): string[] {

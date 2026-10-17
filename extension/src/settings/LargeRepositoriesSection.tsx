@@ -40,6 +40,7 @@ export function LargeRepositoriesSection({ hidden }: { hidden: boolean }) {
             label="Maximum download for counts you start"
             hint={`Counts that start when you open a repository page stop at ${sizeLabel(DOWNLOAD_LIMITS.automatic / MIB)}.`}
             state={state}
+            statusCorner
           >
             <TickChoice
               name="download-limit"

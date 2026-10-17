@@ -8,6 +8,7 @@ export function SettingRow({
   state,
   statusId = `${id}-status`,
   stacked = false,
+  statusCorner = false,
   children,
 }: {
   id: string;
@@ -16,18 +17,21 @@ export function SettingRow({
   state?: ActionState;
   statusId?: string;
   stacked?: boolean;
+  statusCorner?: boolean;
   children: ComponentChildren;
 }) {
   return (
     <div
-      className={`grid items-center gap-x-6 gap-y-2.5 py-3.5 first:pt-0 last:pb-0 ${stacked ? "" : "sm:grid-cols-[1fr_auto]"}`}
+      className={`grid items-center gap-x-6 gap-y-2.5 py-3.5 first:pt-0 last:pb-0 ${stacked ? "" : "sm:grid-cols-[1fr_auto]"} ${statusCorner ? "relative" : ""}`}
     >
       <div className="min-w-0">
-        <div className="flex min-h-[1.375rem] items-center gap-2.5">
+        <div
+          className={`flex min-h-[1.375rem] items-center gap-2.5 ${statusCorner ? "max-sm:pr-20" : ""}`}
+        >
           <span id={`${id}-label`} className="font-medium">
             {label}
           </span>
-          <ActionStatus id={statusId} state={state} />
+          {!statusCorner && <ActionStatus id={statusId} state={state} />}
         </div>
         {hint && (
           <p id={`${id}-hint`} className="text-muted m-0 text-sm">
@@ -39,12 +43,17 @@ export function SettingRow({
         role="radiogroup"
         aria-labelledby={`${id}-label`}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className={
-          stacked ? "grid gap-1.5" : "flex flex-wrap items-center gap-1.5"
-        }
+        className={`${stacked ? "grid gap-1.5" : "flex flex-wrap items-center gap-1.5"} ${statusCorner ? "sm:self-end" : ""}`}
       >
         {children}
       </div>
+      {statusCorner && (
+        <ActionStatus
+          id={statusId}
+          state={state}
+          className="absolute top-0 right-0 h-[1.375rem]"
+        />
+      )}
     </div>
   );
 }

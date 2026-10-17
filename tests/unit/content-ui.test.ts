@@ -240,7 +240,7 @@ test("names the limit an analysis reached", () => {
       failureState("decompressed_limit_exceeded", undefined, "decompressed"),
     ).title,
   ).toBe(
-    "The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked.",
+    "The source snapshot exceeds the expanded-size limit. The limit is 2,048 MiB unpacked. You can raise it in Settings → Large repositories.",
   );
   expect(
     failureState("metadata_limit_exceeded", undefined, "unknown"),
@@ -278,7 +278,18 @@ test("names the limit an analysis reached", () => {
     ),
   ).toMatchObject({
     detail:
-      "The source snapshot exceeds the expanded-size limit. The limit is 4,096 MiB unpacked.",
+      "The source snapshot exceeds the expanded-size limit. The limit is 4,096 MiB unpacked. You can raise it in Settings → Large repositories.",
+  });
+  expect(
+    failureState(
+      "decompressed_limit_exceeded",
+      undefined,
+      "decompressed",
+      32 * 1024 ** 3,
+    ),
+  ).toMatchObject({
+    detail:
+      "The source snapshot exceeds the expanded-size limit. The limit is 32,768 MiB unpacked.",
   });
   expect(
     failureState("entry_limit_exceeded", undefined, "entries"),

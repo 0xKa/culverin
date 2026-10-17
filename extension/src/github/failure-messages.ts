@@ -20,6 +20,17 @@ const sizedNotes: Record<string, (bytes: number) => string> = {
   decompressed: (bytes) => `${mib(bytes)} unpacked`,
 };
 
+const raisable: Record<string, { fallback: number; maximum: number }> = {
+  compressed: {
+    fallback: ARCHIVE_LIMITS.compressed,
+    maximum: DOWNLOAD_LIMITS.maximum,
+  },
+  decompressed: {
+    fallback: ARCHIVE_LIMITS.decompressed,
+    maximum: DOWNLOAD_LIMITS.maximum * DOWNLOAD_LIMITS.unpackedRatio,
+  },
+};
+
 export function limitNote(limit?: string, limitBytes?: number): string {
   if (limit === undefined) return "";
   const note =
@@ -27,9 +38,9 @@ export function limitNote(limit?: string, limitBytes?: number): string {
       ? sizedNotes[limit](limitBytes)
       : limitNotes[limit];
   if (!note) return "";
+  const range = raisable[limit];
   const raise =
-    limit === "compressed" &&
-    (limitBytes ?? ARCHIVE_LIMITS.compressed) < DOWNLOAD_LIMITS.maximum
+    range && (limitBytes ?? range.fallback) < range.maximum
       ? " You can raise it in Settings → Large repositories."
       : "";
   return ` The limit is ${note}.${raise}`;

@@ -3,7 +3,17 @@ import {
   exactBytes,
   formatBytes,
   formatCount,
+  limitSize,
 } from "../../extension/src/ui/format";
+
+test("names limits in whole GiB when they divide evenly, otherwise in MiB", () => {
+  const mib = 1024 * 1024;
+  expect(limitSize(2 * mib)).toBe("2 MiB");
+  expect(limitSize(512 * mib)).toBe("512 MiB");
+  expect(limitSize(1024 * mib)).toBe("1 GiB");
+  expect(limitSize(1536 * mib)).toBe("1,536 MiB");
+  expect(limitSize(32768 * mib)).toBe("32 GiB");
+});
 
 test("formats byte counts with binary units", () => {
   const cases: [number, string][] = [

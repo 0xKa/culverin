@@ -28,6 +28,13 @@ export function formatCount(
   });
 }
 
+export function limitSize(bytes: number): string {
+  const mebibytes = bytes / 1024 / 1024;
+  return mebibytes >= 1024 && mebibytes % 1024 === 0
+    ? `${(mebibytes / 1024).toLocaleString("en")} GiB`
+    : `${mebibytes.toLocaleString("en")} MiB`;
+}
+
 export function exactBytes(bytes: number, locale?: string): string {
   return `${bytes.toLocaleString(locale)} ${bytes === 1 ? "byte" : "bytes"}`;
 }

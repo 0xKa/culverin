@@ -7,13 +7,12 @@ import {
   downloadLimit,
   downloadLimitChoices,
 } from "../counting/download-limit";
+import { limitSize } from "../ui/format";
 
 const MIB = 1024 * 1024;
 
 export function sizeLabel(mebibytes: number): string {
-  return mebibytes >= 1024 && mebibytes % 1024 === 0
-    ? `${mebibytes / 1024} GiB`
-    : `${mebibytes.toLocaleString("en")} MiB`;
+  return limitSize(mebibytes * MIB);
 }
 
 export const downloadLimitOptions = downloadLimitChoices.map((value) => ({
@@ -34,6 +33,10 @@ export const fixedLimits: { label: string; value: string }[] = [
     value: ARCHIVE_LIMITS.entries.toLocaleString("en"),
   },
   { label: "Files", value: ARCHIVE_LIMITS.regularFiles.toLocaleString("en") },
+  {
+    label: "File paths",
+    value: `${sizeLabel(ARCHIVE_LIMITS.retainedPaths / MIB)} in total`,
+  },
   {
     label: `Source files over ${sizeLabel(ARCHIVE_LIMITS.file / MIB)}`,
     value: "Skipped, and the total is marked partial",

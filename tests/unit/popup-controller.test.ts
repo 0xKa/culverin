@@ -402,7 +402,7 @@ test("badges summarize outcomes and only waiting failures keep a visible note", 
   });
   await oversized;
   expect(lastStatus(ui.events)?.detail).toBe(
-    "The source snapshot exceeds the compressed-size limit. The limit is 1,024 MiB downloaded. You can raise it in Settings → Large repositories.",
+    "The source snapshot exceeds the compressed-size limit. The limit is 1 GiB downloaded. You can raise it in Settings → Large repositories.",
   );
 
   const limited = ui.controller.analyze();

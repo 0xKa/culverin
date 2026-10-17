@@ -1,23 +1,22 @@
 import { ARCHIVE_LIMITS, DOWNLOAD_LIMITS } from "../archive/limits";
+import { limitSize } from "../ui/format";
 import type { PublicErrorCode } from "./public-protocol";
 
-const mib = (bytes: number) =>
-  `${(bytes / 1024 / 1024).toLocaleString("en")} MiB`;
 const count = (value: number) => value.toLocaleString("en");
 
 const limitNotes: Record<string, string> = {
-  compressed: `${mib(ARCHIVE_LIMITS.compressed)} downloaded`,
-  decompressed: `${mib(ARCHIVE_LIMITS.decompressed)} unpacked`,
+  compressed: `${limitSize(ARCHIVE_LIMITS.compressed)} downloaded`,
+  decompressed: `${limitSize(ARCHIVE_LIMITS.decompressed)} unpacked`,
   entries: `${count(ARCHIVE_LIMITS.entries)} archive entries`,
   regularFiles: `${count(ARCHIVE_LIMITS.regularFiles)} files`,
   paxBody: `${count(ARCHIVE_LIMITS.paxBody / 1024)} KiB of metadata for one entry`,
-  paxTotal: `${mib(ARCHIVE_LIMITS.paxTotal)} of archive metadata`,
-  retainedPaths: `${mib(ARCHIVE_LIMITS.retainedPaths)} of file paths`,
+  paxTotal: `${limitSize(ARCHIVE_LIMITS.paxTotal)} of archive metadata`,
+  retainedPaths: `${limitSize(ARCHIVE_LIMITS.retainedPaths)} of file paths`,
 };
 
 const sizedNotes: Record<string, (bytes: number) => string> = {
-  compressed: (bytes) => `${mib(bytes)} downloaded`,
-  decompressed: (bytes) => `${mib(bytes)} unpacked`,
+  compressed: (bytes) => `${limitSize(bytes)} downloaded`,
+  decompressed: (bytes) => `${limitSize(bytes)} unpacked`,
 };
 
 const raisable: Record<string, { fallback: number; maximum: number }> = {
@@ -89,6 +88,6 @@ export function failureDetail(
   limitBytes?: number,
 ): string {
   if (code === "auto_download_limit")
-    return `${failureMessages[code]}${limitBytes ? ` Click to count up to ${mib(limitBytes)}.` : ""}`;
+    return `${failureMessages[code]}${limitBytes ? ` Click to count up to ${limitSize(limitBytes)}.` : ""}`;
   return failureMessages[code] + limitNote(limit, limitBytes);
 }

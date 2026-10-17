@@ -74,6 +74,7 @@ test("describes download sizes and the fixed limits from the constants", () => {
     { label: "Unpacked size", value: "8 times the download limit" },
     { label: "Archive entries", value: "2,000,000" },
     { label: "Files", value: "1,000,000" },
+    { label: "File paths", value: "128 MiB in total" },
     {
       label: "Source files over 8 MiB",
       value: "Skipped, and the total is marked partial",

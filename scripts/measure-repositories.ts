@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import {
   ARCHIVE_LIMITS,
+  DOWNLOAD_LIMITS,
   type ArchiveLimits,
 } from "../extension/src/archive/limits";
 import { analyzeTar, ArchiveError } from "../extension/src/archive/tar";
@@ -29,8 +30,8 @@ const defaults = [
 type Tracked =
   "compressed" | "decompressed" | "entries" | "regularFiles" | "retainedPaths";
 const thresholds: Record<Tracked, number> = {
-  compressed: ARCHIVE_LIMITS.compressed,
-  decompressed: ARCHIVE_LIMITS.decompressed,
+  compressed: DOWNLOAD_LIMITS.fallback,
+  decompressed: DOWNLOAD_LIMITS.fallback * DOWNLOAD_LIMITS.unpackedRatio,
   entries: ARCHIVE_LIMITS.entries,
   regularFiles: ARCHIVE_LIMITS.regularFiles,
   retainedPaths: ARCHIVE_LIMITS.retainedPaths,
@@ -152,7 +153,11 @@ async function measure(
           (JSON.parse(analyzer.classify_path(path, prefix)) as { kind: string })
             .kind,
         addFile: (path, bytes) => {
-          analyzer.add_file(path, bytes);
+          try {
+            analyzer.add_file(path, bytes);
+          } catch (error) {
+            throw new Error(`${String(error)} in ${path}`, { cause: error });
+          }
           countedBytes += bytes.byteLength;
           wasmPeak = Math.max(wasmPeak, memory.buffer.byteLength);
         },
@@ -178,6 +183,15 @@ async function measure(
       limits,
     );
     cross("retainedPaths", metrics.retainedPathBytes);
+    const structural =
+      metrics.entries <= ARCHIVE_LIMITS.entries &&
+      metrics.regularFiles <= ARCHIVE_LIMITS.regularFiles &&
+      metrics.retainedPathBytes <= ARCHIVE_LIMITS.retainedPaths;
+    const fits = (download: number) =>
+      structural &&
+      compressed <= download &&
+      metrics.decompressedBytes <= download * DOWNLOAD_LIMITS.unpackedRatio;
+    const setting = DOWNLOAD_LIMITS.choices.find(fits);
     return {
       repository: label,
       download: format(compressed),
@@ -190,6 +204,8 @@ async function measure(
       wasmMemory: format(wasmPeak),
       seconds: Math.round((performance.now() - started) / 100) / 10,
       crosses: crossed.map((item) => item.limit),
+      automatic: fits(DOWNLOAD_LIMITS.automatic),
+      smallestSetting: setting === undefined ? null : format(setting),
     };
   } catch (error) {
     return {

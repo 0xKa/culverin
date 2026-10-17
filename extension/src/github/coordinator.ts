@@ -254,6 +254,8 @@ export class AnalysisCoordinator {
     }
     this.notify();
     if (job.state === "queued" && this.active) subscriber.onProgress("queued");
+    else if (job.state === "running" && job.phase >= 0)
+      subscriber.onProgress(phaseOrder[job.phase]!, undefined, job.startedAt);
     this.pump();
     return true;
   }

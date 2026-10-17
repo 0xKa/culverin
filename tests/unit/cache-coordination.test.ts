@@ -1176,3 +1176,60 @@ test("subscribers learn when a job started and how long it took", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(completed?.durationMs).toBe(124_000);
 });
+
+test("a subscriber joining a running job learns its phase and start time", () => {
+  let now = 10_000;
+  let jobId = "";
+  let progress: (phase: "downloading") => void = () => undefined;
+  const coordinator = new AnalysisCoordinator(
+    (job, report) => {
+      jobId = job.id;
+      progress = report;
+      return new Promise<AnalysisOutput>(() => undefined);
+    },
+    () => undefined,
+    () => now,
+  );
+  const subscriber = (owner: string, seen: unknown[]) => ({
+    requestId: crypto.randomUUID(),
+    owner,
+    public: true,
+    onProgress: (phase: string, _bytes?: number, startedAt?: number) =>
+      seen.push([phase, startedAt]),
+    onComplete: () => undefined,
+    onFailure: () => undefined,
+  });
+  const first: unknown[] = [];
+  coordinator.subscribe("job", resolution(), undefined, "", {
+    ...subscriber("settings", first),
+    automatic: true,
+  });
+  const early: unknown[] = [];
+  coordinator.subscribe(
+    "job",
+    resolution(),
+    undefined,
+    "",
+    subscriber("early", early),
+  );
+  expect(early).toEqual([]);
+  now = 11_000;
+  progress("downloading");
+  now = 12_000;
+  coordinator.reportCounting(jobId);
+  now = 70_000;
+  progress("downloading");
+  const late: unknown[] = [];
+  coordinator.subscribe(
+    "job",
+    resolution(),
+    undefined,
+    "",
+    subscriber("popup", late),
+  );
+  expect(late).toEqual([["counting", 10_000]]);
+  expect(first).toEqual([
+    ["downloading", 10_000],
+    ["counting", 10_000],
+  ]);
+});

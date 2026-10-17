@@ -23,7 +23,7 @@ The only check before the body is read is GitHub's `Content-Length` header: when
 | One file path                        | 4,096 bytes or 100 parts                                                               | The source snapshot is malformed.                                                                                                          |
 | Counter memory after counting        | 512 MiB of WASM memory                                                                 | Local counting failed.                                                                                                                     |
 
-Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits, so ignore rules cannot bring a repository under them. There is no separate limit on the amount of source passed to the counter: the counter keeps only per-language totals, so its memory does not grow with the source, and the unpacked limit bounds the work.
+Entries include directories, links, and archive metadata headers as well as files. Files excluded by ignore rules, binary files, and files in unsupported languages still count toward the download, unpacked, entry, and file limits, so ignore rules cannot bring a repository under them. There is no separate limit on the amount of source passed to the counter: the counter keeps only per-language totals, so its memory does not grow with the source, and the unpacked limit bounds the work. The file-path limit is the one that sets memory: Culverin keeps every path it reads to reject duplicates, and a synthetic archive of a million files at the 128 MiB limit needed about 1.2 GiB in the extension's process while counting, against under 0.4 GiB for 100,000 files. [Archive scalability](archive-performance.md#path-memory) has the measurements.
 
 ## Automatic counts
 
@@ -49,20 +49,22 @@ A source file over 8 MiB is not counted. The count continues, the result is mark
 
 ## Real repositories
 
-The following snapshots of default branches were measured on 2026-10-16 by streaming each GitHub archive and applying the limits above. Counted source uses Culverin's own archive parser and WASM classifier with the default ignore rules. Repositories change, so these are dated observations rather than guarantees.
+The following snapshots of default branches were measured on 2026-10-17 with `bun run measure:repos`, which streams each GitHub archive through Culverin's own archive parser and WASM counter with the default ignore rules and reports which limits a snapshot crosses. GitHub rate-limited the archives of torvalds/linux and microsoft/winget-pkgs that day, so their rows repeat the sizes measured on 2026-10-16, without file paths, and their outcomes are worked out from those sizes. Repositories change, so these are dated observations rather than guarantees.
 
-| Repository                   | Download | Unpacked  | Entries | Files   | Outcome                                                                         |
-| ---------------------------- | -------- | --------- | ------- | ------- | ------------------------------------------------------------------------------- |
-| odoo/odoo                    | 195 MiB  | 1,076 MiB | 59,300  | 50,491  | Counts; 946 MiB of counted source, close to the 1 GiB limit                     |
-| gcc-mirror/gcc               | 159 MiB  | 939 MiB   | 169,707 | 163,552 | Counts; 642 MiB of counted source                                               |
-| nodejs/node                  | 141 MiB  | 739 MiB   | 61,297  | 56,460  | Counts; 526 MiB of counted source                                               |
-| tensorflow/tensorflow        | 109 MiB  | 507 MiB   | 39,602  | 37,225  | Counts                                                                          |
-| microsoft/vscode             | 61 MiB   | 311 MiB   | 25,457  | 20,729  | Counts                                                                          |
-| torvalds/linux               | 258 MiB  | 1,639 MiB | 102,366 | 95,978  | Fails on counted source about three quarters through; the download is also over |
-| JetBrains/intellij-community | 253 MiB  | 1,241 MiB | 357,078 | 285,390 | Fails on entries and files                                                      |
-| microsoft/winget-pkgs        | 123 MiB  | 1,423 MiB | 937,627 | 727,792 | Fails on entries and files despite a small download                             |
-| ClickHouse/ClickHouse        | 352 MiB  | 952 MiB   | 91,520  | 84,252  | Fails on the download                                                           |
-| llvm/llvm-project            | 306 MiB  | 2,432 MiB | 204,668 | 187,652 | Fails on the download and unpacked size                                         |
-| chromium/chromium            | >700 MiB | >2.5 GiB  | >285k   | >258k   | Fails on every size limit                                                       |
+| Repository                   | Download | Unpacked   | Entries  | Files    | File paths   | Outcome                                                                      |
+| ---------------------------- | -------- | ---------- | -------- | -------- | ------------ | ---------------------------------------------------------------------------- |
+| odoo/odoo                    | 195 MiB  | 1,076 MiB  | 59,300   | 50,491   | 2.5 MiB      | Counts, also automatically                                                   |
+| gcc-mirror/gcc               | 159 MiB  | 939 MiB    | 169,717  | 163,562  | 7.5 MiB      | Counts, also automatically                                                   |
+| nodejs/node                  | 141 MiB  | 739 MiB    | 61,299   | 56,462   | 3.0 MiB      | Counts, also automatically                                                   |
+| tensorflow/tensorflow        | 109 MiB  | 508 MiB    | 39,613   | 37,236   | 2.2 MiB      | Counts, also automatically                                                   |
+| microsoft/vscode             | 61 MiB   | 312 MiB    | 25,506   | 20,777   | 1.6 MiB      | Counts, also automatically                                                   |
+| JetBrains/intellij-community | 253 MiB  | 1,246 MiB  | 357,289  | 285,525  | 29.6 MiB     | Counts, also automatically, just under 256 MiB                               |
+| ClickHouse/ClickHouse        | 352 MiB  | 953 MiB    | 91,574   | 84,308   | 5.3 MiB      | Counts with the 512 MiB default; too large to count automatically            |
+| llvm/llvm-project            | 306 MiB  | 2,432 MiB  | 204,714  | 187,697  | 10.0 MiB     | Counts with the 512 MiB default; too large to count automatically            |
+| torvalds/linux               | 258 MiB  | 1,639 MiB  | 102,366  | 95,978   | Not measured | Should count with the 512 MiB default; just too large to count automatically |
+| microsoft/winget-pkgs        | 123 MiB  | 1,423 MiB  | 937,627  | 727,792  | Not measured | Should count, also automatically, unless its paths exceed 128 MiB            |
+| chromium/chromium            | >268 MiB | >1,032 MiB | >120,074 | >107,618 | Not reached  | Fails with Local counting failed on one HTML file, before any limit          |
 
-In practice, the 256 MiB download limit is the boundary for large monorepos, and the 1 GiB source limit is reached first by repositories that are almost entirely code, at roughly 200 MiB downloaded. The entry and file limits stop repositories of many small files regardless of their size. The 2 GiB unpacked limit only matters for repositories already over the download limit. The five-minute deadline was not measured for these repositories; [archive scalability](archive-performance.md) records synthetic timings.
+Every measured repository that counts fits the 512 MiB default, and most fit the 256 MiB limit of automatic counts, so pages of large repositories usually count when they open. Repositories over 256 MiB, such as ClickHouse, llvm-project, and probably linux, show Too large to count automatically and count with one click. No measured repository comes close to the entry, file, or path limits: intellij-community, with 285,525 files, holds 29.6 MiB of paths. Each count took between 12 and 59 seconds in the script on a fast connection, far inside the 60-minute ceiling; in the extension a count also depends on the transfer speed recorded in [archive scalability](archive-performance.md).
+
+chromium/chromium stops with a counter error in `chrome/test/data/ssl/google.html` after about 1 GiB unpacked. Tokei attributes more embedded lines to that 4-line HTML file than it has, and the counter rejects the result. The same error occurs before this version, where chromium failed on its size first. Its full size is unknown; on 2026-10-16 it was over 700 MiB downloaded, so it needs at least the 1 GiB setting.

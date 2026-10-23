@@ -65,7 +65,7 @@ try {
     await page.goto(`https://github.com/${repository}`);
     await page.getByText("Analyze with Culverin").waitFor({ timeout: 60_000 });
     const popup = await openPopup(page);
-    await popup.setViewportSize({ width: 360, height: 810 });
+    await popup.setViewportSize({ width: 360, height: 1000 });
     const started = Date.now();
     await popup.getByRole("button", { name: "Analyze repository" }).click();
     await popup
@@ -78,11 +78,20 @@ try {
     console.log(`${repository}: counted in ${Date.now() - started} ms`);
     await popup.mouse.move(0, 0);
     await popup.waitForTimeout(800);
+    const rows = popup
+      .getByRole("list", { name: "Languages by code lines" })
+      .locator(":scope > li");
+    const last = rows.nth(Math.min(await rows.count(), 8) - 1);
+    const bottom = await last.evaluate(
+      (row) => row.getBoundingClientRect().bottom,
+    );
+    const popupClip = { x: 0, y: 0, width: 360, height: bottom + 5 };
     for (const colorScheme of schemes) {
       await popup.emulateMedia({ colorScheme });
       await popup.waitForTimeout(300);
       await popup.screenshot({
         path: resolve(directory, `popup-${colorScheme}.png`),
+        clip: popupClip,
       });
       await popup.screenshot({
         path: resolve(directory, `popup-full-${colorScheme}.png`),

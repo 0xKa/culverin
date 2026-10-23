@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Culverin doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste a GitHub token, a signed download URL, or a private repository's name in this issue. To report a security problem, use [Report a vulnerability](https://github.com/0xKa/culverin/security/advisories/new) instead.
+  - type: input
+    id: culverin-version
+    attributes:
+      label: Culverin version
+      description: Shown on the extension's card in `chrome://extensions`.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: chrome-version
+    attributes:
+      label: Chrome version
+      description: Shown in `chrome://version`.
+      placeholder: "141.0.7390.54"
+    validations:
+      required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: The public repository page where it happened, if any. For a private repository, describe it instead.
+      placeholder: https://github.com/owner/name
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact message Culverin showed, if any. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open https://github.com/owner/name
+        2. Click the lines-of-code row
+        3. ...
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings you changed
+      description: For example custom ignore rules, the Large repositories limit, counting on page open, or a GitHub connection.

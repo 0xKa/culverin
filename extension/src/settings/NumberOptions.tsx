@@ -5,6 +5,7 @@ import {
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import { formatCount, type CountFormat, type SizeUnits } from "../ui/format";
 import { useAction } from "./ActionStatus";
+import { optionText, preferenceReset } from "./reset";
 import { SettingRow, TickChoice } from "./SettingRow";
 
 const counts: { value: CountFormat; name: string }[] = [
@@ -56,6 +57,16 @@ export function NumberOptions({
     });
   }
 
+  const countOptions = counts.map((option) => {
+    const example = formatExample(12_480, option.value);
+    return {
+      value: option.value,
+      label: example,
+      name: `${option.name}, ${example}`,
+      mono: true,
+    };
+  });
+
   return (
     <>
       <SettingRow
@@ -63,18 +74,16 @@ export function NumberOptions({
         label="Numbers"
         hint="Full counts or short ones."
         state={countAction.state}
+        reset={preferenceReset(
+          preferences.counts,
+          formats?.counts,
+          optionText(countOptions, preferences.counts.fallback),
+          changeCounts,
+        )}
       >
         <TickChoice
           name={`${idPrefix}count-format`}
-          options={counts.map((option) => {
-            const example = formatExample(12_480, option.value);
-            return {
-              value: option.value,
-              label: example,
-              name: `${option.name}, ${example}`,
-              mono: true,
-            };
-          })}
+          options={countOptions}
           value={formats?.counts}
           disabled={!formats}
           onChange={changeCounts}
@@ -85,6 +94,12 @@ export function NumberOptions({
         label="Size units"
         hint="1 KiB = 1,024 bytes; 1 KB = 1,000 bytes."
         state={sizeAction.state}
+        reset={preferenceReset(
+          preferences.sizes,
+          formats?.sizes,
+          optionText(sizes, preferences.sizes.fallback),
+          changeSizes,
+        )}
       >
         <TickChoice
           name={`${idPrefix}size-units`}

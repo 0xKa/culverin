@@ -4,6 +4,7 @@ import {
   type LanguageColorMode,
   type LanguageMarker,
 } from "../appearance/language-colors";
+import { optionText, preferenceReset } from "./reset";
 import { SettingRow, TickChoice, type ChoiceOption } from "./SettingRow";
 import { useRootChoice } from "./useRootChoice";
 
@@ -47,6 +48,12 @@ export function LanguageColorOptions() {
         label="Language colors"
         hint="Each language keeps its own color, or every bar uses your accent."
         state={mode.state}
+        reset={preferenceReset(
+          languageColors,
+          mode.value,
+          optionText(modes, languageColors.fallback),
+          mode.change,
+        )}
       >
         <TickChoice
           name="language-colors"
@@ -61,6 +68,15 @@ export function LanguageColorOptions() {
         label="Language markers"
         hint="Shown beside each language name."
         state={marker.state}
+        reset={{
+          ...preferenceReset(
+            languageMarkers,
+            marker.value,
+            optionText(markers, languageMarkers.fallback),
+            marker.change,
+          ),
+          disabled: mode.value === "single",
+        }}
       >
         <TickChoice
           name="language-marker"

@@ -8,6 +8,7 @@ import {
   fixedLimits,
   sizeLabel,
 } from "./large-repositories";
+import { preferenceReset } from "./reset";
 import { SettingRow, TickChoice } from "./SettingRow";
 
 const MIB = 1024 * 1024;
@@ -41,6 +42,12 @@ export function LargeRepositoriesSection({ hidden }: { hidden: boolean }) {
             hint={`Counts that start when you open a repository page stop at ${sizeLabel(DOWNLOAD_LIMITS.automatic / MIB)}.`}
             state={state}
             statusCorner
+            reset={preferenceReset(
+              downloadLimit,
+              limit,
+              sizeLabel(downloadLimit.fallback),
+              change,
+            )}
           >
             <TickChoice
               name="download-limit"

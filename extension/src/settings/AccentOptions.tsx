@@ -1,4 +1,5 @@
 import { accent, type Accent } from "../appearance/accent";
+import { optionText, preferenceReset } from "./reset";
 import { SettingRow } from "./SettingRow";
 import { useRootChoice } from "./useRootChoice";
 
@@ -20,6 +21,12 @@ export function AccentOptions() {
       label="Accent color"
       hint="Used for the Culverin icon, highlights, links, buttons, and single-color language bars."
       state={choice.state}
+      reset={preferenceReset(
+        accent,
+        choice.value,
+        optionText(options, accent.fallback),
+        choice.change,
+      )}
     >
       {options.map((option) => (
         <label

@@ -121,6 +121,10 @@ export async function runAccentIcons(
         () => (globalThis as IconScope).nextIcon,
       );
       assert.deepEqual(applied, { path: toolbarIconPaths(value) });
+      assert.equal(
+        await settings.getByRole("button", { name: "Reset to Blue" }).count(),
+        value === accent.fallback ? 0 : 1,
+      );
       await checkHeader(settings);
       await checkHeader(popup);
     }

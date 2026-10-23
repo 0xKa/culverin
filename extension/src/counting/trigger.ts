@@ -2,6 +2,8 @@ export const COUNT_TRIGGER_KEY = "culverin.countTrigger";
 
 export type CountTrigger = "manual" | "open";
 
+export const defaultCountTrigger: CountTrigger = "manual";
+
 export type CountTriggerStorage = {
   get(key: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
@@ -13,9 +15,9 @@ export async function readCountTrigger(
 ): Promise<CountTrigger> {
   try {
     const value = (await storage.get(COUNT_TRIGGER_KEY))[COUNT_TRIGGER_KEY];
-    return value === "open" ? "open" : "manual";
+    return value === "open" ? "open" : defaultCountTrigger;
   } catch {
-    return "manual";
+    return defaultCountTrigger;
   }
 }
 

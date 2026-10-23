@@ -250,10 +250,37 @@ export async function runPageCounting(
 
   await returnToPage([/^\d[\d.]*[kMB]? files?$/, "0 lines of code"]);
 
-  await pageSettings.evaluate(() =>
-    chrome.storage.sync.remove("culverin.aboutItems"),
+  const layoutReset = pageSettings.getByRole("button", {
+    name: "Reset to default",
+  });
+  assert.equal(
+    await layoutReset.getAttribute("aria-describedby"),
+    "about-items-label",
   );
-  await pageSettings.reload();
+  assert.equal(
+    await pageSettings
+      .getByRole("group", { name: "Show in the About list" })
+      .count(),
+    1,
+  );
+  await layoutReset.click();
+  await pageSettings.getByText("About list reset to default. Saved.").waitFor();
+  await pageSettings.waitForFunction(
+    async () =>
+      !(
+        "culverin.aboutItems" in
+        (await chrome.storage.sync.get("culverin.aboutItems"))
+      ),
+  );
+  await pageSettings
+    .getByRole("checkbox", { name: "Lines of code" })
+    .and(pageSettings.locator(":focus"))
+    .waitFor();
+  assert.equal(await layoutReset.count(), 0);
+  assert.deepEqual(
+    await pageSettings.locator("#about-preview > span").allTextContents(),
+    ["12.3k lines of code", "1.2k files", "4.5 MiB"],
+  );
 
   await pageSettings
     .locator('input[name="repository-page-count-format"][value="full"]')
@@ -556,10 +583,37 @@ export async function runPageCounting(
       ),
     ["256 MiB", "512 MiB", "1 GiB", "2 GiB", "4 GiB"],
   );
+  const limitReset = largeSettings.getByRole("button", {
+    name: "Reset to 512 MiB",
+  });
+  assert.equal(await limitReset.count(), 0);
   assert.match(
     (await largeSettings.locator("#download-limit-hint").textContent()) ?? "",
     /^Counts that start when you open a repository page stop at 256 MiB\.$/,
   );
+  await largeSettings
+    .locator('input[name="download-limit"][value="1024"]')
+    .check();
+  await largeSettings.waitForFunction(async () => {
+    const stored = await chrome.storage.sync.get("culverin.downloadLimit");
+    return stored["culverin.downloadLimit"] === 1024;
+  });
+  assert.equal(
+    await limitReset.getAttribute("aria-describedby"),
+    "download-limit-label",
+  );
+  await limitReset.click();
+  await largeSettings.waitForFunction(
+    async () =>
+      !(
+        "culverin.downloadLimit" in
+        (await chrome.storage.sync.get("culverin.downloadLimit"))
+      ),
+  );
+  await largeSettings
+    .locator('input[name="download-limit"][value="512"]:checked:focus')
+    .waitFor();
+  assert.equal(await limitReset.count(), 0);
   await largeSettings
     .locator('input[name="download-limit"][value="1024"]')
     .check();
@@ -577,6 +631,7 @@ export async function runPageCounting(
         (await chrome.storage.sync.get("culverin.downloadLimit"))
       ),
   );
+  assert.equal(await limitReset.count(), 0);
   await largeSettings.close();
 
   const countingSettings = await context.newPage();

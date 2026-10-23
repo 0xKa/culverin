@@ -7,7 +7,8 @@ import {
 } from "../appearance/contrast";
 import { Panel, SectionHeader } from "./layout";
 import { useAction } from "./ActionStatus";
-import { SettingRow, TickChoice } from "./SettingRow";
+import { optionText, preferenceReset } from "./reset";
+import { SettingRow, TickChoice, type ChoiceOption } from "./SettingRow";
 import { ThemeSample } from "./ThemeSample";
 import { NumberOptions } from "./NumberOptions";
 import { LanguageColorOptions } from "./LanguageColorOptions";
@@ -17,6 +18,11 @@ const options: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+];
+
+const contrastOptions: ChoiceOption<"standard" | "high">[] = [
+  { value: "standard", label: "Off" },
+  { value: "high", label: "On" },
 ];
 
 export function AppearanceSection({ hidden }: { hidden: boolean }) {
@@ -77,6 +83,12 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
             hint="System follows your device or browser."
             state={state}
             statusId="appearance-status"
+            reset={preferenceReset(
+              theme,
+              choice,
+              optionText(options, theme.fallback),
+              change,
+            )}
           >
             <TickChoice
               name="theme"
@@ -92,13 +104,19 @@ export function AppearanceSection({ hidden }: { hidden: boolean }) {
             label="High contrast"
             hint="Stronger text, borders, and controls in the popup and settings."
             state={contrastAction.state}
+            reset={preferenceReset(
+              highContrast,
+              contrast,
+              optionText(
+                contrastOptions,
+                highContrast.fallback ? "high" : "standard",
+              ),
+              changeContrast,
+            )}
           >
             <TickChoice
               name="high-contrast"
-              options={[
-                { value: "standard", label: "Off" },
-                { value: "high", label: "On" },
-              ]}
+              options={contrastOptions}
               value={
                 contrast === undefined
                   ? undefined

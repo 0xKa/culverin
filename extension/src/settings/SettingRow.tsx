@@ -1,5 +1,9 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
+import { RotateCcw } from "lucide-preact";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { IconButton } from "../ui/IconButton";
 import { ActionStatus, type ActionState } from "./ActionStatus";
+import type { SettingReset } from "./reset";
 
 export function SettingRow({
   id,
@@ -9,6 +13,7 @@ export function SettingRow({
   statusId = `${id}-status`,
   stacked = false,
   statusCorner = false,
+  reset,
   children,
 }: {
   id: string;
@@ -18,8 +23,10 @@ export function SettingRow({
   statusId?: string;
   stacked?: boolean;
   statusCorner?: boolean;
+  reset?: SettingReset;
   children: ComponentChildren;
 }) {
+  const group = useRef<HTMLDivElement>(null);
   return (
     <div
       className={`grid items-center gap-x-6 gap-y-2.5 py-3.5 first:pt-0 last:pb-0 ${stacked ? "" : "sm:grid-cols-[1fr_auto]"} ${statusCorner ? "relative" : ""}`}
@@ -31,6 +38,14 @@ export function SettingRow({
           <span id={`${id}-label`} className="font-medium">
             {label}
           </span>
+          {reset && (
+            <ResetButton
+              id={`${id}-reset`}
+              reset={reset}
+              describedBy={`${id}-label`}
+              focusWithin={group}
+            />
+          )}
           {!statusCorner && <ActionStatus id={statusId} state={state} />}
         </div>
         {hint && (
@@ -40,6 +55,7 @@ export function SettingRow({
         )}
       </div>
       <div
+        ref={group}
         role="radiogroup"
         aria-labelledby={`${id}-label`}
         aria-describedby={hint ? `${id}-hint` : undefined}
@@ -55,6 +71,46 @@ export function SettingRow({
         />
       )}
     </div>
+  );
+}
+
+export function ResetButton({
+  id,
+  reset,
+  describedBy,
+  focusWithin,
+}: {
+  id: string;
+  reset: SettingReset;
+  describedBy: string;
+  focusWithin: RefObject<HTMLElement>;
+}) {
+  const [refocus, setRefocus] = useState(false);
+
+  useEffect(() => {
+    if (!refocus) return;
+    setRefocus(false);
+    focusWithin.current?.querySelector<HTMLElement>("input:checked")?.focus();
+  }, [refocus, focusWithin]);
+
+  if (!reset.modified) return null;
+  return (
+    <IconButton
+      id={id}
+      type="button"
+      size="sm"
+      label={`Reset to ${reset.to}`}
+      tip={{}}
+      aria-describedby={describedBy}
+      disabled={reset.disabled}
+      className="-my-1 disabled:opacity-40"
+      onClick={() => {
+        reset.onReset();
+        setRefocus(true);
+      }}
+    >
+      <RotateCcw size={14} />
+    </IconButton>
   );
 }
 

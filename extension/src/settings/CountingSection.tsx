@@ -1,11 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
 import {
+  defaultCountTrigger,
   readCountTrigger,
   writeCountTrigger,
   type CountTrigger,
 } from "../counting/trigger";
 import { Panel, SectionHeader } from "./layout";
 import { useAction } from "./ActionStatus";
+import { optionText } from "./reset";
 import { SettingRow } from "./SettingRow";
 
 const options: { value: CountTrigger; label: string; detail: string }[] = [
@@ -49,6 +51,11 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
           label="Count lines of code in a repository"
           state={state}
           stacked
+          reset={{
+            to: optionText(options, defaultCountTrigger),
+            modified: trigger !== undefined && trigger !== defaultCountTrigger,
+            onReset: () => change(defaultCountTrigger),
+          }}
         >
           {options.map((option) => (
             <label

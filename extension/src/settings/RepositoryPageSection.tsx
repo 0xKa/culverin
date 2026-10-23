@@ -19,7 +19,13 @@ import { IconButton } from "../ui/IconButton";
 import { Checkbox } from "../ui/Checkbox";
 import { Panel, SectionHeader } from "./layout";
 import { ActionStatus, useAction } from "./ActionStatus";
-import { SettingRow, TickChoice, type ChoiceOption } from "./SettingRow";
+import { optionText, preferenceReset } from "./reset";
+import {
+  ResetButton,
+  SettingRow,
+  TickChoice,
+  type ChoiceOption,
+} from "./SettingRow";
 import { useNumberFormats } from "../appearance/useNumberFormats";
 import {
   defaultPageNumberFormats,
@@ -143,6 +149,12 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
           label="Repo About section visibility"
           hint={visibilityHints[selectedVisibility]}
           state={visibilityAction.state}
+          reset={preferenceReset(
+            aboutVisibility,
+            visibility,
+            optionText(visibilityOptions, aboutVisibility.fallback),
+            changeVisibility,
+          )}
         >
           <TickChoice
             name="about-visibility"
@@ -154,9 +166,22 @@ export function RepositoryPageSection({ hidden }: { hidden: boolean }) {
         </SettingRow>
       </Panel>
       <Panel className="relative">
-        <fieldset className="m-0 border-0 p-0">
+        <fieldset
+          aria-labelledby="about-items-label"
+          className="m-0 border-0 p-0"
+        >
           <legend className="text-md mb-1 p-0 font-semibold">
-            Show in the About list
+            <span className="flex items-center gap-2.5">
+              <span id="about-items-label">Show in the About list</span>
+              <ResetButton
+                id="about-items-reset"
+                reset={preferenceReset(aboutLayout, layout, "default", (next) =>
+                  change(next, "About list reset to default."),
+                )}
+                describedBy="about-items-label"
+                focusWithin={list}
+              />
+            </span>
           </legend>
           <p className="text-muted m-0 mb-3 text-sm">
             These rows appear after a count, in this order. Before a count, the

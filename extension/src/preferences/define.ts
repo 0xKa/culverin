@@ -7,6 +7,7 @@ export type PreferenceStorage = {
 export type Preference<T> = {
   key: string;
   fallback: T;
+  isDefault(value: T): boolean;
   read(storage?: PreferenceStorage): Promise<T>;
   write(value: T, storage?: PreferenceStorage): Promise<void>;
 };
@@ -25,6 +26,7 @@ export function definePreference<T>({
   return {
     key,
     fallback,
+    isDefault,
     async read(storage = chrome.storage.sync) {
       try {
         return parse((await storage.get(key))[key]) ?? fallback;

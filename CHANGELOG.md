@@ -2,6 +2,10 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 1.1.0 - 2026-10-23
+
+- Updates the extension description shown in `chrome://extensions` and Settings → About to cover lines of code per language, file counts, repository size, and private repositories.
+
 ## 1.0.0 - 2026-10-23
 
 - Counts much larger repositories. Adds Settings → Large repositories, which sets the maximum download for counts you start: 256 MiB, 512 MiB (the default), 1 GiB, 2 GiB, or 4 GiB. The unpacked limit is eight times the download limit.

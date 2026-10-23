@@ -142,7 +142,9 @@ try {
   const waiting = new Map<number, (reply: Reply) => void>();
   socket.addEventListener("message", (event) => {
     const reply = JSON.parse(String(event.data)) as Reply;
-    if (reply.id !== undefined) waiting.get(reply.id)?.(reply);
+    const handler =
+      typeof reply.id === "number" ? waiting.get(reply.id) : undefined;
+    if (typeof handler === "function") handler(reply);
   });
   const send = (
     method: string,

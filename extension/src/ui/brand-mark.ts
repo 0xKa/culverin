@@ -3,15 +3,15 @@ export const BRAND_GRID = 16;
 type Rect = readonly [number, number, number, number];
 
 export const brandMarkRects: readonly Rect[] = [
-  [2, 1, 2, 13],
-  [1, 2, 14, 2],
-  [1, 11, 14, 2],
-  [5, 5, 7, 1],
-  [5, 7, 5, 1],
-  [5, 9, 9, 1],
+  [2, 1, 2, 14],
+  [1, 1, 14, 2],
+  [1, 13, 14, 2],
+  [5, 4, 7, 2],
+  [5, 7, 5, 2],
+  [5, 10, 9, 2],
 ];
 
-const rowGroups = "mobbglglglgbbomm";
+const rowGroups = "mbbgllgllgllgbbm";
 const columnGroups = "mossgmmmmmmmmmom";
 
 function fit(
@@ -28,9 +28,14 @@ function fit(
   for (let mask = 0; mask < 1 << classes.length; mask++) {
     const picked = new Set(classes.filter((_, index) => mask & (1 << index)));
     const rest = extra - units.filter((group) => picked.has(group)).length;
-    if (rest < 0 || rest > free.length) continue;
+    if (rest < 0) continue;
     const score = cost(picked);
-    if (!best || score < best.score) best = { picked, rest, score };
+    if (
+      !best ||
+      score < best.score ||
+      (score === best.score && rest < best.rest)
+    )
+      best = { picked, rest, score };
   }
   const sizes = units.map((group) => base + (best!.picked.has(group) ? 1 : 0));
   for (let index = 0; index < best!.rest; index++)
@@ -48,17 +53,13 @@ export function brandMarkLayout(pixels: number): Rect[] {
   const rows = fit(
     rowGroups,
     pixels,
-    (picked) =>
-      4 * +(picked.has("b") !== picked.has("l")) +
-      2 * +(picked.has("o") !== picked.has("b")) +
-      +(picked.has("g") !== picked.has("l")),
+    (picked) => +(picked.has("b") !== picked.has("l")),
   );
   const columns = fit(
     columnGroups,
     pixels,
     (picked) =>
-      4 * +(picked.has("s") !== rows.picked.has("b")) +
-      2 * +(picked.has("o") !== rows.picked.has("o")) +
+      2 * +(picked.has("s") !== rows.picked.has("b")) +
       +(picked.has("g") !== rows.picked.has("g")),
   );
   return brandMarkRects.map(([x, y, width, height]): Rect => [

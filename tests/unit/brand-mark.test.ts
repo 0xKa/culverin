@@ -33,10 +33,16 @@ test("draws equal strokes with equal device pixels at every size", () => {
     const [stem, top, bottom, ...lines] = brandMarkLayout(pixels);
     expect(bottom![3]).toBe(top![3]);
     expect(stem![2]).toBe(top![3]);
-    expect(new Set(lines.map((line) => line[3])).size).toBe(1);
-    expect(top![1] - stem![1]).toBe(
-      stem![1] + stem![3] - bottom![1] - bottom![3],
-    );
+    for (const line of lines) expect(line[3]).toBe(top![3]);
+    const rows = [top!, ...lines, bottom!];
+    const gaps = rows
+      .slice(1)
+      .map((row, index) => row[1] - rows[index]![1] - rows[index]![3]);
+    expect(new Set(gaps).size).toBe(1);
+    expect(stem![1]).toBe(top![1]);
+    expect(stem![1] + stem![3]).toBe(bottom![1] + bottom![3]);
+    const below = pixels - stem![1] - stem![3];
+    expect(Math.abs(below - stem![1])).toBeLessThanOrEqual(1);
     for (const [x, y, width, height] of brandMarkLayout(pixels)) {
       expect(Math.min(x!, y!, width!, height!)).toBeGreaterThanOrEqual(0);
       expect(Math.max(x! + width!, y! + height!)).toBeLessThanOrEqual(pixels);

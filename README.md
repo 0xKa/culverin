@@ -24,13 +24,6 @@ Code stats for GitHub repositories, computed locally in your browser with Rust a
   </picture>
 </p>
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/golang-go/popup-dark.png">
-    <img src="assets/screenshots/golang-go/popup-light.png" alt="The Culverin popup for golang/go showing code lines, files, size, and a per-language breakdown" width="320">
-  </picture>
-</p>
-
 ## Features
 
 - **Stats in the About sidebar.** Lines of code, file count, and size appear next to stars and forks on the repository page.
@@ -41,6 +34,13 @@ Code stats for GitHub repositories, computed locally in your browser with Rust a
 - **Ignore rules.** Leave out dependencies, build output, lockfiles, and minified files, or add your own rules for folders, file endings, names, and paths.
 - **Large repositories.** Choose a download limit from 256 MiB to 4 GiB.
 - **Saved results.** Results are kept locally and shown again while the repository stays at the same commit.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/pingdotgg-t3code/popup-dark.png">
+    <img src="assets/screenshots/pingdotgg-t3code/popup-light.png" alt="The Culverin popup for pingdotgg/t3code showing code lines, files, size, and a per-language breakdown" width="320">
+  </picture>
+</p>
 
 ## Install
 

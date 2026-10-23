@@ -1,13 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/culverin-icon-dark.svg">
-  <img src="assets/culverin-icon-light.svg" alt="Culverin icon" width="96" height="96">
-</picture>
-
-# Culverin
-
-Code stats for GitHub repositories, computed locally in your browser with Rust and WebAssembly.
+<img src="assets/social-preview.png" alt="Culverin: code stats for GitHub repositories, computed locally in your browser. The popup shows lines of code, files, and size for pingdotgg/t3code, and the About sidebar of torvalds/linux shows Culverin's rows.">
 
 [![CI](https://github.com/0xKa/culverin/actions/workflows/ci.yml/badge.svg)](https://github.com/0xKa/culverin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/0xKa/culverin)](https://github.com/0xKa/culverin/releases/latest)

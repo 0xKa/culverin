@@ -2,6 +2,10 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## 1.1.1 - 2026-10-23
+
+- Redraws the Culverin mark with three thick, evenly spaced lines and centers it in the icon. The new mark appears in the toolbar and extension icons, the popup and Settings headers, and the lines-of-code row on GitHub pages.
+
 ## 1.1.0 - 2026-10-23
 
 - Updates the extension description shown in `chrome://extensions` and Settings → About to cover lines of code per language, file counts, repository size, and private repositories.

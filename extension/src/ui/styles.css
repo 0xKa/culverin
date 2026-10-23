@@ -425,6 +425,10 @@
   line-height: var(--text-sm--line-height);
 }
 
+.settings-page {
+  scrollbar-gutter: stable both-edges;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

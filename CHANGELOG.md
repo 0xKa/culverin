@@ -2,7 +2,7 @@
 
 User-facing changes for each Culverin release. Newest first.
 
-## Unreleased
+## 1.0.0 - 2026-10-23
 
 - Counts much larger repositories. Adds Settings → Large repositories, which sets the maximum download for counts you start: 256 MiB, 512 MiB (the default), 1 GiB, 2 GiB, or 4 GiB. The unpacked limit is eight times the download limit.
 - Raises the other limits to 2,000,000 archive entries, 1,000,000 files, and 128 MiB of file paths, and removes the separate limit on the amount of source counted. Files over 8 MiB are still skipped.
@@ -11,7 +11,15 @@ User-facing changes for each Culverin release. Newest first.
 - Shows a live timer under the popup's loader while a count runs, and Waiting for another count while it is queued. After a count, the popup shows how long it took, also for saved results counted from this version on, or how long it ran before it stopped.
 - Moves archive data to the counter about 15 times faster.
 - Names the actual limit in size-limit messages, with a pointer to Settings → Large repositories.
-- Keeps using saved results from earlier versions.
+- Counts extensionless scripts whose first line uses `env` options, a full interpreter path, or a versioned interpreter name, such as `#!/usr/bin/env -S python3 -u`, `#!/usr/bin/python3`, or `#!/usr/bin/env ruby3.2`. These were previously other files.
+- Counts the longest branch or tag a page names, so a tag `release` and a branch `release/v2` are told apart.
+- Stops treating other files as skipped in the popup's coverage sentence, and links files that matched an ignore rule to Settings → Ignored files.
+- Resumes a running count when the popup reopens on a saved result.
+- Stops private lookups and counts already in progress when you disconnect GitHub.
+- Keeps your other saved results when deleting one fails.
+- Opens the first Settings section when you click the Culverin wordmark, and describes the selected Repo About section visibility choice.
+- Requires Chrome 127 or later.
+- Results saved by 0.1.7 are not reused because the counting rules changed. Count each repository again once.
 
 ## 0.1.7 - 2026-10-14
 

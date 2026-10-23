@@ -3,10 +3,7 @@ import {
   ARCHIVE_TIMEOUTS,
   DOWNLOAD_LIMITS,
 } from "../archive/limits";
-import {
-  downloadLimit,
-  downloadLimitChoices,
-} from "../counting/download-limit";
+import { downloadLimitChoices } from "../counting/download-limit";
 import { limitSize } from "../ui/format";
 
 const MIB = 1024 * 1024;
@@ -17,10 +14,7 @@ export function sizeLabel(mebibytes: number): string {
 
 export const downloadLimitOptions = downloadLimitChoices.map((value) => ({
   value: String(value),
-  label:
-    value === downloadLimit.fallback
-      ? `${sizeLabel(value)} (default)`
-      : sizeLabel(value),
+  label: sizeLabel(value),
 }));
 
 export const fixedLimits: { label: string; value: string }[] = [

@@ -554,7 +554,7 @@ export async function runPageCounting(
       .evaluateAll((inputs) =>
         inputs.map((input) => input.parentElement?.textContent),
       ),
-    ["256 MiB", "512 MiB (default)", "1 GiB", "2 GiB", "4 GiB"],
+    ["256 MiB", "512 MiB", "1 GiB", "2 GiB", "4 GiB"],
   );
   assert.match(
     (await largeSettings.locator("#download-limit-hint").textContent()) ?? "",

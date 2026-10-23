@@ -19,7 +19,7 @@ export async function runAccentIcons(
   const settings = await context.newPage();
   const popup = await context.newPage();
   await settings.goto(`${extensionUrl}/settings.html#appearance`);
-  await settings.getByRole("radio", { name: /^Blue Default$/ }).waitFor();
+  await settings.getByRole("radio", { name: "Blue", exact: true }).waitFor();
   await popup.goto(`${extensionUrl}/popup.html`);
   const worker =
     context.serviceWorkers()[0] ??

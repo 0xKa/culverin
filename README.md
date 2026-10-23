@@ -1,6 +1,13 @@
 <div align="center">
 
-<img src="assets/social-preview.png" alt="Culverin: code stats for GitHub repositories, computed locally in your browser. The popup shows lines of code, files, and size for pingdotgg/t3code, and the About sidebar of torvalds/linux shows Culverin's rows.">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/culverin-icon-dark.svg">
+  <img src="assets/culverin-icon-light.svg" alt="Culverin icon" width="96" height="96">
+</picture>
+
+# Culverin
+
+Code stats for GitHub repositories, computed locally in your browser with Rust and WebAssembly.
 
 [![CI](https://github.com/0xKa/culverin/actions/workflows/ci.yml/badge.svg)](https://github.com/0xKa/culverin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/0xKa/culverin)](https://github.com/0xKa/culverin/releases/latest)
@@ -8,14 +15,9 @@
 
 [Install](#install) · [Features](#features) · [Privacy](#privacy) · [Documentation](#documentation)
 
-</div>
+<img src="assets/readme-banner.png" alt="The Culverin popup for pingdotgg/t3code over the About sidebar of torvalds/linux, where Culverin adds lines of code, files, and size">
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/torvalds-linux/about-marked-dark.png">
-    <img src="assets/screenshots/torvalds-linux/about-marked-light.png" alt="Culverin's lines of code, files, and size rows in the About sidebar of torvalds/linux" width="304">
-  </picture>
-</p>
+</div>
 
 ## Features
 
@@ -28,12 +30,26 @@
 - **Large repositories.** Choose a download limit from 256 MiB to 4 GiB.
 - **Saved results.** Results are kept locally and shown again while the repository stays at the same commit.
 
+<details>
+<summary><strong>Screenshots</strong></summary>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/torvalds-linux/about-marked-dark.png">
+    <img src="assets/screenshots/torvalds-linux/about-marked-light.png" alt="Culverin's lines of code, files, and size rows in the About sidebar of torvalds/linux" width="304">
+  </picture>
+</p>
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/pingdotgg-t3code/popup-dark.png">
     <img src="assets/screenshots/pingdotgg-t3code/popup-light.png" alt="The Culverin popup for pingdotgg/t3code showing code lines, files, size, and a per-language breakdown" width="320">
   </picture>
 </p>
+
+</details>
 
 ## Install
 

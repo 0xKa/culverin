@@ -51,6 +51,15 @@ const connectLabels: Partial<Record<PublicErrorCode, string>> = {
   access_not_granted: "Check GitHub access",
 };
 
+function waitedText(reply: {
+  githubWaitMs?: number;
+  counterWaitMs?: number;
+}): string | undefined {
+  return reply.githubWaitMs === undefined || reply.counterWaitMs === undefined
+    ? undefined
+    : durationText.waited(reply.githubWaitMs, reply.counterWaitMs);
+}
+
 export function createPopupController(
   dispatchView: (event: PopupEvent) => void,
 ) {
@@ -323,6 +332,7 @@ export function createPopupController(
                 ? undefined
                 : durationText.saved(reply.durationMs),
           });
+          dispatch({ type: "waited", value: waitedText(reply) });
           setStatus(statuses.cached);
         }
         return true;
@@ -373,6 +383,7 @@ export function createPopupController(
                 ? durationText.saved(reply.durationMs)
                 : durationText.counted(reply.durationMs),
         });
+        dispatch({ type: "waited", value: waitedText(reply) });
         setStatus(
           reply.fromCache && reply.resolution.sha === reanalyzedSha
             ? statuses.upToDate

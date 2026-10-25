@@ -545,6 +545,31 @@ test("a running count says when it waits for GitHub and how much it has download
   await again;
 });
 
+test("Analysis details say how long a count waited, and keep it during reanalysis", async () => {
+  const ui = popup();
+  await settle();
+  const view = () => ui.events.reduce(reduce, initialView);
+  const counted = ui.controller.analyze();
+  ui.reply(ui.requests.at(-1)!, {
+    ...(await completedResult()),
+    durationMs: 42_000,
+    githubWaitMs: 38_000,
+    counterWaitMs: 3_500,
+  });
+  await counted;
+  expect(view().waited).toBe("Waited 38s for GitHub and 3.5s for the counter");
+  const again = ui.controller.analyze(true);
+  expect(view().waited).toBe("Waited 38s for GitHub and 3.5s for the counter");
+  ui.reply(ui.requests.at(-1)!, {
+    ...(await completedResult()),
+    fromCache: true,
+    durationMs: 42_000,
+  });
+  await again;
+  expect(view().waited).toBeUndefined();
+  expect(view().duration).toBe("Took 42s when counted");
+});
+
 test("a reopened popup times a running count from when it started", async () => {
   const startedAt = Date.now() - 102_000;
   const ui = popup(undefined, true, { state: "running", startedAt });

@@ -20,4 +20,6 @@ export const durationText = {
     `Took ${formatDuration(milliseconds)} when counted`,
   stopped: (milliseconds: number) =>
     `Stopped after ${formatDuration(milliseconds)}`,
+  waited: (github: number, counter: number) =>
+    `Waited ${formatDuration(github)} for GitHub and ${formatDuration(counter)} for the counter`,
 };

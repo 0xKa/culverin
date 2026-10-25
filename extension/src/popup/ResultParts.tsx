@@ -135,10 +135,12 @@ export function OversizedFiles({ result }: { result: ResultView }) {
 
 export function Details({
   result,
+  waited,
   open,
   onToggle,
 }: {
   result?: ResultView;
+  waited?: string;
   open: boolean;
   onToggle: (open: boolean) => void;
 }) {
@@ -182,6 +184,11 @@ export function Details({
             className="text-muted m-0 mt-1.5 text-xs"
           >
             Estimated clone size {result.cloneSize}
+          </p>
+        )}
+        {result && waited && (
+          <p id="count-waits" className="text-muted m-0 mt-1.5 text-xs">
+            {waited}
           </p>
         )}
         {result && result.codeRows.length > 0 && (

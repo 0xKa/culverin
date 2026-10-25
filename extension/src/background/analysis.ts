@@ -22,6 +22,7 @@ import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS } from "../archive/limits";
 import { readDownloadLimit } from "../counting/download-limit";
 import { readCountTrigger } from "../counting/trigger";
 import {
+  countTiming,
   resolutionIdentity,
   resultIdentity,
   type ResultCache,
@@ -227,10 +228,7 @@ export function createPublicAnalysis(
           .getWithTiming(envelope, rules.hash)
           .catch(() => undefined);
         const cached = saved?.result;
-        const savedDuration =
-          saved?.durationMs === undefined
-            ? {}
-            : { durationMs: saved.durationMs };
+        const savedTiming = saved ? countTiming(saved) : {};
         if (controller.signal.aborted || !client.isAlive()) return;
         if (await disconnected()) {
           reply({ type: "analysis.failed", code: "analysis_interrupted" });
@@ -254,7 +252,7 @@ export function createPublicAnalysis(
               type: "repository.cache_hit",
               resolution: envelope,
               result: cached,
-              ...savedDuration,
+              ...savedTiming,
             });
           else
             reply({
@@ -262,7 +260,7 @@ export function createPublicAnalysis(
               resolution: envelope,
               result: cached,
               fromCache: true,
-              ...savedDuration,
+              ...savedTiming,
             });
           return;
         }
@@ -361,9 +359,7 @@ export function createPublicAnalysis(
                   resolution: labelled,
                   result: output.result,
                   fromCache: false,
-                  ...(output.durationMs === undefined
-                    ? {}
-                    : { durationMs: output.durationMs }),
+                  ...countTiming(output),
                 });
             },
             onFailure: (error, signal) => {

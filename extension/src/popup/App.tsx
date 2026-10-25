@@ -228,6 +228,7 @@ export function App() {
           )}
           <Details
             result={view.result}
+            waited={view.waited}
             open={view.detailsOpen}
             onToggle={(open) => dispatch({ type: "details", open })}
           />

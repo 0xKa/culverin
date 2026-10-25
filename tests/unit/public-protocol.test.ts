@@ -846,3 +846,36 @@ test("start times and durations are optional and bounded", async () => {
     }),
   ).toBe(true);
 });
+
+test("wait times travel only in pairs that fit within the duration", async () => {
+  const requestId = crypto.randomUUID();
+  const navigationId = crypto.randomUUID();
+  const valid = (value: Record<string, unknown>) =>
+    validPublicReply(
+      { protocolVersion: 1, requestId, navigationId, ...value },
+      requestId,
+      navigationId,
+    );
+  const completed = await completedResult();
+  const timed = {
+    ...completed,
+    durationMs: 10_000,
+    githubWaitMs: 6_000,
+    counterWaitMs: 3_000,
+  };
+  expect(valid(timed)).toBe(true);
+  expect(
+    valid({
+      type: "repository.cache_hit",
+      result: completed.result,
+      resolution: completed.resolution,
+      durationMs: 10_000,
+      githubWaitMs: 6_000,
+      counterWaitMs: 4_000,
+    }),
+  ).toBe(true);
+  expect(valid({ ...timed, githubWaitMs: 8_000 })).toBe(false);
+  expect(valid({ ...timed, counterWaitMs: undefined })).toBe(false);
+  expect(valid({ ...timed, githubWaitMs: -1 })).toBe(false);
+  expect(valid({ ...timed, durationMs: undefined })).toBe(false);
+});

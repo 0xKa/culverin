@@ -17,6 +17,7 @@ export type PopupView = {
   timer?: { queued: true } | { startedAt: number };
   downloaded?: string;
   duration?: string;
+  waited?: string;
 };
 
 export const initialView: PopupView = {
@@ -44,7 +45,8 @@ export type PopupEvent =
   | { type: "connect"; label?: string }
   | { type: "timer"; value?: { queued: true } | { startedAt: number } }
   | { type: "downloaded"; value?: string }
-  | { type: "duration"; value?: string };
+  | { type: "duration"; value?: string }
+  | { type: "waited"; value?: string };
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
   switch (event.type) {
@@ -69,6 +71,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         result: undefined,
         detailsOpen: false,
         reanalyze: false,
+        waited: undefined,
       };
     case "result":
       return {
@@ -106,5 +109,9 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
       return view.duration === event.value
         ? view
         : { ...view, duration: event.value };
+    case "waited":
+      return view.waited === event.value
+        ? view
+        : { ...view, waited: event.value };
   }
 }

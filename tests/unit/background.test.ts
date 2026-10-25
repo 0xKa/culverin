@@ -67,6 +67,7 @@ function fixture() {
   const tokens: (string | undefined)[] = [];
   const limits: number[] = [];
   let failure: ((compressed: number) => unknown) | undefined;
+  let waits: { githubWaitMs: number; counterWaitMs: number } | undefined;
   let visibility = "public";
   const branches: Record<string, string> = {
     main: "a".repeat(40),
@@ -167,10 +168,12 @@ function fixture() {
     tokens.push(job.token);
     limits.push(job.limits.compressed);
     if (failure) throw failure(job.limits.compressed);
+    if (waits) await new Promise((resolve) => setTimeout(resolve, 20));
     return {
       result: await result("42", job.resolution.sha),
       transport: { compressedBytes: 0, decompressedBytes: 0 },
       wasmLinearMemoryBytes: 0,
+      ...waits,
     };
   });
   const auth = createAuthService(resources);
@@ -214,6 +217,9 @@ function fixture() {
     limits,
     fail: (next: (compressed: number) => unknown) => {
       failure = next;
+    },
+    wait: (next: { githubWaitMs: number; counterWaitMs: number }) => {
+      waits = next;
     },
     local,
     session,
@@ -368,6 +374,22 @@ test("an automatic count that reaches its fixed limit offers a count with the us
     code: "compressed_limit_exceeded",
     limit: "compressed",
     limitBytes: 512 * mib,
+  });
+});
+
+test("a count's wait times are returned with it and with its saved result", async () => {
+  const api = fixture();
+  api.wait({ githubWaitMs: 6, counterWaitMs: 4 });
+  expect(await api.run("analysis.request", false)).toMatchObject({
+    type: "analysis.completed",
+    fromCache: false,
+    githubWaitMs: 6,
+    counterWaitMs: 4,
+  });
+  expect(await api.run("repository.lookup", false)).toMatchObject({
+    type: "repository.cache_hit",
+    githubWaitMs: 6,
+    counterWaitMs: 4,
   });
 });
 

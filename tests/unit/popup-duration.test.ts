@@ -39,3 +39,12 @@ test("formats a short count with milliseconds or tenths of a second", () => {
   expect(durationText.saved(4_230)).toBe("Took 4.2s when counted");
   expect(durationText.stopped(850)).toBe("Stopped after 850ms");
 });
+
+test("says how long a count waited for GitHub and for the counter", () => {
+  expect(durationText.waited(38_000, 4_100)).toBe(
+    "Waited 38s for GitHub and 4.1s for the counter",
+  );
+  expect(durationText.waited(120, 30)).toBe(
+    "Waited 120ms for GitHub and 30ms for the counter",
+  );
+});

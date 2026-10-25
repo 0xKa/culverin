@@ -114,6 +114,24 @@ test("shows and hides the GitHub settings action", () => {
   expect(reduce(shown, { type: "left" }).connect).toBeUndefined();
 });
 
+test("keeps wait times with their result until the result is cleared", () => {
+  let view = reduce(initialView, {
+    type: "waited",
+    value: "Waited 38s for GitHub and 4.1s for the counter",
+  });
+  expect(view.waited).toBe("Waited 38s for GitHub and 4.1s for the counter");
+  expect(
+    reduce(view, {
+      type: "waited",
+      value: "Waited 38s for GitHub and 4.1s for the counter",
+    }),
+  ).toBe(view);
+  view = reduce(view, { type: "busy", busy: true, disabled: true });
+  expect(view.waited).toBe("Waited 38s for GitHub and 4.1s for the counter");
+  view = reduce(view, { type: "clearResult" });
+  expect(view.waited).toBeUndefined();
+});
+
 test("shows a timer only while busy and keeps the last duration", () => {
   let view = reduce(initialView, { type: "busy", busy: true, disabled: true });
   view = reduce(view, { type: "timer", value: { queued: true } });

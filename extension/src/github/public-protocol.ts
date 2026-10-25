@@ -124,6 +124,8 @@ export type PublicReply = {
       resolution: ResolutionEnvelope;
       result: AnalysisResultV2;
       durationMs?: number;
+      githubWaitMs?: number;
+      counterWaitMs?: number;
     }
   | {
       type: "analysis.completed";
@@ -131,6 +133,8 @@ export type PublicReply = {
       result: AnalysisResultV2;
       fromCache: boolean;
       durationMs?: number;
+      githubWaitMs?: number;
+      counterWaitMs?: number;
     }
   | {
       type: "analysis.failed";
@@ -463,10 +467,18 @@ export function validPublicReply(
         "result",
         ...(value.type === "analysis.completed" ? ["fromCache"] : []),
         ...(value.durationMs === undefined ? [] : ["durationMs"]),
+        ...(value.githubWaitMs === undefined ? [] : ["githubWaitMs"]),
+        ...(value.counterWaitMs === undefined ? [] : ["counterWaitMs"]),
       ]) &&
       (value.type !== "analysis.completed" ||
         typeof value.fromCache === "boolean") &&
       (value.durationMs === undefined || validDurationMs(value.durationMs)) &&
+      ((value.githubWaitMs === undefined &&
+        value.counterWaitMs === undefined) ||
+        (validDurationMs(value.githubWaitMs) &&
+          validDurationMs(value.counterWaitMs) &&
+          validDurationMs(value.durationMs) &&
+          value.githubWaitMs + value.counterWaitMs <= value.durationMs)) &&
       validEnvelope(value.resolution) &&
       validateResult(value.result) &&
       value.result.repository.id === value.resolution.repositoryId &&

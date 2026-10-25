@@ -1,7 +1,7 @@
 import { buttonClass } from "../ui/Button";
-import chromeWebStore from "../ui/chrome-web-store.svg";
+import chromeWebStore from "../ui/icons/chrome-web-store.svg";
 import { ExternalLink } from "../ui/ExternalLink";
-import { GitHubMark } from "../ui/GitHubMark";
+import { GitHubMark } from "../ui/icons/GitHubMark";
 import { REPOSITORY_URL, REVIEWS_URL } from "./about";
 
 export function SupportLinks() {

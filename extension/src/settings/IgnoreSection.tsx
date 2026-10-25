@@ -11,9 +11,10 @@ import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { IconButton } from "../ui/IconButton";
 import { Joined } from "../ui/Separator";
-import { inputClass, Panel, SectionHeader } from "./layout";
+import { Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { NumberedTextarea } from "./NumberedTextarea";
 import { InfoDialog } from "./InfoDialog";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
@@ -139,15 +140,14 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               <CircleQuestionMark />
             </IconButton>
           </div>
-          <textarea
+          <NumberedTextarea
             id="rules"
             rows={6}
             spellcheck={false}
             autocomplete="off"
             placeholder={"vendor/\n*.min.js"}
             aria-describedby="rules-usage rules-errors"
-            aria-invalid={parsed.errors.length > 0}
-            className={`${inputClass} block w-full resize-y font-mono text-sm aria-[invalid=true]:border-error`}
+            invalid={parsed.errors.length > 0}
             value={rulesText}
             onInput={(event) => {
               setRulesText(event.currentTarget.value);

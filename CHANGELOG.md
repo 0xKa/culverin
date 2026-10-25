@@ -4,13 +4,17 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-- Moves the full list of built-in ignore rules and the rule syntax guide in Settings into dialogs opened from buttons at the top right of each panel.
-- Shows how many ignore rules and bytes you've used only when you get close to the limit.
-- Numbers each line of Your rules in Settings, so you can find the line an error points to.
+None
+
+## 1.2.0 - 2026-10-25
+
 - Accepts `*` and `?` within names and a leading `/` for the repository root in ignore rules, as in `.gitignore`, such as `.local*`, `test_?.py`, or `/fixtures`.
-- Shows short count times more precisely in the popup, such as Counted in 412ms or Counted in 4.2s instead of Counted in 0s or 4s.
 - Shows how many files have been read below the popup's timer while a count runs, and says when Culverin is waiting for GitHub to send the source snapshot.
 - Shows in the popup's Analysis details how long a count waited for GitHub and for the counter, so you can tell whether GitHub or counting set the pace.
+- Shows short count times more precisely in the popup, such as Counted in 412ms or Counted in 4.2s instead of Counted in 0s or 4s.
+- Numbers each line of Your rules in Settings, so you can find the line an error points to.
+- Moves the full list of built-in ignore rules and the rule syntax guide in Settings into dialogs opened from buttons at the top right of each panel.
+- Shows how many ignore rules and bytes you've used only when you get close to the limit.
 
 ## 1.1.2 - 2026-10-25
 

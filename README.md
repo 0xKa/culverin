@@ -11,6 +11,7 @@ Code stats for GitHub repositories, computed locally in your browser with Rust a
 
 [![CI](https://github.com/0xKa/culverin/actions/workflows/ci.yml/badge.svg)](https://github.com/0xKa/culverin/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/0xKa/culverin)](https://github.com/0xKa/culverin/releases/latest)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/hpcpmjmklfpfaddiheiobggojdhcoopn)](https://chromewebstore.google.com/detail/culverin/hpcpmjmklfpfaddiheiobggojdhcoopn)
 [![License](https://img.shields.io/github/license/0xKa/culverin)](LICENSE)
 
 [Install](#install) · [Features](#features) · [Privacy](#privacy) · [Documentation](#documentation)
@@ -55,15 +56,17 @@ Code stats for GitHub repositories, computed locally in your browser with Rust a
 
 Culverin needs Chrome 127 or later.
 
-**Chrome Web Store:** coming soon.
+**Chrome Web Store:** [install Culverin](https://chromewebstore.google.com/detail/culverin/hpcpmjmklfpfaddiheiobggojdhcoopn). Chrome keeps it up to date.
 
-**From a release:**
+**From a release**, updated by hand:
 
 1. Download the latest `culverin-<version>.zip` from [Releases](https://github.com/0xKa/culverin/releases/latest) and unzip it.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Choose **Load unpacked** and select the unzipped folder.
 
 Each release lists the SHA-256 checksum of its ZIP.
+
+Chrome treats a release install and the store install as separate extensions, so settings, saved results, and the GitHub connection don't carry over between them. To switch to the store version, install it, then remove the unpacked copy and connect GitHub again if you used it.
 
 ## Usage
 

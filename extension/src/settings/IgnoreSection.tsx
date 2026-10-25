@@ -6,7 +6,7 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { readIgnore, writeIgnore } from "../ignore/settings";
-import { Info } from "lucide-preact";
+import { CircleQuestionMark, Info } from "lucide-preact";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { IconButton } from "../ui/IconButton";
@@ -14,14 +14,14 @@ import { Joined } from "../ui/Separator";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
 import { ActionStatus, useAction } from "./ActionStatus";
-import { BuiltInRulesDialog } from "./BuiltInRulesDialog";
+import { InfoDialog } from "./InfoDialog";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
   const [settings, setSettings] = useState<IgnoreSettings>(defaultIgnore);
   const [rulesText, setRulesText] = useState("");
   const groupsSave = useAction();
   const rulesSave = useAction();
-  const [listOpen, setListOpen] = useState(false);
+  const [dialog, setDialog] = useState<"built-in" | "syntax">();
   const parsed = parseRules(rulesText);
 
   useEffect(() => {
@@ -116,23 +116,34 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               type="button"
               label="Show full list"
               aria-haspopup="dialog"
-              onClick={() => setListOpen(true)}
+              onClick={() => setDialog("built-in")}
             >
               <Info />
             </IconButton>
           </div>
         </Panel>
-        <Panel>
+        <Panel className="relative">
           <label for="rules" className="text-md mb-2 block font-semibold">
             Your rules
           </label>
+          <div className="absolute top-3 right-3">
+            <IconButton
+              id="show-syntax"
+              type="button"
+              label="Show rule syntax"
+              aria-haspopup="dialog"
+              onClick={() => setDialog("syntax")}
+            >
+              <CircleQuestionMark />
+            </IconButton>
+          </div>
           <textarea
             id="rules"
             rows={6}
             spellcheck={false}
             autocomplete="off"
             placeholder={"vendor/\n*.min.js"}
-            aria-describedby="rules-help rules-usage rules-errors"
+            aria-describedby="rules-usage rules-errors"
             aria-invalid={parsed.errors.length > 0}
             className={`${inputClass} block w-full resize-y font-mono text-sm aria-[invalid=true]:border-error`}
             value={rulesText}
@@ -152,25 +163,6 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               <li key={error}>{error}</li>
             ))}
           </ul>
-          <dl
-            id="rules-help"
-            className="bg-surface m-0 mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 rounded-lg p-3.5 text-sm"
-          >
-            <dt className="font-mono text-xs leading-5">folder/</dt>
-            <dd className="text-muted m-0">
-              a folder with this name, anywhere
-            </dd>
-            <dt className="font-mono text-xs leading-5">*.ext</dt>
-            <dd className="text-muted m-0">files ending in .ext</dd>
-            <dt className="font-mono text-xs leading-5">name.ext</dt>
-            <dd className="text-muted m-0">
-              files or folders with this exact name, anywhere
-            </dd>
-            <dt className="font-mono text-xs leading-5">path/to/x</dt>
-            <dd className="text-muted m-0">
-              this exact path from the repository root and everything under it
-            </dd>
-          </dl>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button
               id="save-rules"
@@ -207,7 +199,53 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
           </div>
         </Panel>
       </div>
-      {listOpen && <BuiltInRulesDialog onClose={() => setListOpen(false)} />}
+      {dialog === "built-in" && (
+        <InfoDialog
+          id="built-in-dialog"
+          title="Built-in rules"
+          onClose={() => setDialog(undefined)}
+        >
+          <dl className="mt-3 mb-0 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[10rem_1fr] sm:gap-y-2.5">
+            {ignoreGroups.map((group) => (
+              <>
+                <dt key={group.id + "-label"} className="font-medium">
+                  {group.label}
+                </dt>
+                <dd
+                  key={group.id + "-entries"}
+                  className="text-muted m-0 mb-2 font-mono text-xs leading-5 break-words sm:mb-0"
+                >
+                  {entries(group).join(", ")}
+                </dd>
+              </>
+            ))}
+          </dl>
+        </InfoDialog>
+      )}
+      {dialog === "syntax" && (
+        <InfoDialog
+          id="syntax-dialog"
+          title="Rule syntax"
+          onClose={() => setDialog(undefined)}
+        >
+          <dl className="m-0 mt-3 grid grid-cols-[6rem_1fr] gap-x-4 gap-y-2.5">
+            <dt className="font-mono text-xs leading-5">folder/</dt>
+            <dd className="text-muted m-0">
+              a folder with this name, anywhere
+            </dd>
+            <dt className="font-mono text-xs leading-5">*.ext</dt>
+            <dd className="text-muted m-0">files ending in .ext</dd>
+            <dt className="font-mono text-xs leading-5">name.ext</dt>
+            <dd className="text-muted m-0">
+              files or folders with this exact name, anywhere
+            </dd>
+            <dt className="font-mono text-xs leading-5">path/to/x</dt>
+            <dd className="text-muted m-0">
+              this exact path from the repository root and everything under it
+            </dd>
+          </dl>
+        </InfoDialog>
+      )}
     </section>
   );
 }

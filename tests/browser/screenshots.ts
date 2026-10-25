@@ -267,6 +267,11 @@ try {
   await settings.waitForTimeout(400);
   await shoot(settings, "settings-ignore-built-in", false);
   await settings.keyboard.press("Escape");
+  await settings.locator("#show-syntax").click();
+  await settings.locator("#syntax-dialog").waitFor();
+  await settings.waitForTimeout(400);
+  await shoot(settings, "settings-ignore-syntax", false);
+  await settings.keyboard.press("Escape");
   await settings.setViewportSize({ width: 600, height: 800 });
   await settings.goto(`${extensionUrl}/settings.html#storage`);
   await settings.reload();

@@ -101,6 +101,19 @@ export async function runIgnoreAccess(
     "show-built-in",
   );
 
+  await settingsPage.locator("#show-syntax").click();
+
+  await settingsPage.locator("#syntax-dialog").getByText("path/to/x").waitFor();
+
+  await settingsPage.keyboard.press("Escape");
+
+  await settingsPage.locator("#syntax-dialog").waitFor({ state: "detached" });
+
+  assert.equal(
+    await settingsPage.evaluate(() => document.activeElement?.id),
+    "show-syntax",
+  );
+
   await worker.evaluate(
     ({ bytes, sha }) => {
       const scope = globalThis as typeof globalThis & {

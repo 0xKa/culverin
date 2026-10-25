@@ -28,6 +28,7 @@ import {
   sections,
   type SectionId,
 } from "./sections";
+import { SupportLinks } from "./SupportLinks";
 import { StorageSection } from "./StorageSection";
 
 const sectionIcons: Record<SectionId, LucideIcon> = {
@@ -77,7 +78,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base">
+    <div className="mx-auto max-w-[1040px] px-6 pt-8 pb-16 text-base md:flex md:min-h-dvh md:flex-col">
       <BrandHeader
         onHome={() => {
           if (location.hash)
@@ -85,57 +86,57 @@ export function App() {
           setActive(sections[0].id);
         }}
       />
-      <div className="grid gap-8 md:grid-cols-[12.5rem_1fr]">
-        <nav
-          aria-label="Settings sections"
-          className="md:sticky md:top-8 md:self-start"
-        >
-          <div className="flex flex-wrap gap-1 md:flex-col md:gap-4">
-            {sectionGroups.map((group, index) => (
-              <div
-                key={group.name ?? index}
-                className={
-                  group.name
-                    ? undefined
-                    : "md:border-divider md:border-t md:pt-4"
-                }
-              >
-                {group.name && (
-                  <p
-                    id={`nav-group-${index}`}
-                    className="text-muted m-0 mb-1 hidden px-3 text-2xs font-semibold tracking-wider uppercase md:block"
-                  >
-                    {group.name}
-                  </p>
-                )}
-                <ul
-                  aria-labelledby={
-                    group.name ? `nav-group-${index}` : undefined
+      <div className="grid gap-8 md:flex-1 md:grid-cols-[12.5rem_1fr]">
+        <div className="flex flex-col gap-6">
+          <nav aria-label="Settings sections" className="md:sticky md:top-8">
+            <div className="flex flex-wrap gap-1 md:flex-col md:gap-4">
+              {sectionGroups.map((group, index) => (
+                <div
+                  key={group.name ?? index}
+                  className={
+                    group.name
+                      ? undefined
+                      : "md:border-divider md:border-t md:pt-4"
                   }
-                  className="m-0 flex list-none flex-wrap gap-1 p-0 md:flex-col"
                 >
-                  {group.sections.map((section) => {
-                    const Icon = sectionIcons[section.id];
-                    return (
-                      <li key={section.id}>
-                        <a
-                          href={`#${section.id}`}
-                          aria-current={
-                            active === section.id ? "page" : undefined
-                          }
-                          className="ticks ticks-quiet group text-ink aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text flex items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
-                        >
-                          <Icon class="text-muted group-aria-[current=page]:text-accent-text shrink-0" />
-                          {section.label}
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </nav>
+                  {group.name && (
+                    <p
+                      id={`nav-group-${index}`}
+                      className="text-muted m-0 mb-1 hidden px-3 text-2xs font-semibold tracking-wider uppercase md:block"
+                    >
+                      {group.name}
+                    </p>
+                  )}
+                  <ul
+                    aria-labelledby={
+                      group.name ? `nav-group-${index}` : undefined
+                    }
+                    className="m-0 flex list-none flex-wrap gap-1 p-0 md:flex-col"
+                  >
+                    {group.sections.map((section) => {
+                      const Icon = sectionIcons[section.id];
+                      return (
+                        <li key={section.id}>
+                          <a
+                            href={`#${section.id}`}
+                            aria-current={
+                              active === section.id ? "page" : undefined
+                            }
+                            className="ticks ticks-quiet group text-ink aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text flex items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-150 aria-[current=page]:font-medium"
+                          >
+                            <Icon class="text-muted group-aria-[current=page]:text-accent-text shrink-0" />
+                            {section.label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </nav>
+          <SupportLinks />
+        </div>
         <main className="min-w-0">
           <AppearanceSection hidden={active !== "appearance"} />
           <IgnoreSection hidden={active !== "ignore"} />

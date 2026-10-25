@@ -2,6 +2,16 @@
 
 User-facing changes for each Culverin release. Newest first.
 
+## Unreleased
+
+None
+
+## 1.1.2 - 2026-10-25
+
+- Adds reset buttons beside changed settings so you can restore their default values.
+- Keeps Settings controls from shifting as you move between sections by reserving space for the scrollbar.
+- Removes the “default” marker from Accent color and Large repositories choices.
+
 ## 1.1.1 - 2026-10-23
 
 - Redraws the Culverin mark with three thick, evenly spaced lines and centers it in the icon. The new mark appears in the toolbar and extension icons, the popup and Settings headers, and the lines-of-code row on GitHub pages.

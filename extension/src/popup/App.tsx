@@ -162,7 +162,7 @@ export function App() {
                     Waiting for another count
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 text-xs">
+                  <span className="flex flex-col items-center gap-0.5 text-xs">
                     <ElapsedTimer startedAt={view.timer.startedAt} />
                     {view.downloaded && (
                       <span
@@ -170,7 +170,7 @@ export function App() {
                         aria-hidden="true"
                         className="text-muted tabular"
                       >
-                        · {view.downloaded} downloaded
+                        {view.downloaded} downloaded
                       </span>
                     )}
                   </span>

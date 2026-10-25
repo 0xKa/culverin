@@ -29,6 +29,8 @@ type Entry = {
   lastAccess: number;
   bytes: number;
   durationMs?: number;
+  githubWaitMs?: unknown;
+  counterWaitMs?: unknown;
 };
 
 type Snapshot = { version: 1; entries: Entry[] };
@@ -77,6 +79,26 @@ export const validDuration = (value: unknown): value is number =>
   (value as number) >= 0 &&
   (value as number) <= 24 * 60 * 60 * 1000;
 
+export type CountTiming = {
+  durationMs?: number;
+  githubWaitMs?: number;
+  counterWaitMs?: number;
+};
+
+export function countTiming(value: {
+  durationMs?: unknown;
+  githubWaitMs?: unknown;
+  counterWaitMs?: unknown;
+}): CountTiming {
+  const { durationMs, githubWaitMs, counterWaitMs } = value;
+  if (!validDuration(durationMs)) return {};
+  return validDuration(githubWaitMs) &&
+    validDuration(counterWaitMs) &&
+    githubWaitMs + counterWaitMs <= durationMs
+    ? { durationMs, githubWaitMs, counterWaitMs }
+    : { durationMs };
+}
+
 export function resultIdentity(result: AnalysisResultV2): string {
   return JSON.stringify([
     result.repository.id,
@@ -121,6 +143,8 @@ function validEntry(value: unknown, visibility: Visibility): value is Entry {
       "lastAccess",
       "bytes",
       ...(value.durationMs === undefined ? [] : ["durationMs"]),
+      ...(value.githubWaitMs === undefined ? [] : ["githubWaitMs"]),
+      ...(value.counterWaitMs === undefined ? [] : ["counterWaitMs"]),
     ]) ||
     (value.durationMs !== undefined && !validDuration(value.durationMs)) ||
     typeof value.identity !== "string" ||
@@ -302,18 +326,16 @@ export class ResultCache {
     resolution: ResolutionEnvelope,
     rulesHash: string,
   ): Promise<AnalysisResultV2 | undefined> {
-    return (await this.getWithDuration(resolution, rulesHash))?.result;
+    return (await this.getWithTiming(resolution, rulesHash))?.result;
   }
 
-  async getWithDuration(
+  async getWithTiming(
     resolution: ResolutionEnvelope,
     rulesHash: string,
-  ): Promise<{ result: AnalysisResultV2; durationMs?: number } | undefined> {
+  ): Promise<({ result: AnalysisResultV2 } & CountTiming) | undefined> {
     const counted = (entry: Entry) => ({
       result: entry.result,
-      ...(entry.durationMs === undefined
-        ? {}
-        : { durationMs: entry.durationMs }),
+      ...countTiming(entry),
     });
     return this.serial(async () => {
       if (
@@ -348,7 +370,7 @@ export class ResultCache {
   async put(
     resolution: ResolutionEnvelope,
     result: AnalysisResultV2,
-    durationMs?: number,
+    timing: Parameters<typeof countTiming>[0] = {},
   ): Promise<void> {
     return this.serial(async () => {
       if (
@@ -372,7 +394,7 @@ export class ResultCache {
         storedAt: this.now(),
         lastAccess: this.now(),
         bytes: 0,
-        ...(validDuration(durationMs) ? { durationMs } : {}),
+        ...countTiming(timing),
       };
       entry.bytes = bytes(entry);
       snapshot.entries.push(entry);

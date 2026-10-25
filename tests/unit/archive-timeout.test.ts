@@ -10,6 +10,7 @@ import {
   AnalysisCoordinator,
   type AnalysisOutput,
 } from "../../extension/src/github/coordinator";
+import { result } from "./support/result";
 
 const originalChrome = globalThis.chrome;
 const originalFetch = globalThis.fetch;
@@ -355,4 +356,79 @@ test("the download check follows the job's limit as it rises", async () => {
   expect(messages.filter((item) => item.type === "archive.chunk")).toHaveLength(
     2,
   );
+});
+
+test("a finished archive reports how long it waited for GitHub and for the counter", async () => {
+  const counted = await result("1");
+  let acknowledge: () => void = () => undefined;
+  globalThis.chrome = {
+    runtime: {
+      getURL: (path: string) => `chrome-extension://test/${path}`,
+      getContexts: async () => [{}],
+      sendMessage: async (message: { type: string }) => {
+        if (message.type === "archive.start") return { state: "started" };
+        if (message.type === "archive.chunk")
+          return new Promise((resolve) => {
+            acknowledge = () => resolve({ state: "ok" });
+          });
+        if (message.type === "archive.finish")
+          return {
+            state: "completed",
+            result: counted,
+            metrics: {
+              decompressedBytes: 0,
+              entries: 0,
+              regularFiles: 0,
+              specialEntries: 0,
+              wasmBytes: 0,
+              retainedPathBytes: 0,
+            },
+            wasmLinearMemoryBytes: 0,
+          };
+        return { state: "ok" };
+      },
+    },
+  } as unknown as typeof chrome;
+  let source: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start: (value) => {
+      source = value;
+    },
+  });
+  globalThis.fetch = (async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    const response = new Response(body, { status: 200 });
+    Object.defineProperty(response, "url", {
+      value: `https://codeload.github.com/culverin/fixture/legacy.tar.gz/${"a".repeat(40)}`,
+    });
+    return response;
+  }) as unknown as typeof fetch;
+  const pending = analyzeArchive(
+    {
+      repositoryId: "1",
+      owner: "culverin",
+      name: "fixture",
+      defaultBranch: "main",
+      visibility: "public",
+      sha: "a".repeat(40),
+      sizeKb: null,
+    },
+    undefined,
+    new AbortController().signal,
+    crypto.randomUUID(),
+  );
+  await settle();
+  jest.advanceTimersByTime(1_000);
+  for (let index = 0; index < 3; index++) await settle();
+  jest.advanceTimersByTime(3_000);
+  source!.enqueue(new Uint8Array(4));
+  await settle();
+  jest.advanceTimersByTime(5_000);
+  acknowledge();
+  await settle();
+  jest.advanceTimersByTime(2_000);
+  source!.close();
+  const output = await pending;
+  expect(output.githubWaitMs).toBe(6_000);
+  expect(output.counterWaitMs).toBe(5_000);
 });

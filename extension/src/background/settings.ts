@@ -184,7 +184,7 @@ export function createSettingsHandler(
                 }
                 if (current.visibility === "public")
                   await cache
-                    .put(current, analysis.result, analysis.durationMs)
+                    .put(current, analysis.result, analysis)
                     .catch(() => undefined);
                 if ((await connection.generation()) !== auth.generation) {
                   if (coordinator.isSubscribed(owner, request.requestId))

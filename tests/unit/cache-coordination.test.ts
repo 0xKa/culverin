@@ -1107,13 +1107,11 @@ test("confirmed private visibility stops active public subscribers", async () =>
 test("saved results keep how long their count took, and older results still load", async () => {
   const storage = new MemoryStorage();
   const hash = await effectiveRulesHash(defaultIgnore);
-  await new PublicResultCache(storage).put(
-    resolution(),
-    await result(),
-    124_000,
-  );
+  await new PublicResultCache(storage).put(resolution(), await result(), {
+    durationMs: 124_000,
+  });
   expect(
-    await new PublicResultCache(storage).getWithDuration(resolution(), hash),
+    await new PublicResultCache(storage).getWithTiming(resolution(), hash),
   ).toMatchObject({ durationMs: 124_000 });
   const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
     entries: Record<string, unknown>[];
@@ -1124,7 +1122,7 @@ test("saved results keep how long their count took, and older results still load
     JSON.stringify({ ...older, bytes: 0 }),
   ).byteLength;
   storage.values[PUBLIC_CACHE_KEY] = { version: 1, entries: [older] };
-  const legacy = await new PublicResultCache(storage).getWithDuration(
+  const legacy = await new PublicResultCache(storage).getWithTiming(
     resolution(),
     hash,
   );
@@ -1139,9 +1137,63 @@ test("saved results keep how long their count took, and older results still load
   };
   expect(cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])).toEqual([]);
   const invalid = new PublicResultCache(new MemoryStorage());
-  await invalid.put(resolution(), await result(), Number.NaN);
-  expect(await invalid.getWithDuration(resolution(), hash)).not.toHaveProperty(
+  await invalid.put(resolution(), await result(), { durationMs: Number.NaN });
+  expect(await invalid.getWithTiming(resolution(), hash)).not.toHaveProperty(
     "durationMs",
+  );
+});
+
+test("saved results keep valid wait times, and a bad stored wait time keeps the result", async () => {
+  const storage = new MemoryStorage();
+  const hash = await effectiveRulesHash(defaultIgnore);
+  await new PublicResultCache(storage).put(resolution(), await result(), {
+    durationMs: 10_000,
+    githubWaitMs: 6_000,
+    counterWaitMs: 3_000,
+  });
+  expect(
+    await new PublicResultCache(storage).getWithTiming(resolution(), hash),
+  ).toMatchObject({
+    durationMs: 10_000,
+    githubWaitMs: 6_000,
+    counterWaitMs: 3_000,
+  });
+  for (const timing of [
+    { durationMs: 10_000, githubWaitMs: 8_000, counterWaitMs: 3_000 },
+    { durationMs: 10_000, githubWaitMs: 6_000 },
+    { durationMs: 10_000, githubWaitMs: -1, counterWaitMs: 3_000 },
+    { githubWaitMs: 6_000, counterWaitMs: 3_000 },
+  ]) {
+    const other = new MemoryStorage();
+    await new PublicResultCache(other).put(
+      resolution(),
+      await result(),
+      timing,
+    );
+    const saved = await new PublicResultCache(other).getWithTiming(
+      resolution(),
+      hash,
+    );
+    expect(saved?.result).toBeDefined();
+    expect(saved).not.toHaveProperty("githubWaitMs");
+    expect(saved).not.toHaveProperty("counterWaitMs");
+  }
+  const snapshot = storage.values[PUBLIC_CACHE_KEY] as {
+    entries: Record<string, unknown>[];
+  };
+  const tampered = { ...snapshot.entries[0]!, githubWaitMs: "soon", bytes: 0 };
+  tampered.bytes = new TextEncoder().encode(
+    JSON.stringify({ ...tampered, bytes: 0 }),
+  ).byteLength;
+  storage.values[PUBLIC_CACHE_KEY] = { version: 1, entries: [tampered] };
+  const kept = await new PublicResultCache(storage).getWithTiming(
+    resolution(),
+    hash,
+  );
+  expect(kept).toMatchObject({ durationMs: 10_000 });
+  expect(kept).not.toHaveProperty("githubWaitMs");
+  expect(cachedResultSummaries(storage.values[PUBLIC_CACHE_KEY])).toHaveLength(
+    1,
   );
 });
 

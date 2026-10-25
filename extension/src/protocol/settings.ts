@@ -229,8 +229,14 @@ export function validSettingsReply(
           "transport",
           "wasmLinearMemoryBytes",
           ...(value.durationMs === undefined ? [] : ["durationMs"]),
+          ...(value.githubWaitMs === undefined ? [] : ["githubWaitMs"]),
+          ...(value.counterWaitMs === undefined ? [] : ["counterWaitMs"]),
         ]) ||
         (value.durationMs !== undefined && !nonnegative(value.durationMs)) ||
+        (value.githubWaitMs !== undefined &&
+          !nonnegative(value.githubWaitMs)) ||
+        (value.counterWaitMs !== undefined &&
+          !nonnegative(value.counterWaitMs)) ||
         !validEnvelope(value.resolution) ||
         !record(value.transport) ||
         !exact(

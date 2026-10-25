@@ -28,6 +28,8 @@ export type AnalysisOutput = {
   };
   wasmLinearMemoryBytes: number;
   durationMs?: number;
+  githubWaitMs?: number;
+  counterWaitMs?: number;
 };
 
 export type Subscriber = {

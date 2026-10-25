@@ -224,7 +224,7 @@ export function createPublicAnalysis(
           results.allowRepository(envelope);
         const rules = await currentRules();
         const saved = await results
-          .getWithDuration(envelope, rules.hash)
+          .getWithTiming(envelope, rules.hash)
           .catch(() => undefined);
         const cached = saved?.result;
         const savedDuration =
@@ -343,7 +343,7 @@ export function createPublicAnalysis(
               }
               const labelled = withRef(current, envelope.ref);
               await results
-                .put(labelled, output.result, output.durationMs)
+                .put(labelled, output.result, output)
                 .catch(() => undefined);
               if (await disconnected()) {
                 await results

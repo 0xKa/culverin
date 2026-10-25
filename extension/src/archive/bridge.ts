@@ -44,6 +44,13 @@ type ClientsScope = {
   };
 };
 type ReplyEvent = { data: unknown; source: unknown };
+type ArchiveOutput = {
+  result: AnalysisResultV2;
+  transport: ArchiveMetrics & { compressedBytes: number };
+  wasmLinearMemoryBytes: number;
+  githubWaitMs: number;
+  counterWaitMs: number;
+};
 
 let activeJobs = 0;
 const replies = new Map<
@@ -174,13 +181,10 @@ export async function analyzeArchive(
   ignore: IgnoreSettings = defaultIgnore,
   limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
   onLimitsRaised?: (listener: () => void) => void,
-): Promise<{
-  result: AnalysisResultV2;
-  transport: ArchiveMetrics & { compressedBytes: number };
-  wasmLinearMemoryBytes: number;
-}> {
+): Promise<ArchiveOutput> {
   const download = new AbortController();
   try {
+    const opening = performance.now();
     const stream = await waitFor(
       openArchive(
         fetch,
@@ -192,7 +196,8 @@ export async function analyzeArchive(
       signal,
       ARCHIVE_TIMEOUTS.networkIdle,
     );
-    return await analyzeArchiveStream(
+    const opened = Math.round(performance.now() - opening);
+    const output = await analyzeArchiveStream(
       stream,
       resolution,
       signal,
@@ -203,6 +208,7 @@ export async function analyzeArchive(
       limits,
       onLimitsRaised,
     );
+    return { ...output, githubWaitMs: output.githubWaitMs + opened };
   } finally {
     download.abort();
   }
@@ -221,17 +227,15 @@ export async function analyzeArchiveStream(
   ignore: IgnoreSettings = defaultIgnore,
   limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
   onLimitsRaised?: (listener: () => void) => void,
-): Promise<{
-  result: AnalysisResultV2;
-  transport: ArchiveMetrics & { compressedBytes: number };
-  wasmLinearMemoryBytes: number;
-}> {
+): Promise<ArchiveOutput> {
   const reader = stream.getReader();
   activeJobs++;
   const host = offscreen.acquire();
   let started = false;
   let compressedBytes = 0;
   let sequence = 0;
+  let githubWait = 0;
+  let counterWait = 0;
   const onAbort = () => {
     if (started) void command("archive.cancel", jobId).catch(() => undefined);
     void reader.cancel().catch(() => undefined);
@@ -272,11 +276,13 @@ export async function analyzeArchiveStream(
     onProgress?.("downloading", 0);
     for (;;) {
       if (signal.aborted) throw abortError(signal);
+      const reading = performance.now();
       const { done, value } = await waitFor(
         reader.read(),
         signal,
         ARCHIVE_TIMEOUTS.networkIdle,
       );
+      githubWait += performance.now() - reading;
       if (done) break;
       compressedBytes += value.byteLength;
       if (compressedBytes > limits.compressed)
@@ -294,19 +300,21 @@ export async function analyzeArchiveStream(
         if (signal.aborted) throw abortError(signal);
         sequence++;
         const bytes = value.subarray(offset, offset + ARCHIVE_LIMITS.chunk);
-        requireState(
-          client
-            ? await sendData(client, jobId, sequence, bytes, signal)
-            : await command("archive.chunk", jobId, {
-                sequence,
-                bytes: encodeChunk(bytes),
-              }),
-          "ok",
-        );
+        const sending = performance.now();
+        const accepted = client
+          ? await sendData(client, jobId, sequence, bytes, signal)
+          : await command("archive.chunk", jobId, {
+              sequence,
+              bytes: encodeChunk(bytes),
+            });
+        counterWait += performance.now() - sending;
+        requireState(accepted, "ok");
       }
     }
     onProgress?.("decompressing");
+    const finishing = performance.now();
     const outcome = await command("archive.finish", jobId);
+    counterWait += performance.now() - finishing;
     requireState(outcome, "completed");
     if (
       !validateResult(outcome.result) ||
@@ -321,6 +329,8 @@ export async function analyzeArchiveStream(
       result: outcome.result,
       transport: { ...outcome.metrics, compressedBytes },
       wasmLinearMemoryBytes: outcome.wasmLinearMemoryBytes,
+      githubWaitMs: Math.round(githubWait),
+      counterWaitMs: Math.round(counterWait),
     };
   } catch (error) {
     if (started) await command("archive.cancel", jobId).catch(() => undefined);

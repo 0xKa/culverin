@@ -5,6 +5,7 @@ import {
   type SettingsCommand,
 } from "../../extension/src/protocol/settings";
 import { sendSettings } from "../../extension/src/settings/client";
+import { result } from "./support/result";
 
 const envelope = {
   protocolVersion: 1,
@@ -134,6 +135,41 @@ test("replies validate status, polling, generation, safe failure, and correlatio
         envelope.navigationId,
       ),
     ).toBe(false);
+});
+
+test("an analyzed reply accepts count wait times only as whole milliseconds", async () => {
+  const analyzed = {
+    ...envelope,
+    state: "analyzed",
+    resolution: {
+      repositoryId: "42",
+      owner: "culverin",
+      name: "sample",
+      defaultBranch: "main",
+      visibility: "public",
+      sha: "a".repeat(40),
+      sizeKb: null,
+      resolvedAt: Date.now(),
+    },
+    result: await result(),
+    transport: { compressedBytes: 1, decompressedBytes: 2 },
+    wasmLinearMemoryBytes: 3,
+    durationMs: 10_000,
+    githubWaitMs: 6_000,
+    counterWaitMs: 3_000,
+  };
+  const valid = (value: unknown) =>
+    validSettingsReply(value, envelope.requestId, envelope.navigationId);
+  expect(valid(analyzed)).toBe(true);
+  expect(
+    valid(
+      Object.fromEntries(
+        Object.entries(analyzed).filter(([key]) => !key.endsWith("WaitMs")),
+      ),
+    ),
+  ).toBe(true);
+  expect(valid({ ...analyzed, githubWaitMs: -1 })).toBe(false);
+  expect(valid({ ...analyzed, counterWaitMs: 1.5 })).toBe(false);
 });
 
 test("settings client builds fresh envelopes and rejects malformed responses and runtime errors", async () => {

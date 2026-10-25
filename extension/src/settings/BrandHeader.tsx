@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { Store } from "lucide-preact";
 import { BrandIcon } from "../ui/BrandIcon";
+import { buttonClass } from "../ui/Button";
+import { ExternalLink } from "../ui/ExternalLink";
+import { GitHubMark } from "../ui/GitHubMark";
+import { REPOSITORY_URL, REVIEWS_URL } from "./about";
 import TechText from "../ui/tech-text/TechText";
 
 const NAME = "Culverin";
@@ -96,7 +101,7 @@ export function BrandHeader({ onHome }: { onHome: () => void }) {
   return (
     <header
       ref={header}
-      className="text-ink mb-8 flex items-center gap-1 font-mono"
+      className="text-ink mb-8 flex flex-wrap items-center justify-between gap-4 font-mono"
     >
       <span
         ref={highlight}
@@ -141,6 +146,22 @@ export function BrandHeader({ onHome }: { onHome: () => void }) {
           ) : null}
         </h1>
       </a>
+      <div className="flex items-center gap-2 font-sans">
+        <ExternalLink
+          href={REVIEWS_URL}
+          className={buttonClass("md", "secondary")}
+        >
+          <Store />
+          Rate on Web Store
+        </ExternalLink>
+        <ExternalLink
+          href={REPOSITORY_URL}
+          className={buttonClass("md", "secondary")}
+        >
+          <GitHubMark />
+          Star on GitHub
+        </ExternalLink>
+      </div>
     </header>
   );
 }

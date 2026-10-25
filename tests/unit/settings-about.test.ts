@@ -3,6 +3,7 @@ import {
   aboutDetails,
   browserVersion,
   REPOSITORY_URL,
+  REVIEWS_URL,
   STORE_URL,
 } from "../../extension/src/settings/about";
 
@@ -29,4 +30,5 @@ test("formats details for an issue report", () => {
   expect(STORE_URL).toBe(
     "https://chromewebstore.google.com/detail/culverin/hpcpmjmklfpfaddiheiobggojdhcoopn",
   );
+  expect(REVIEWS_URL).toBe(`${STORE_URL}/reviews`);
 });

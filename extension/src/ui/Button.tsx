@@ -21,7 +21,7 @@ export type ButtonProps = ComponentProps<"button"> & {
   variant?: keyof typeof variants;
 };
 
-function buttonClass(
+export function buttonClass(
   size: keyof typeof sizes,
   variant: keyof typeof variants,
 ): string {

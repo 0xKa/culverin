@@ -5,6 +5,7 @@ User-facing changes for each Culverin release. Newest first.
 ## Unreleased
 
 - Adds a Chrome Web Store link to Settings → About.
+- Adds Rate on Web Store and Star on GitHub buttons to the top right of Settings.
 
 ## 1.2.0 - 2026-10-25
 

@@ -27,7 +27,7 @@ fn validates_rules_and_canonicalizes_exclusions() {
         "invalid commit sha"
     );
     assert_eq!(
-        CounterAnalyzer::new(rules(&["src/*"])).err().unwrap(),
+        CounterAnalyzer::new(rules(&["src/**"])).err().unwrap(),
         "invalid exclusions"
     );
     let sorted = CounterAnalyzer::new(rules(&["a", "z"]))
@@ -547,6 +547,53 @@ fn custom_rules_match_names_folders_suffixes_and_paths() {
 }
 
 #[test]
+fn custom_rules_match_wildcards_and_root_anchors() {
+    let active = CounterAnalyzer::new(rules(&[
+        "/gen",
+        "/tmp/",
+        ".local*",
+        "test_?.py",
+        "src/*.gen.rs",
+        "a*b*c.rs",
+        "*.snap",
+    ]))
+    .unwrap()
+    .rules()
+    .clone();
+    for path in [
+        "gen",
+        "gen/a.rs",
+        "tmp/a.rs",
+        ".local",
+        ".localrc",
+        "a/.local.env/x.rs",
+        "tests/test_1.py",
+        "test_\u{e9}.py",
+        "src/a.gen.rs",
+        "src/.gen.rs",
+        "aXbYbZc.rs",
+        "abc.rs",
+    ] {
+        assert_eq!(kind(&active, path), "excluded_by_rule", "{path}");
+    }
+    for path in [
+        "src/gen/a.rs",
+        "tmp",
+        "src/tmp/a.rs",
+        "a.local",
+        "test_12.py",
+        "test_.py",
+        "src/deep/a.gen.rs",
+        "lib/src/a.gen.rs",
+        "aXbYc.r",
+        "acb.rs",
+        "data.snap/main.rs",
+    ] {
+        assert_ne!(kind(&active, path), "excluded_by_rule", "{path}");
+    }
+}
+
+#[test]
 fn disabled_groups_restore_built_in_exclusions() {
     let mut custom = rules(&[]);
     custom.disabled_groups = vec!["build".into(), "minified".into(), "build".into()];
@@ -571,8 +618,8 @@ fn disabled_groups_restore_built_in_exclusions() {
 #[test]
 fn rejects_unsupported_rule_syntax() {
     for rule in [
-        "", "/abs", "a\\b", "a?", "*", "*.", "*.a/b", "*.a*", "src/*.rs", "**/x", "a//b", "./a",
-        "a/../b", "a//",
+        "", "a\\b", "*.", "**/x", "a/**", "a**b", "a//b", "./a", "a/../b", "a//", "/", "//a",
+        "/./a",
     ] {
         assert_eq!(
             CounterAnalyzer::new(rules(&[rule])).err().unwrap(),

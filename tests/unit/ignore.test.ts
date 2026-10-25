@@ -67,13 +67,16 @@ test("explains unsupported rules in plain language", () => {
     "schema.graphql",
     "docs/generated",
     "a/b/",
+    "/src",
+    ".local*",
+    "test_?.py",
+    "src/*.gen.rs",
   ])
     expect(ruleError(rule)).toBeUndefined();
-  expect(ruleError("/src")).toContain('leading "/"');
   expect(ruleError("src\\gen")).toContain('"/"');
-  expect(ruleError("src/**/test")).toContain("Wildcards");
+  expect(ruleError("src/**/test")).toContain('"**"');
   expect(ruleError("*.")).toContain("file ending");
-  expect(ruleError("*.a/b")).toContain("not folders");
+  expect(ruleError("/")).toContain("empty folder names");
   expect(ruleError("a/../b")).toContain('".."');
   expect(ruleError("a".repeat(257))).toContain("256 bytes");
 });
@@ -97,6 +100,50 @@ test("normalizes settings and rejects unknown groups or extra keys", () => {
       exclusions: Array.from({ length: 65 }, (_, n) => `r${n}`),
     }),
   ).toThrow();
+});
+
+test("accepts the same rules as the Rust counter", () => {
+  for (const rule of [
+    "/src",
+    "/out/",
+    ".local*",
+    "test_?.py",
+    "*.a*",
+    "src/*.gen.rs",
+    "*",
+    "src/**",
+    "**",
+    "*.",
+    "/",
+    "//a",
+    "a//b",
+    "./a",
+  ]) {
+    let accepted = true;
+    try {
+      native([], [rule], []);
+    } catch {
+      accepted = false;
+    }
+    expect([rule, ruleError(rule) === undefined]).toEqual([rule, accepted]);
+  }
+});
+
+test("matches wildcard and root-anchored rules like the Rust counter", () => {
+  const result = native(
+    [],
+    ["/gen", ".local*", "test_?.py", "src/*.gen.rs"],
+    [
+      "gen/a.rs",
+      "src/gen/a.rs",
+      "a/.localrc/a.rs",
+      "tests/test_1.py",
+      "tests/test_12.py",
+      "src/a.gen.rs",
+      "src/deep/a.gen.rs",
+    ],
+  );
+  expect(result.coverage.skippedByReason.excluded_by_rule).toBe(4);
 });
 
 test("matches the Rust counter's hash, groups, and rule forms", async () => {
@@ -156,7 +203,7 @@ test("stores only non-default settings and falls back on invalid storage", async
   storage.values[IGNORE_KEY] = { disabledGroups: ["bogus"], exclusions: [] };
   expect(await readIgnore(storage)).toEqual(defaultIgnore);
   expect(
-    writeIgnore({ disabledGroups: [], exclusions: ["/bad"] }, storage),
+    writeIgnore({ disabledGroups: [], exclusions: ["bad/**"] }, storage),
   ).rejects.toThrow();
 });
 

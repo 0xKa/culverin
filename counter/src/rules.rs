@@ -96,44 +96,82 @@ impl Rules {
     }
 }
 
+fn suffix_rule(rule: &str) -> Option<&str> {
+    rule.strip_prefix('*')
+        .filter(|suffix| suffix.len() > 1 && suffix.starts_with('.'))
+        .filter(|suffix| !suffix.contains(['*', '?', '/']))
+}
+
 fn matches(rule: &str, parts: &[&str]) -> bool {
-    let name = parts.last().copied().unwrap_or_default();
-    if let Some(suffix) = rule.strip_prefix('*') {
-        return name.ends_with(suffix);
+    if let Some(suffix) = suffix_rule(rule) {
+        return parts.last().is_some_and(|name| name.ends_with(suffix));
     }
+    let anchored = rule.starts_with('/');
+    let rule = rule.strip_prefix('/').unwrap_or(rule);
     let directory = rule.ends_with('/');
-    let rule = rule.trim_end_matches('/');
-    if !rule.contains('/') {
-        let candidates = if directory {
-            &parts[..parts.len().saturating_sub(1)]
-        } else {
-            parts
-        };
-        return candidates.contains(&rule);
+    let rule = rule.strip_suffix('/').unwrap_or(rule);
+    let candidates = if directory {
+        &parts[..parts.len().saturating_sub(1)]
+    } else {
+        parts
+    };
+    if !anchored && !rule.contains('/') {
+        return candidates.iter().any(|part| glob(rule, part));
     }
-    let path = parts.join("/");
-    path.starts_with(&format!("{rule}/")) || (!directory && path == rule)
+    let segments = rule.split('/');
+    segments.clone().count() <= candidates.len()
+        && segments
+            .zip(candidates)
+            .all(|(segment, part)| glob(segment, part))
+}
+
+fn glob(pattern: &str, text: &str) -> bool {
+    if !pattern.contains(['*', '?']) {
+        return pattern == text;
+    }
+    let mut pattern_rest = pattern.chars();
+    let mut text_rest = text.chars();
+    let mut star: Option<(std::str::Chars, std::str::Chars)> = None;
+    loop {
+        match (pattern_rest.clone().next(), text_rest.clone().next()) {
+            (Some('*'), _) => {
+                pattern_rest.next();
+                star = Some((pattern_rest.clone(), text_rest.clone()));
+            }
+            (Some(expected), Some(actual)) if expected == '?' || expected == actual => {
+                pattern_rest.next();
+                text_rest.next();
+            }
+            (None, None) => return true,
+            _ => {
+                let Some((after_star, consumed)) = &mut star else {
+                    return false;
+                };
+                if consumed.next().is_none() {
+                    return false;
+                }
+                pattern_rest = after_star.clone();
+                text_rest = consumed.clone();
+            }
+        }
+    }
 }
 
 pub(crate) fn validate_rule(rule: &str) -> Result<(), String> {
     let invalid = || Err("invalid exclusions".to_string());
     if rule.is_empty()
         || rule.len() > 256
-        || rule.starts_with('/')
-        || rule.contains(['\\', '\0', '?'])
+        || rule == "*."
+        || rule.contains("**")
+        || rule.contains(['\\', '\0'])
     {
         return invalid();
     }
-    if let Some(suffix) = rule.strip_prefix("*.") {
-        if suffix.is_empty() || suffix.contains(['*', '/']) {
-            return invalid();
-        }
+    if suffix_rule(rule).is_some() {
         return Ok(());
     }
-    if rule.contains('*') {
-        return invalid();
-    }
-    let body = rule.strip_suffix('/').unwrap_or(rule);
+    let body = rule.strip_prefix('/').unwrap_or(rule);
+    let body = body.strip_suffix('/').unwrap_or(body);
     if body
         .split('/')
         .any(|part| part.is_empty() || part == "." || part == "..")

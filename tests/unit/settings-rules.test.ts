@@ -27,8 +27,8 @@ test("reports exact usage only near either limit", () => {
 });
 
 test("reports invalid rules with their input line", () => {
-  expect(parseRules("README\n\n/absolute").errors).toEqual([
-    'Line 3: Rules are relative to the repository root; remove the leading "/".',
+  expect(parseRules("README\n\nsrc/**/test").errors).toEqual([
+    'Line 3: "**" isn\'t supported; use "*" within one name.',
   ]);
 });
 

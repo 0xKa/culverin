@@ -247,6 +247,19 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             <dd className="text-muted m-0">
               this exact path from the repository root and everything under it
             </dd>
+            <dt className="font-mono text-xs leading-5">/name</dt>
+            <dd className="text-muted m-0">
+              a file or folder with this name at the repository root only
+            </dd>
+            <dt className="font-mono text-xs leading-5">.local*</dt>
+            <dd className="text-muted m-0">
+              <span className="font-mono">*</span> matches any characters within
+              a name
+            </dd>
+            <dt className="font-mono text-xs leading-5">test_?.py</dt>
+            <dd className="text-muted m-0">
+              <span className="font-mono">?</span> matches exactly one character
+            </dd>
           </dl>
         </InfoDialog>
       )}

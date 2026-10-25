@@ -113,21 +113,11 @@ export function ruleError(rule: string): string | undefined {
   if (encoder.encode(rule).length > MAX_RULE_BYTES)
     return `Rules are limited to ${MAX_RULE_BYTES} bytes.`;
   if (rule.includes("\0")) return "Rules can't contain NUL characters.";
-  if (rule.startsWith("/"))
-    return 'Rules are relative to the repository root; remove the leading "/".';
   if (rule.includes("\\")) return 'Use "/" to separate folders.';
-  if (rule.startsWith("*.")) {
-    const suffix = rule.slice(2);
-    if (!suffix) return 'Add a file ending after "*.".';
-    if (suffix.includes("*") || suffix.includes("?"))
-      return 'Wildcards other than a leading "*." aren\'t supported.';
-    if (suffix.includes("/"))
-      return '"*." rules match file endings, not folders.';
-    return undefined;
-  }
-  if (rule.includes("*") || rule.includes("?"))
-    return 'Wildcards other than a leading "*." aren\'t supported.';
-  const body = rule.endsWith("/") ? rule.slice(0, -1) : rule;
+  if (rule === "*.") return 'Add a file ending after "*.".';
+  if (rule.includes("**"))
+    return '"**" isn\'t supported; use "*" within one name.';
+  const body = rule.replace(/^\//, "").replace(/\/$/, "");
   if (body.split("/").some((part) => !part || part === "." || part === ".."))
     return '".", "..", and empty folder names aren\'t allowed.';
   return undefined;

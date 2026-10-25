@@ -242,6 +242,6 @@ describe("analysis result contract", () => {
   test("normalizes exclusions and rejects unsafe patterns", () => {
     expect(normalizeExclusions(["b", "a", "b"])).toEqual(["a", "b"]);
     expect(() => normalizeExclusions(["../a"])).toThrow();
-    expect(() => normalizeExclusions(["a/*"])).toThrow();
+    expect(() => normalizeExclusions(["a/**"])).toThrow();
   });
 });

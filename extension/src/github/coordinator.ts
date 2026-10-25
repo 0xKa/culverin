@@ -42,6 +42,7 @@ export type Subscriber = {
     phase: "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
     startedAt?: number,
+    processedFiles?: number,
   ) => void;
   onComplete: (
     output: AnalysisOutput,
@@ -69,6 +70,7 @@ type Job = {
   lastProgress: number;
   phase: number;
   processedBytes?: number;
+  processedFiles?: number;
 };
 
 export type Marker = {
@@ -96,6 +98,7 @@ export class AnalysisCoordinator {
       progress: (
         phase: "downloading" | "decompressing" | "counting",
         processedBytes?: number,
+        processedFiles?: number,
       ) => void,
     ) => Promise<AnalysisOutput>,
     private readonly changed: (markers: Marker[]) => void,
@@ -150,8 +153,11 @@ export class AnalysisCoordinator {
       () => job.controller.abort("deadline"),
       job.deadlineMs,
     );
-    const progress = (phase: ProgressPhase, processedBytes?: number) =>
-      this.report(job, phase, processedBytes);
+    const progress = (
+      phase: ProgressPhase,
+      processedBytes?: number,
+      processedFiles?: number,
+    ) => this.report(job, phase, processedBytes, processedFiles);
     void this.execute(
       {
         id: job.id,
@@ -263,6 +269,7 @@ export class AnalysisCoordinator {
         phaseOrder[job.phase]!,
         job.processedBytes,
         job.startedAt,
+        job.processedFiles,
       );
     this.pump();
     return true;
@@ -337,12 +344,15 @@ export class AnalysisCoordinator {
     job: Job,
     phase: ProgressPhase,
     processedBytes?: number,
+    processedFiles?: number,
   ): void {
     const rank = phaseOrder.indexOf(phase);
     const now = this.now();
     const moved =
-      processedBytes !== undefined && processedBytes !== job.processedBytes;
+      (processedBytes !== undefined && processedBytes !== job.processedBytes) ||
+      (processedFiles !== undefined && processedFiles !== job.processedFiles);
     if (processedBytes !== undefined) job.processedBytes = processedBytes;
+    if (processedFiles !== undefined) job.processedFiles = processedFiles;
     if (
       rank <= job.phase &&
       ((rank < job.phase && !moved) ||
@@ -356,6 +366,7 @@ export class AnalysisCoordinator {
         phaseOrder[job.phase]!,
         job.processedBytes,
         job.startedAt,
+        job.processedFiles,
       );
   }
 

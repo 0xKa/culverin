@@ -12,6 +12,7 @@ import {
   DOWNLOAD_LIMITS,
   jobLimits,
   type JobLimits,
+  validFileCount,
 } from "./limits";
 import { abortError, waitFor } from "./timeout";
 import {
@@ -29,6 +30,7 @@ type HostResponse = {
   result?: unknown;
   metrics?: ArchiveMetrics;
   wasmLinearMemoryBytes?: number;
+  files?: number;
 };
 
 type OffscreenClient = {
@@ -177,6 +179,7 @@ export async function analyzeArchive(
   onProgress?: (
     phase: "downloading" | "decompressing",
     processedBytes?: number,
+    processedFiles?: number,
   ) => void,
   ignore: IgnoreSettings = defaultIgnore,
   limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
@@ -223,6 +226,7 @@ export async function analyzeArchiveStream(
   onProgress?: (
     phase: "downloading" | "decompressing",
     processedBytes?: number,
+    processedFiles?: number,
   ) => void,
   ignore: IgnoreSettings = defaultIgnore,
   limits: Readonly<JobLimits> = jobLimits(DOWNLOAD_LIMITS.automatic),
@@ -236,6 +240,7 @@ export async function analyzeArchiveStream(
   let sequence = 0;
   let githubWait = 0;
   let counterWait = 0;
+  let files: number | undefined;
   const onAbort = () => {
     if (started) void command("archive.cancel", jobId).catch(() => undefined);
     void reader.cancel().catch(() => undefined);
@@ -291,7 +296,7 @@ export async function analyzeArchiveStream(
           "compressed",
           limits.compressed,
         );
-      onProgress?.("downloading", compressedBytes);
+      onProgress?.("downloading", compressedBytes, files);
       for (
         let offset = 0;
         offset < value.byteLength;
@@ -309,6 +314,7 @@ export async function analyzeArchiveStream(
             });
         counterWait += performance.now() - sending;
         requireState(accepted, "ok");
+        if (validFileCount(accepted.files)) files = accepted.files;
       }
     }
     onProgress?.("decompressing");

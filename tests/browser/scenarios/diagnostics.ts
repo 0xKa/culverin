@@ -160,6 +160,30 @@ export async function runDiagnostics(
 
   assert.ok(archiveTransport.decompressedBytes > archiveFixture.length);
 
+  const piecewise = await harness.evaluate(
+    (bytes) =>
+      new Promise<Record<string, unknown>>((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            type: "archive.fixture",
+            requestId: crypto.randomUUID(),
+            bytes,
+            chunkDelayMs: 1,
+          },
+          resolve,
+        ),
+      ),
+    archiveFixture,
+  );
+
+  assert.equal(piecewise.state, "analyzed", JSON.stringify(piecewise));
+
+  assert.ok(
+    (piecewise.progressFiles as number) > 0 &&
+      (piecewise.progressFiles as number) <= 14,
+    JSON.stringify(piecewise.progressFiles),
+  );
+
   const archiveCancellation = await harness.evaluate(async (bytes) => {
     const requestId = crypto.randomUUID();
     const pending = new Promise<Record<string, unknown>>((resolve) =>

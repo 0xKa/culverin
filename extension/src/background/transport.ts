@@ -142,8 +142,8 @@ export function createPublicTransport(
         tracked?.settle(payload);
         respond(publicReply(current, payload));
       },
-      progress: (current, phase, processedBytes, startedAt) => {
-        tracked?.progress(phase, processedBytes, startedAt);
+      progress: (current, phase, processedBytes, startedAt, processedFiles) => {
+        tracked?.progress(phase, processedBytes, startedAt, processedFiles);
         if (
           phase === shownPhase ||
           (phase === "downloading" && processedBytes === 0)

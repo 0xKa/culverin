@@ -17,6 +17,7 @@ export function startArchiveWorker(
   let wanted = false;
   let ended = false;
   let started = false;
+  let files = 0;
   const limits: { -readonly [Key in keyof typeof ARCHIVE_LIMITS]: number } = {
     ...ARCHIVE_LIMITS,
   };
@@ -28,7 +29,7 @@ export function startArchiveWorker(
       pending = undefined;
       wanted = false;
       controller.enqueue(chunk.bytes);
-      self.postMessage({ type: "ack", sequence: chunk.sequence });
+      self.postMessage({ type: "ack", sequence: chunk.sequence, files });
     } else if (ended) {
       wanted = false;
       controller.close();
@@ -93,6 +94,7 @@ export function startArchiveWorker(
                   }
                   beforeCount?.(command.blockMs);
                   active.add_file(path, bytes);
+                  files++;
                   activity();
                   wasmLinearMemoryBytes = Math.max(
                     wasmLinearMemoryBytes,
@@ -105,6 +107,7 @@ export function startArchiveWorker(
               skipFile(path, prefix, reason, size) {
                 try {
                   active.skip_file(path, prefix, reason, BigInt(size));
+                  files++;
                 } catch {
                   throw new ArchiveError("counter_failed");
                 }
@@ -118,6 +121,7 @@ export function startArchiveWorker(
                     BigInt(lines),
                     binary,
                   );
+                  files++;
                 } catch {
                   throw new ArchiveError("counter_failed");
                 }

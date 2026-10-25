@@ -64,19 +64,21 @@ export function createPopupJobs(
         "resolving" | "queued" | "downloading" | "decompressing" | "counting",
       processedBytes?: number,
       startedAt?: number,
+      processedFiles?: number,
     ) => void;
     settle: (payload: PublicPayload) => void;
   } {
     const entry: PageJob = { ...job };
     pageJobs.set(tabId, entry);
     return {
-      progress: (phase, processedBytes, startedAt) => {
+      progress: (phase, processedBytes, startedAt, processedFiles) => {
         if (pageJobs.get(tabId) !== entry || !entry.viewer) return;
         postToPopup(entry.viewer.port, entry.viewer.request, {
           type: "analysis.progress",
           phase,
           ...(processedBytes === undefined ? {} : { processedBytes }),
           ...(startedAt === undefined ? {} : { startedAt }),
+          ...(processedFiles === undefined ? {} : { processedFiles }),
         });
       },
       settle: (payload) => {
@@ -309,7 +311,13 @@ export function createPopupJobs(
         force: reanalyze === true,
         isAlive: () => popupJobs.get(tabId) === next,
         reply: (_current, payload) => settlePopupJob(tabId, next, payload),
-        progress: (_current, phase, processedBytes, startedAt) => {
+        progress: (
+          _current,
+          phase,
+          processedBytes,
+          startedAt,
+          processedFiles,
+        ) => {
           if (popupJobs.get(tabId) !== next) return;
           if (phase !== "downloading" || processedBytes !== 0)
             sendProgress(tabId, next, phase);
@@ -320,6 +328,7 @@ export function createPopupJobs(
             phase,
             ...(processedBytes === undefined ? {} : { processedBytes }),
             ...(startedAt === undefined ? {} : { startedAt }),
+            ...(processedFiles === undefined ? {} : { processedFiles }),
           });
         },
       });

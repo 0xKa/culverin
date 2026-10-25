@@ -1,7 +1,7 @@
 import { validateResult } from "../counter/result";
 import { normalizeIgnore } from "../counter/rules";
 import { ARCHIVE_LIMITS, type ArchiveMetrics } from "./tar";
-import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS } from "./limits";
+import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS, validFileCount } from "./limits";
 
 function validIgnore(value: unknown): boolean {
   try {
@@ -293,7 +293,10 @@ export function handleArchiveHost(
         activity(job);
         const pending = job.pending;
         job.pending = undefined;
-        pending?.({ state: "ok" });
+        pending?.({
+          state: "ok",
+          ...(validFileCount(value.files) ? { files: value.files } : {}),
+        });
       } else if (value.type === "counting") {
         activity(job);
         void chrome.runtime.sendMessage({

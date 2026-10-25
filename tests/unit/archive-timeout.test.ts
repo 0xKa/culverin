@@ -432,3 +432,49 @@ test("a finished archive reports how long it waited for GitHub and for the count
   expect(output.githubWaitMs).toBe(6_000);
   expect(output.counterWaitMs).toBe(5_000);
 });
+
+test("download progress reports the file count from the last chunk acknowledgement", async () => {
+  const counts: unknown[] = [4, "many", 9];
+  globalThis.chrome = {
+    runtime: {
+      getURL: (path: string) => `chrome-extension://test/${path}`,
+      getContexts: async () => [{}],
+      sendMessage: async (message: { type: string }) =>
+        message.type === "archive.start"
+          ? { state: "started" }
+          : message.type === "archive.chunk"
+            ? { state: "ok", files: counts.shift() }
+            : { state: "ok" },
+    },
+  } as unknown as typeof chrome;
+  let source: ReadableStreamDefaultController<Uint8Array>;
+  const seen: unknown[] = [];
+  const controller = new AbortController();
+  const pending = analyzeArchiveStream(
+    new ReadableStream<Uint8Array>({
+      start: (value) => {
+        source = value;
+      },
+    }),
+    { repositoryId: "1", sha: "a".repeat(40) },
+    controller.signal,
+    crypto.randomUUID(),
+    0,
+    (_phase, bytes, files) => seen.push([bytes, files]),
+  );
+  const rejection = pending.catch((error: unknown) => error);
+  await settle();
+  for (let index = 0; index < 4; index++) {
+    source!.enqueue(new Uint8Array([index]));
+    await settle();
+  }
+  expect(seen).toEqual([
+    [0, undefined],
+    [1, undefined],
+    [2, 4],
+    [3, 4],
+    [4, 9],
+  ]);
+  controller.abort("cancel");
+  expect(await rejection).toMatchObject({ code: "analysis_canceled" });
+});

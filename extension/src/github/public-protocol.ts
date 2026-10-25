@@ -1,4 +1,4 @@
-import { DOWNLOAD_LIMITS } from "../archive/limits";
+import { DOWNLOAD_LIMITS, validFileCount } from "../archive/limits";
 import { validateResult, type AnalysisResultV2 } from "../counter/result";
 import {
   validShownItems,
@@ -163,6 +163,7 @@ export type PublicReply = {
         "queued" | "resolving" | "downloading" | "decompressing" | "counting";
       processedBytes?: number;
       startedAt?: number;
+      processedFiles?: number;
     }
 );
 
@@ -530,9 +531,12 @@ export function validPublicReply(
         "phase",
         ...(value.processedBytes === undefined ? [] : ["processedBytes"]),
         ...(value.startedAt === undefined ? [] : ["startedAt"]),
+        ...(value.processedFiles === undefined ? [] : ["processedFiles"]),
       ]) &&
       (value.startedAt === undefined ||
         (value.phase !== "queued" && validStartedAt(value.startedAt))) &&
+      (value.processedFiles === undefined ||
+        validFileCount(value.processedFiles)) &&
       [
         "queued",
         "resolving",

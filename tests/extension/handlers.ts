@@ -84,14 +84,20 @@ export function createDiagnosticHandler() {
           offset += delay ? 32 : bytes.length;
         },
       });
+      let progressFiles = 0;
       void analyzeArchiveStream(
         stream,
         { repositoryId: "1", sha: "a".repeat(40) },
         job.controller.signal,
         job.id,
         "countBlockMs" in message ? (message.countBlockMs as number) : 0,
+        (_phase, _bytes, files) => {
+          progressFiles = Math.max(progressFiles, files ?? 0);
+        },
       )
-        .then((outcome) => sendResponse({ state: "analyzed", ...outcome }))
+        .then((outcome) =>
+          sendResponse({ state: "analyzed", ...outcome, progressFiles }),
+        )
         .catch((error: unknown) =>
           sendResponse({
             state: "failed",

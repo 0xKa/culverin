@@ -879,3 +879,29 @@ test("wait times travel only in pairs that fit within the duration", async () =>
   expect(valid({ ...timed, githubWaitMs: -1 })).toBe(false);
   expect(valid({ ...timed, durationMs: undefined })).toBe(false);
 });
+
+test("progress file counts are optional whole numbers within the file limit", () => {
+  const requestId = crypto.randomUUID();
+  const navigationId = crypto.randomUUID();
+  const valid = (processedFiles: unknown) =>
+    validPublicReply(
+      {
+        protocolVersion: 1,
+        requestId,
+        navigationId,
+        type: "analysis.progress",
+        phase: "counting",
+        processedBytes: 1_048_576,
+        processedFiles,
+      },
+      requestId,
+      navigationId,
+    );
+  expect(valid(12_480)).toBe(true);
+  expect(valid(0)).toBe(true);
+  expect(valid(1_000_000)).toBe(true);
+  expect(valid(1_000_001)).toBe(false);
+  expect(valid(-1)).toBe(false);
+  expect(valid(1.5)).toBe(false);
+  expect(valid("12480")).toBe(false);
+});

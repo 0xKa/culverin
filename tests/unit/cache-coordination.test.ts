@@ -797,6 +797,65 @@ test("coordinator reports phases only forward and keeps reporting downloaded byt
   expect(coordinator.reportCounting("other")).toBe(false);
 });
 
+test("coordinator forwards new file counts and gives them to late subscribers", () => {
+  let now = 0;
+  let progress: (
+    phase: "downloading" | "decompressing" | "counting",
+    processedBytes?: number,
+    processedFiles?: number,
+  ) => void = () => undefined;
+  const coordinator = new AnalysisCoordinator(
+    (_job, report) => {
+      progress = report;
+      return new Promise<AnalysisOutput>(() => undefined);
+    },
+    () => undefined,
+    () => now,
+  );
+  const subscriber = (owner: string, seen: unknown[]) => ({
+    requestId: crypto.randomUUID(),
+    owner,
+    public: true,
+    onProgress: (
+      phase: string,
+      bytes?: number,
+      _startedAt?: number,
+      files?: number,
+    ) => seen.push([phase, bytes, files]),
+    onComplete: () => undefined,
+    onFailure: () => undefined,
+  });
+  const first: unknown[] = [];
+  coordinator.subscribe(
+    "job",
+    resolution(),
+    undefined,
+    "",
+    subscriber("first", first),
+  );
+  now = 300;
+  progress("downloading", 10, 2);
+  now = 600;
+  progress("downloading", 10, 2);
+  now = 900;
+  progress("downloading", 10, 5);
+  const late: unknown[] = [];
+  coordinator.subscribe(
+    "job",
+    resolution(),
+    undefined,
+    "",
+    subscriber("late", late),
+  );
+  expect(first).toEqual([
+    ["downloading", 0, undefined],
+    ["downloading", 10, 2],
+    ["downloading", 10, 2],
+    ["downloading", 10, 5],
+  ]);
+  expect(late).toEqual([["downloading", 10, 5]]);
+});
+
 test("coordinator shares jobs, bounds queued work, and scopes cancellation", async () => {
   const runs: {
     signal: AbortSignal;

@@ -15,6 +15,7 @@ export type PublicClient = {
       "resolving" | "queued" | "downloading" | "decompressing" | "counting",
     processedBytes?: number,
     startedAt?: number,
+    processedFiles?: number,
   ) => void;
 };
 
@@ -315,8 +316,14 @@ export function createPublicAnalysis(
             public: true,
             automatic,
             limit: downloadLimit,
-            onProgress: (phase, processedBytes, startedAt) =>
-              client.progress(request, phase, processedBytes, startedAt),
+            onProgress: (phase, processedBytes, startedAt, processedFiles) =>
+              client.progress(
+                request,
+                phase,
+                processedBytes,
+                startedAt,
+                processedFiles,
+              ),
             onComplete: async (output, current) => {
               if (
                 !coordinator.isSubscribed(owner, request.requestId) ||

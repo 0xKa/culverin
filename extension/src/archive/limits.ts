@@ -31,6 +31,11 @@ export const ARCHIVE_LIMITS = {
   chunk: 1024 * 1024,
 } as const;
 
+export const validFileCount = (value: unknown): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) >= 0 &&
+  (value as number) <= ARCHIVE_LIMITS.regularFiles;
+
 export const ARCHIVE_TIMEOUTS = {
   job: 60 * 60 * 1000,
   queue: 60 * 60 * 1000,

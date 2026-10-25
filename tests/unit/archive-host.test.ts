@@ -173,6 +173,26 @@ test("base64 chunks reach the worker in sequence", () => {
   expect(respond).toHaveBeenCalledWith({ state: "ok" });
 });
 
+test("chunk acknowledgements carry the worker's file count only when it is valid", () => {
+  const { send } = start(false);
+  const cases = [
+    [3, { state: "ok", files: 3 }],
+    [-1, { state: "ok" }],
+    [1.5, { state: "ok" }],
+    [1_000_001, { state: "ok" }],
+    ["3", { state: "ok" }],
+  ] as const;
+  cases.forEach(([files, response], index) => {
+    const respond = jest.fn();
+    send("archive.chunk", respond, {
+      sequence: index + 1,
+      bytes: encodeChunk(new Uint8Array([index])),
+    });
+    latest().emit({ type: "ack", sequence: index + 1, files });
+    expect(respond).toHaveBeenCalledWith(response);
+  });
+});
+
 test("malformed, oversized, and out-of-order base64 chunks are rejected", () => {
   const { send } = start(false);
   for (const extra of [

@@ -162,7 +162,18 @@ export function App() {
                     Waiting for another count
                   </span>
                 ) : (
-                  <ElapsedTimer startedAt={view.timer.startedAt} />
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <ElapsedTimer startedAt={view.timer.startedAt} />
+                    {view.downloaded && (
+                      <span
+                        id="analysis-downloaded"
+                        aria-hidden="true"
+                        className="text-muted tabular"
+                      >
+                        · {view.downloaded} downloaded
+                      </span>
+                    )}
+                  </span>
                 ))}
               <Button
                 id="cancel"

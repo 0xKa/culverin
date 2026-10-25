@@ -103,6 +103,12 @@ export const progressStatuses = {
     "busy",
     "Resolving repository revision…",
   ),
+  waiting: status(
+    "Waiting",
+    "accent",
+    "busy",
+    "Waiting for GitHub to send the source snapshot…",
+  ),
   downloading: status(
     "Downloading",
     "accent",
@@ -119,7 +125,7 @@ export const progressStatuses = {
     "Counting",
     "accent",
     "busy",
-    "Counting source files locally…",
+    "Downloading and counting source files locally…",
   ),
 };
 

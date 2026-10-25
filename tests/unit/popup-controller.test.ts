@@ -126,7 +126,7 @@ test("popup waits beyond a minute for queued and active work, preserves timeout 
       label: "Counting",
       tone: "accent",
       mark: "busy",
-      detail: "Counting source files locally…",
+      detail: "Downloading and counting source files locally…",
     },
   });
   ui.reply(request, await completedResult());
@@ -487,6 +487,62 @@ test("times a running count and says how long it took or ran before stopping", a
   await ui.controller.cancel();
   expect(view().duration).toBe("Stopped after 1m 01s");
   expect(view().timer).toBeUndefined();
+});
+
+test("a running count says when it waits for GitHub and how much it has downloaded", async () => {
+  const ui = popup();
+  await settle();
+  const view = () => ui.events.reduce(reduce, initialView);
+  const counting = ui.controller.analyze();
+  const request = ui.requests.at(-1)!;
+  const startedAt = Date.now();
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "downloading",
+    processedBytes: 0,
+    startedAt,
+  });
+  expect(view().status.label).toBe("Waiting");
+  expect(view().status.detail).toBe(
+    "Waiting for GitHub to send the source snapshot…",
+  );
+  expect(view().downloaded).toBeUndefined();
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "downloading",
+    processedBytes: 1_048_576,
+    startedAt,
+  });
+  expect(view().status.detail).toBe("Downloading source snapshot from GitHub…");
+  expect(view().downloaded).toBe("1 MiB");
+  ui.changed.emit({ [SIZE_UNITS_KEY]: { newValue: "decimal" } }, "sync");
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "counting",
+    processedBytes: 88_080_384,
+    startedAt,
+  });
+  expect(view().status.label).toBe("Counting");
+  expect(view().downloaded).toBe("88 MB");
+  const events = ui.events.length;
+  const before = view();
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "counting",
+    processedBytes: 88_080_384,
+    startedAt,
+  });
+  expect(ui.events.slice(events).reduce(reduce, before)).toBe(before);
+  ui.reply(request, await completedResult());
+  await counting;
+  expect(view().downloaded).toBeUndefined();
+  const again = ui.controller.analyze(true);
+  expect(view().downloaded).toBeUndefined();
+  ui.reply(ui.requests.at(-1)!, {
+    type: "analysis.failed",
+    code: "network_unavailable",
+  });
+  await again;
 });
 
 test("a reopened popup times a running count from when it started", async () => {

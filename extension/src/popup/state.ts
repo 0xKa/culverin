@@ -15,6 +15,7 @@ export type PopupView = {
   connect?: string;
   apiLimit?: ApiLimitView;
   timer?: { queued: true } | { startedAt: number };
+  downloaded?: string;
   duration?: string;
 };
 
@@ -42,6 +43,7 @@ export type PopupEvent =
   | { type: "apiLimit"; value?: ApiLimitView }
   | { type: "connect"; label?: string }
   | { type: "timer"; value?: { queued: true } | { startedAt: number } }
+  | { type: "downloaded"; value?: string }
   | { type: "duration"; value?: string };
 
 export function reduce(view: PopupView, event: PopupEvent): PopupView {
@@ -57,7 +59,7 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         ...view,
         analyzeDisabled: event.disabled,
         cancelVisible: event.busy,
-        ...(event.busy ? {} : { timer: undefined }),
+        ...(event.busy ? {} : { timer: undefined, downloaded: undefined }),
       };
     case "lookup":
       return { ...view, analyzeDisabled: true };
@@ -96,6 +98,10 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         : { ...view, connect: event.label };
     case "timer":
       return { ...view, timer: event.value };
+    case "downloaded":
+      return view.downloaded === event.value
+        ? view
+        : { ...view, downloaded: event.value };
     case "duration":
       return view.duration === event.value
         ? view

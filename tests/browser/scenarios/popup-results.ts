@@ -699,7 +699,7 @@ export async function runPopupResults(
   await restartPopup.getByRole("button", { name: "Reanalyze" }).click();
 
   await restartPopup
-    .getByText("Downloading source snapshot from GitHub…")
+    .getByText("Waiting for GitHub to send the source snapshot…")
     .waitFor();
 
   await restartPopup.locator("#analysis-loader .culverin-dots").waitFor();

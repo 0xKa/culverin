@@ -30,7 +30,11 @@ import {
   statuses,
   type PopupStatus,
 } from "./status";
-import { defaultNumberFormats, formatClockTime } from "../ui/format";
+import {
+  defaultNumberFormats,
+  formatBytes,
+  formatClockTime,
+} from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
 import { subscribeNumberFormats } from "../appearance/numbers";
 import { durationText } from "./duration";
@@ -208,10 +212,18 @@ export function createPopupController(
     if (!requestId || !validPublicReply(value, requestId, navigationId)) return;
     if (value.type === "analysis.progress") {
       running(value.startedAt, value.phase === "queued");
+      dispatch({
+        type: "downloaded",
+        value: value.processedBytes
+          ? formatBytes(value.processedBytes, undefined, formats.sizes)
+          : undefined,
+      });
       setStatus(
         value.phase === "resolving" && reanalyzedSha
           ? statuses.checkingUpdates
-          : progressStatuses[value.phase],
+          : value.phase === "downloading" && value.processedBytes === 0
+            ? progressStatuses.waiting
+            : progressStatuses[value.phase],
       );
     } else void finishAnalysis(requestId, value);
   }
@@ -390,6 +402,7 @@ export function createPopupController(
     watchAnalysis(pending.requestId);
     runningSince = undefined;
     dispatch({ type: "timer" });
+    dispatch({ type: "downloaded" });
     dispatch({ type: "duration" });
     setBusy(true);
     if (!reanalyze) clearResult();

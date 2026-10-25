@@ -283,7 +283,8 @@ try {
       ].join("\n"),
     );
   await settings.locator("#rules").evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
+    const scroller = element.parentElement!.parentElement!;
+    scroller.scrollTop = scroller.scrollHeight;
   });
   await settings.waitForTimeout(200);
   await settings.mouse.move(0, 0);

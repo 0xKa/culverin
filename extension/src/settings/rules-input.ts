@@ -6,6 +6,7 @@ import {
 } from "../counter/rules";
 
 const encoder = new TextEncoder();
+const USAGE_SHOWN_AT = 0.8;
 
 export function entries(group: (typeof ignoreGroups)[number]): string[] {
   return [
@@ -41,9 +42,13 @@ export function parseRules(text: string): {
   return {
     rules: uniqueRules,
     errors,
-    usage: [
-      `${uniqueRules.length} of ${MAX_RULES} rules`,
-      `${bytes.toLocaleString()} of ${MAX_RULES_BYTES.toLocaleString()} bytes`,
-    ],
+    usage:
+      uniqueRules.length >= MAX_RULES * USAGE_SHOWN_AT ||
+      bytes >= MAX_RULES_BYTES * USAGE_SHOWN_AT
+        ? [
+            `${uniqueRules.length} of ${MAX_RULES} rules`,
+            `${bytes.toLocaleString()} of ${MAX_RULES_BYTES.toLocaleString()} bytes`,
+          ]
+        : [],
   };
 }

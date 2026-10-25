@@ -154,9 +154,11 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               rulesSave.clear();
             }}
           />
-          <p id="rules-usage" className="text-muted m-0 mt-2 text-sm">
-            <Joined parts={parsed.usage} />
-          </p>
+          {parsed.usage.length > 0 && (
+            <p id="rules-usage" className="text-muted m-0 mt-2 text-sm">
+              <Joined parts={parsed.usage} />
+            </p>
+          )}
           <ul
             id="rules-errors"
             className="border-error/40 bg-error-soft m-0 mt-3 list-disc rounded-lg border py-2 pr-3 pl-8 text-sm empty:hidden"

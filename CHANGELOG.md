@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-None
+- Shows short count times more precisely in the popup, such as Counted in 412ms or Counted in 4.2s instead of Counted in 0s or 4s.
 
 ## 1.1.2 - 2026-10-25
 

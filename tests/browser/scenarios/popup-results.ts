@@ -225,12 +225,12 @@ export async function runPopupResults(
 
   assert.match(
     (await resumedPopup.locator("#status-duration").textContent()) ?? "",
-    /^Counted in \d+s$/,
+    /^Counted in (?:\d+ms|\d\.\ds|\d+s)$/,
   );
 
   assert.match(
     (await resumedPopup.locator("#status").textContent()) ?? "",
-    /^Analyzed locally\. Counted in \d+s$/,
+    /^Analyzed locally\. Counted in (?:\d+ms|\d\.\ds|\d+s)$/,
   );
 
   await resumedPopup
@@ -351,7 +351,7 @@ export async function runPopupResults(
 
   assert.match(
     (await resumedPopup.locator("#status").textContent()) ?? "",
-    /^Analyzed locally\. Counted in \d+s$/,
+    /^Analyzed locally\. Counted in (?:\d+ms|\d\.\ds|\d+s)$/,
   );
 
   const badge = resumedPopup.getByRole("img", { name: "Fresh" });
@@ -721,7 +721,7 @@ export async function runPopupResults(
 
   assert.match(
     (await restartPopup.locator("#status").textContent()) ?? "",
-    /^Analyzed locally\. Counted in \d+s$/,
+    /^Analyzed locally\. Counted in (?:\d+ms|\d\.\ds|\d+s)$/,
   );
 
   assert.equal(await restartPopup.locator("#analysis-loader").count(), 0);

@@ -511,7 +511,7 @@ test("a reopened popup times a running count from when it started", async () => 
 test("a saved result shows how long its count took when known", async () => {
   jest.useFakeTimers();
   for (const [durationMs, text] of [
-    [3_000, "Took 3s when counted"],
+    [3_000, "Took 3.0s when counted"],
     [undefined, undefined],
   ] as const) {
     const ui = popup(undefined, true);

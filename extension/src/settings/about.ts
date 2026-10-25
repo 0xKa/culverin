@@ -1,4 +1,6 @@
 export const REPOSITORY_URL = "https://github.com/0xKa/culverin";
+export const STORE_URL =
+  "https://chromewebstore.google.com/detail/culverin/hpcpmjmklfpfaddiheiobggojdhcoopn";
 
 export function browserVersion(userAgent: string): string {
   const version = /(?:Chrome|Chromium)\/(\d+)/.exec(userAgent)?.[1];

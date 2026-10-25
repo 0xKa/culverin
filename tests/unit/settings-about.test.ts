@@ -3,6 +3,7 @@ import {
   aboutDetails,
   browserVersion,
   REPOSITORY_URL,
+  STORE_URL,
 } from "../../extension/src/settings/about";
 
 test("reads the Chrome version from the user agent", () => {
@@ -25,4 +26,7 @@ test("formats details for an issue report", () => {
     ]),
   ).toBe("Culverin: 0.0.2\nBrowser: Chrome 131");
   expect(REPOSITORY_URL).toBe("https://github.com/0xKa/culverin");
+  expect(STORE_URL).toBe(
+    "https://chromewebstore.google.com/detail/culverin/hpcpmjmklfpfaddiheiobggojdhcoopn",
+  );
 });

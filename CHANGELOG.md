@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-None
+- Adds a Chrome Web Store link to Settings → About.
 
 ## 1.2.0 - 2026-10-25
 

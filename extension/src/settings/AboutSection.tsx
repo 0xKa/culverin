@@ -13,14 +13,21 @@ import {
   ExternalLink,
   ScrollText,
   ShieldCheck,
+  Store,
   type LucideIcon,
 } from "lucide-preact";
 import { Separator } from "../ui/Separator";
 import { Panel, SectionHeader } from "./layout";
-import { aboutDetails, browserVersion, REPOSITORY_URL } from "./about";
+import {
+  aboutDetails,
+  browserVersion,
+  REPOSITORY_URL,
+  STORE_URL,
+} from "./about";
 import { ActionStatus, useAction } from "./ActionStatus";
 
 const links: [string, string, LucideIcon][] = [
+  ["Chrome Web Store", STORE_URL, Store],
   ["Source code", REPOSITORY_URL, CodeXml],
   ["Changelog", `${REPOSITORY_URL}/blob/main/CHANGELOG.md`, ScrollText],
   [

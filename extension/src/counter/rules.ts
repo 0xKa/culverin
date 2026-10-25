@@ -71,6 +71,13 @@ export const ignoreGroups: {
     suffixes: [],
   },
   {
+    id: "minified",
+    label: "Minified & maps",
+    directories: [],
+    files: [],
+    suffixes: [".map", ".min.css", ".min.js"],
+  },
+  {
     id: "lockfiles",
     label: "Lockfiles",
     directories: [],
@@ -87,13 +94,6 @@ export const ignoreGroups: {
       "yarn.lock",
     ],
     suffixes: [],
-  },
-  {
-    id: "minified",
-    label: "Minified & maps",
-    directories: [],
-    files: [],
-    suffixes: [".map", ".min.css", ".min.js"],
   },
 ];
 

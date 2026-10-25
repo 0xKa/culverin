@@ -113,6 +113,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
             />
             <IconButton
               id="show-built-in"
+              tone="accent"
               type="button"
               label="Show full list"
               aria-haspopup="dialog"
@@ -129,6 +130,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
           <div className="absolute top-3 right-3">
             <IconButton
               id="show-syntax"
+              tone="accent"
               type="button"
               label="Show rule syntax"
               aria-haspopup="dialog"

@@ -9,6 +9,7 @@ const sizes = {
 const tones = {
   default: "text-muted hover:bg-hover hover:text-ink",
   danger: "text-error hover:bg-error-soft",
+  accent: "text-accent-text hover:bg-accent-soft",
 };
 
 export function IconButton({

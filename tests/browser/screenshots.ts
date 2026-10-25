@@ -260,6 +260,13 @@ try {
   await settings.waitForTimeout(400);
   await shoot(settings, "settings-storage-result", false);
   await settings.keyboard.press("Escape");
+  await settings.goto(`${extensionUrl}/settings.html#ignore`);
+  await settings.reload();
+  await settings.locator("#show-built-in").click();
+  await settings.locator("#built-in-dialog").waitFor();
+  await settings.waitForTimeout(400);
+  await shoot(settings, "settings-ignore-built-in", false);
+  await settings.keyboard.press("Escape");
   await settings.setViewportSize({ width: 600, height: 800 });
   await settings.goto(`${extensionUrl}/settings.html#storage`);
   await settings.reload();

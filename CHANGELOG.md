@@ -4,6 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
+- Shows the full list of built-in ignore rules in a dialog opened from an info button in Settings, instead of an expandable section.
 - Shows short count times more precisely in the popup, such as Counted in 412ms or Counted in 4.2s instead of Counted in 0s or 4s.
 - Shows how many files have been read below the popup's timer while a count runs, and says when Culverin is waiting for GitHub to send the source snapshot.
 - Shows in the popup's Analysis details how long a count waited for GitHub and for the counter, so you can tell whether GitHub or counting set the pace.

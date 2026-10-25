@@ -85,6 +85,22 @@ export async function runIgnoreAccess(
     return stored?.disabledGroups?.length === 0;
   });
 
+  await settingsPage.locator("#show-built-in").click();
+
+  await settingsPage
+    .locator("#built-in-dialog")
+    .getByText(/yarn\.lock/)
+    .waitFor();
+
+  await settingsPage.keyboard.press("Escape");
+
+  await settingsPage.locator("#built-in-dialog").waitFor({ state: "detached" });
+
+  assert.equal(
+    await settingsPage.evaluate(() => document.activeElement?.id),
+    "show-built-in",
+  );
+
   await worker.evaluate(
     ({ bytes, sha }) => {
       const scope = globalThis as typeof globalThis & {

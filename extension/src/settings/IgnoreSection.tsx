@@ -6,18 +6,22 @@ import {
   type IgnoreSettings,
 } from "../counter/rules";
 import { readIgnore, writeIgnore } from "../ignore/settings";
+import { Info } from "lucide-preact";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
+import { IconButton } from "../ui/IconButton";
 import { Joined } from "../ui/Separator";
 import { inputClass, Panel, SectionHeader } from "./layout";
 import { entries, parseRules } from "./rules-input";
 import { ActionStatus, useAction } from "./ActionStatus";
+import { BuiltInRulesDialog } from "./BuiltInRulesDialog";
 
 export function IgnoreSection({ hidden }: { hidden: boolean }) {
   const [settings, setSettings] = useState<IgnoreSettings>(defaultIgnore);
   const [rulesText, setRulesText] = useState("");
   const groupsSave = useAction();
   const rulesSave = useAction();
+  const [listOpen, setListOpen] = useState(false);
   const parsed = parseRules(rulesText);
 
   useEffect(() => {
@@ -101,31 +105,22 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
               })}
             </div>
           </fieldset>
-          <details className="disclosure mt-4">
-            <summary className="text-sm">Show full list</summary>
-            <div id="built-in-content">
-              <dl className="mt-3 mb-0 grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[12rem_1fr]">
-                {ignoreGroups.map((group) => (
-                  <>
-                    <dt key={group.id + "-label"} className="font-medium">
-                      {group.label}
-                    </dt>
-                    <dd
-                      key={group.id + "-entries"}
-                      className="text-muted m-0 mb-2 font-mono text-xs break-words sm:mb-0"
-                    >
-                      {entries(group).join(", ")}
-                    </dd>
-                  </>
-                ))}
-              </dl>
-            </div>
-          </details>
-          <ActionStatus
-            id="ignore-groups-status"
-            state={groupsSave.state}
-            className="absolute top-4 right-4 h-[1.375rem]"
-          />
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            <ActionStatus
+              id="ignore-groups-status"
+              state={groupsSave.state}
+              className="h-[1.375rem]"
+            />
+            <IconButton
+              id="show-built-in"
+              type="button"
+              label="Show full list"
+              aria-haspopup="dialog"
+              onClick={() => setListOpen(true)}
+            >
+              <Info />
+            </IconButton>
+          </div>
         </Panel>
         <Panel>
           <label for="rules" className="text-md mb-2 block font-semibold">
@@ -212,6 +207,7 @@ export function IgnoreSection({ hidden }: { hidden: boolean }) {
           </div>
         </Panel>
       </div>
+      {listOpen && <BuiltInRulesDialog onClose={() => setListOpen(false)} />}
     </section>
   );
 }

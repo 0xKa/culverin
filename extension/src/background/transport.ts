@@ -128,6 +128,7 @@ export function createPublicTransport(
             },
           })
         : undefined;
+    let shownPhase: string | undefined;
     analysis.run(request, {
       repository,
       ...(route.ref === undefined
@@ -143,6 +144,12 @@ export function createPublicTransport(
       },
       progress: (current, phase, processedBytes, startedAt) => {
         tracked?.progress(phase, processedBytes, startedAt);
+        if (
+          phase === shownPhase ||
+          (phase === "downloading" && processedBytes === 0)
+        )
+          return;
+        shownPhase = phase;
         publicProgress(
           tabId,
           documentId,

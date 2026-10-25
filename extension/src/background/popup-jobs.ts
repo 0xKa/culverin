@@ -311,7 +311,8 @@ export function createPopupJobs(
         reply: (_current, payload) => settlePopupJob(tabId, next, payload),
         progress: (_current, phase, processedBytes, startedAt) => {
           if (popupJobs.get(tabId) !== next) return;
-          sendProgress(tabId, next, phase);
+          if (phase !== "downloading" || processedBytes !== 0)
+            sendProgress(tabId, next, phase);
           const viewer = next.viewer;
           if (!viewer) return;
           postToPopup(viewer.port, viewer.request, {

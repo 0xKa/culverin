@@ -66,6 +66,7 @@ type Job = {
   queueTimer?: ReturnType<typeof setTimeout>;
   lastProgress: number;
   phase: number;
+  processedBytes?: number;
 };
 
 export type Marker = {
@@ -142,6 +143,7 @@ export class AnalysisCoordinator {
     job.state = "running";
     job.startedAt = this.now();
     clearTimeout(job.queueTimer);
+    this.report(job, "downloading", 0);
     const deadline = setTimeout(
       () => job.controller.abort("deadline"),
       job.deadlineMs,
@@ -255,7 +257,11 @@ export class AnalysisCoordinator {
     this.notify();
     if (job.state === "queued" && this.active) subscriber.onProgress("queued");
     else if (job.state === "running" && job.phase >= 0)
-      subscriber.onProgress(phaseOrder[job.phase]!, undefined, job.startedAt);
+      subscriber.onProgress(
+        phaseOrder[job.phase]!,
+        job.processedBytes,
+        job.startedAt,
+      );
     this.pump();
     return true;
   }
@@ -332,15 +338,23 @@ export class AnalysisCoordinator {
   ): void {
     const rank = phaseOrder.indexOf(phase);
     const now = this.now();
+    const moved =
+      processedBytes !== undefined && processedBytes !== job.processedBytes;
+    if (processedBytes !== undefined) job.processedBytes = processedBytes;
     if (
-      rank < job.phase ||
-      (rank === job.phase && now - job.lastProgress < PROGRESS_INTERVAL_MS)
+      rank <= job.phase &&
+      ((rank < job.phase && !moved) ||
+        now - job.lastProgress < PROGRESS_INTERVAL_MS)
     )
       return;
-    job.phase = rank;
+    job.phase = Math.max(rank, job.phase);
     job.lastProgress = now;
     for (const subscriber of job.subscribers.values())
-      subscriber.onProgress(phase, processedBytes, job.startedAt);
+      subscriber.onProgress(
+        phaseOrder[job.phase]!,
+        job.processedBytes,
+        job.startedAt,
+      );
   }
 
   subscriptionCount(): number {

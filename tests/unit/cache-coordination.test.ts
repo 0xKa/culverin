@@ -745,7 +745,7 @@ test("resolution cache keeps one lookup under each of its aliases", async () => 
   expect(calls).toBe(1);
 });
 
-test("coordinator reports progress phases only forward", () => {
+test("coordinator reports phases only forward and keeps reporting downloaded bytes", () => {
   let now = 0;
   let jobId = "";
   let progress: (
@@ -772,19 +772,28 @@ test("coordinator reports progress phases only forward", () => {
     onComplete: () => undefined,
     onFailure: () => undefined,
   });
+  expect(seen).toEqual(["downloading:0"]);
+  now = 300;
   progress("downloading", 1);
-  now = 100;
+  now = 400;
   progress("downloading", 2);
-  now = 150;
+  now = 450;
   expect(coordinator.reportCounting(jobId)).toBe(true);
   now = 1000;
   progress("downloading", 3);
   progress("decompressing");
   now = 1100;
   coordinator.reportCounting(jobId);
-  now = 1200;
+  now = 1400;
+  progress("downloading", 3);
   coordinator.reportCounting(jobId);
-  expect(seen).toEqual(["downloading:1", "counting", "counting"]);
+  expect(seen).toEqual([
+    "downloading:0",
+    "downloading:1",
+    "counting:2",
+    "counting:3",
+    "counting:3",
+  ]);
   expect(coordinator.reportCounting("other")).toBe(false);
 });
 
@@ -1164,9 +1173,10 @@ test("subscribers learn when a job started and how long it took", async () => {
   });
   expect(coordinator.startedAt("page")).toBe(10_000);
   expect(coordinator.startedAt("other")).toBeUndefined();
+  expect(seen).toEqual([10_000]);
   now = 12_000;
   progress("downloading");
-  expect(seen).toEqual([10_000]);
+  expect(seen).toEqual([10_000, 10_000]);
   now = 134_000;
   finish({
     result: await result(),
@@ -1212,9 +1222,7 @@ test("a subscriber joining a running job learns its phase and start time", () =>
     "",
     subscriber("early", early),
   );
-  expect(early).toEqual([]);
-  now = 11_000;
-  progress("downloading");
+  expect(early).toEqual([["downloading", 10_000]]);
   now = 12_000;
   coordinator.reportCounting(jobId);
   now = 70_000;

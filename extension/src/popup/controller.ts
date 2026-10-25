@@ -32,7 +32,7 @@ import {
 } from "./status";
 import {
   defaultNumberFormats,
-  formatBytes,
+  formatCount,
   formatClockTime,
 } from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
@@ -222,9 +222,9 @@ export function createPopupController(
     if (value.type === "analysis.progress") {
       running(value.startedAt, value.phase === "queued");
       dispatch({
-        type: "downloaded",
-        value: value.processedBytes
-          ? formatBytes(value.processedBytes, undefined, formats.sizes)
+        type: "filesRead",
+        value: value.processedFiles
+          ? `${formatCount(value.processedFiles, formats.counts)} ${value.processedFiles === 1 ? "file" : "files"} read`
           : undefined,
       });
       setStatus(
@@ -413,7 +413,7 @@ export function createPopupController(
     watchAnalysis(pending.requestId);
     runningSince = undefined;
     dispatch({ type: "timer" });
-    dispatch({ type: "downloaded" });
+    dispatch({ type: "filesRead" });
     dispatch({ type: "duration" });
     setBusy(true);
     if (!reanalyze) clearResult();

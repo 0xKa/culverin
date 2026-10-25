@@ -489,7 +489,7 @@ test("times a running count and says how long it took or ran before stopping", a
   expect(view().timer).toBeUndefined();
 });
 
-test("a running count says when it waits for GitHub and how much it has downloaded", async () => {
+test("a running count says when it waits for GitHub and how many files it has read", async () => {
   const ui = popup();
   await settle();
   const view = () => ui.events.reduce(reduce, initialView);
@@ -506,7 +506,7 @@ test("a running count says when it waits for GitHub and how much it has download
   expect(view().status.detail).toBe(
     "Waiting for GitHub to send the source snapshot…",
   );
-  expect(view().downloaded).toBeUndefined();
+  expect(view().filesRead).toBeUndefined();
   ui.reply(request, {
     type: "analysis.progress",
     phase: "downloading",
@@ -514,30 +514,48 @@ test("a running count says when it waits for GitHub and how much it has download
     startedAt,
   });
   expect(view().status.detail).toBe("Downloading source snapshot from GitHub…");
-  expect(view().downloaded).toBe("1 MiB");
-  ui.changed.emit({ [SIZE_UNITS_KEY]: { newValue: "decimal" } }, "sync");
+  expect(view().filesRead).toBeUndefined();
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "counting",
+    processedBytes: 2_097_152,
+    processedFiles: 1,
+    startedAt,
+  });
+  expect(view().status.label).toBe("Counting");
+  expect(view().filesRead).toBe("1 file read");
   ui.reply(request, {
     type: "analysis.progress",
     phase: "counting",
     processedBytes: 88_080_384,
+    processedFiles: 12_480,
     startedAt,
   });
-  expect(view().status.label).toBe("Counting");
-  expect(view().downloaded).toBe("88 MB");
+  expect(view().filesRead).toBe("12,480 files read");
+  ui.changed.emit({ [COUNT_FORMAT_KEY]: { newValue: "abbreviated" } }, "sync");
+  ui.reply(request, {
+    type: "analysis.progress",
+    phase: "counting",
+    processedBytes: 89_128_960,
+    processedFiles: 12_510,
+    startedAt,
+  });
+  expect(view().filesRead).toBe("12.5K files read");
   const events = ui.events.length;
   const before = view();
   ui.reply(request, {
     type: "analysis.progress",
     phase: "counting",
-    processedBytes: 88_080_384,
+    processedBytes: 89_128_960,
+    processedFiles: 12_510,
     startedAt,
   });
   expect(ui.events.slice(events).reduce(reduce, before)).toBe(before);
   ui.reply(request, await completedResult());
   await counting;
-  expect(view().downloaded).toBeUndefined();
+  expect(view().filesRead).toBeUndefined();
   const again = ui.controller.analyze(true);
-  expect(view().downloaded).toBeUndefined();
+  expect(view().filesRead).toBeUndefined();
   ui.reply(ui.requests.at(-1)!, {
     type: "analysis.failed",
     code: "network_unavailable",

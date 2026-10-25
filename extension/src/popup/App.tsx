@@ -164,13 +164,13 @@ export function App() {
                 ) : (
                   <span className="flex flex-col items-center gap-0.5 text-xs">
                     <ElapsedTimer startedAt={view.timer.startedAt} />
-                    {view.downloaded && (
+                    {view.filesRead && (
                       <span
-                        id="analysis-downloaded"
+                        id="analysis-files"
                         aria-hidden="true"
                         className="text-muted tabular"
                       >
-                        {view.downloaded} downloaded
+                        {view.filesRead}
                       </span>
                     )}
                   </span>

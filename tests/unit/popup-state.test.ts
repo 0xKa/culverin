@@ -138,13 +138,15 @@ test("shows a timer only while busy and keeps the last duration", () => {
   expect(view.timer).toEqual({ queued: true });
   view = reduce(view, { type: "timer", value: { startedAt: 1_000 } });
   expect(view.timer).toEqual({ startedAt: 1_000 });
-  view = reduce(view, { type: "downloaded", value: "84 MiB" });
-  expect(view.downloaded).toBe("84 MiB");
-  expect(reduce(view, { type: "downloaded", value: "84 MiB" })).toBe(view);
+  view = reduce(view, { type: "filesRead", value: "12,480 files read" });
+  expect(view.filesRead).toBe("12,480 files read");
+  expect(reduce(view, { type: "filesRead", value: "12,480 files read" })).toBe(
+    view,
+  );
   view = reduce(view, { type: "duration", value: "Counted in 42s" });
   view = reduce(view, { type: "busy", busy: false, disabled: false });
   expect(view.timer).toBeUndefined();
-  expect(view.downloaded).toBeUndefined();
+  expect(view.filesRead).toBeUndefined();
   expect(view.duration).toBe("Counted in 42s");
   view = reduce(view, { type: "left" });
   expect(view.duration).toBeUndefined();

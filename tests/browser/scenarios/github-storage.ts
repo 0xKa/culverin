@@ -700,7 +700,7 @@ export async function runGithubStorage(
 
   assert.equal(fixtures.archiveRequests, beforeClearArchiveRequests);
 
-  await settingsPage.getByRole("link", { name: "GitHub" }).click();
+  await settingsPage.getByRole("link", { name: "GitHub", exact: true }).click();
 
   await githubSection
     .getByText("Connected as @fixture-user with a personal access token.")

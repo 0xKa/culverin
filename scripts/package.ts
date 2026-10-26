@@ -35,6 +35,7 @@ const ORIGINS = new Set([
   "https://github.com",
   "https://api.github.com",
   "https://codeload.github.com",
+  "https://chromewebstore.google.com",
   "http://www.w3.org",
 ]);
 const CSP =

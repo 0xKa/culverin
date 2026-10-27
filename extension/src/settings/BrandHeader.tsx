@@ -117,9 +117,10 @@ export function BrandHeader({ onHome }: { onHome: () => void }) {
           event.preventDefault();
           onHome();
         }}
+        data-recount={intro ? undefined : ""}
         className="focus-visible:outline-accent flex max-w-full min-w-0 items-center gap-1 text-inherit no-underline focus-visible:outline-2 focus-visible:outline-offset-4"
       >
-        <BrandIcon size={56} className="translate-y-[3px]" />
+        <BrandIcon size={56} className="translate-y-[3px]" recount />
         <h1
           className="relative m-0 min-w-0"
           style={{ height: Math.round(SIZE * 0.68) * 2, width }}

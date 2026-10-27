@@ -67,3 +67,12 @@ test("sizes the mark in whole device pixels", () => {
   expect(svg).toContain('fill="currentColor"');
   expect(svg).toContain('shape-rendering="crispEdges"');
 });
+
+test("draws only the rects it is given", () => {
+  const layout = brandMarkLayout(56);
+  const svg = brandMarkSvg(56, layout.slice(0, 3));
+  expect([...svg.matchAll(/<rect /g)]).toHaveLength(3);
+  expect(brandMarkSvg(56)).toContain(
+    `<rect x="${layout[5]![0]}" y="${layout[5]![1]}" width="${layout[5]![2]}" height="${layout[5]![3]}"/>`,
+  );
+});

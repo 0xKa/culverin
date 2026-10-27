@@ -70,8 +70,11 @@ export function brandMarkLayout(pixels: number): Rect[] {
   ]);
 }
 
-export function brandMarkSvg(pixels: number): string {
-  const rects = brandMarkLayout(pixels)
+export function brandMarkSvg(
+  pixels: number,
+  layout: readonly Rect[] = brandMarkLayout(pixels),
+): string {
+  const rects = layout
     .map(
       ([x, y, width, height]) =>
         `<rect x="${x}" y="${y}" width="${width}" height="${height}"/>`,

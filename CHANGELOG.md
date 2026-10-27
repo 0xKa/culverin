@@ -5,6 +5,7 @@ User-facing changes for each Culverin release. Newest first.
 ## Unreleased
 
 - Links the repository name in the popup and in saved result details to the repository or branch on GitHub. In the popup, the link opens in the current tab.
+- Animates the Culverin icon in the Settings header when you point at it, recounting its lines one by one.
 
 ## 1.3.0 - 2026-10-27
 

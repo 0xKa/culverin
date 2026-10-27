@@ -331,6 +331,21 @@
   }
 }
 
+.brand-line {
+  transform-origin: left;
+}
+
+[data-recount]:is(:hover, :focus-visible) .brand-line {
+  animation: brand-recount 280ms steps(var(--line-cells), jump-start) backwards;
+  animation-delay: calc(var(--line-index) * 60ms);
+}
+
+@keyframes brand-recount {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 .accent-swatch {
   background-color: oklch(0.5 calc(0.14 * var(--accent-c)) var(--accent-h));
 

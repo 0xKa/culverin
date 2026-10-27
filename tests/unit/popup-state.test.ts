@@ -5,9 +5,11 @@ test("tracks repository, busy state, result and details", () => {
   const repository = reduce(initialView, {
     type: "repository",
     value: "owner/repo",
+    url: "https://github.com/owner/repo",
   });
   expect(repository.analysisVisible).toBe(true);
   expect(repository.repository).toBe("owner/repo");
+  expect(repository.repositoryUrl).toBe("https://github.com/owner/repo");
   const busy = reduce(repository, { type: "busy", busy: true, disabled: true });
   expect(busy.cancelVisible).toBe(true);
   const ready = busy;
@@ -21,6 +23,7 @@ test("tracks repository, busy state, result and details", () => {
     snapshotSize: "20 B",
     sizeTitle: "Total size of the files at commit abc, as checked out.",
     revision: { name: "main", commit: false },
+    url: "https://github.com/owner/repo",
     codeSummary: [],
     codeRows: [],
     textSummary: [],

@@ -36,6 +36,7 @@ import {
   formatClockTime,
 } from "../ui/format";
 import { rememberSection, type SectionId } from "../settings/sections";
+import { refUrl } from "../ui/ref";
 import { subscribeNumberFormats } from "../appearance/numbers";
 import { durationText } from "./duration";
 
@@ -549,6 +550,7 @@ export function createPopupController(
       dispatch({
         type: "repository",
         value: `${repository.owner}/${repository.name}`,
+        url: refUrl(repository),
       });
       if (await lookup()) await resume();
     } catch {
@@ -558,7 +560,17 @@ export function createPopupController(
     }
   }
 
-  return { start, analyze, cancel, dispose };
+  async function open(url: string): Promise<boolean> {
+    if (!target) return false;
+    try {
+      await chrome.tabs.update(target.tabId, { url });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return { start, analyze, cancel, open, dispose };
 }
 
 export function openSettings(section?: SectionId): void {

@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-None
+- Links the repository name in the popup and in saved result details to the repository or branch on GitHub. In the popup, the link opens in the current tab.
 
 ## 1.3.0 - 2026-10-27
 

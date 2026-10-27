@@ -38,6 +38,7 @@ function popup(
   const activated = event<(info: { tabId: number }) => void>();
   const updated =
     event<(tabId: number, changeInfo: { url?: string }) => void>();
+  const tabUpdates: [number, chrome.tabs.UpdateProperties][] = [];
   globalThis.chrome = {
     runtime: {
       connect: () => {
@@ -74,6 +75,13 @@ function popup(
     },
     tabs: {
       query,
+      update: async (
+        tabId: number,
+        properties: chrome.tabs.UpdateProperties,
+      ) => {
+        tabUpdates.push([tabId, properties]);
+        return {};
+      },
       onUpdated: updated,
       onActivated: activated,
     },
@@ -101,6 +109,7 @@ function popup(
     changed,
     activated,
     updated,
+    tabUpdates,
     controller,
     connects: () => connects,
   };
@@ -274,12 +283,35 @@ test("follows a repository across its sub pages and leaves it elsewhere", async 
     expect(ui.events).toContainEqual({
       type: "repository",
       value: "culverin/sample",
+      url: "https://github.com/culverin/sample",
     });
     expect(ui.connects()).toBe(1);
     ui.updated.emit(1, { url });
     expect(ui.events.some((value) => value.type === "left")).toBe(left);
     ui.controller.dispose();
   }
+});
+
+test("opens repository links in the popup's tab until the popup leaves it", async () => {
+  const ui = popup(undefined, true);
+  await settle();
+  const lookup = ui.requests.find((item) => item.type === "repository.lookup")!;
+  const { result, resolution } = await completedResult();
+  ui.reply(lookup, {
+    type: "repository.cache_hit",
+    result,
+    resolution: { ...resolution, ref: "release/v1" },
+  });
+  await settle();
+  const view = ui.events.reduce(reduce, initialView);
+  expect(view.result?.url).toBe(
+    `https://github.com/${resolution.owner}/${resolution.name}/tree/release/v1`,
+  );
+  expect(await ui.controller.open(view.result!.url)).toBe(true);
+  expect(ui.tabUpdates).toEqual([[1, { url: view.result!.url }]]);
+  ui.activated.emit({ tabId: 2 });
+  expect(await ui.controller.open(view.result!.url)).toBe(false);
+  expect(ui.tabUpdates).toHaveLength(1);
 });
 
 test("disposing during initialization suppresses late connections and publications", async () => {
@@ -296,7 +328,11 @@ test("disposing during initialization suppresses late connections and publicatio
   expect(first.connects()).toBe(0);
   expect(second.connects()).toBe(1);
   expect(second.events.filter((event) => event.type === "repository")).toEqual([
-    { type: "repository", value: "culverin/sample" },
+    {
+      type: "repository",
+      value: "culverin/sample",
+      url: "https://github.com/culverin/sample",
+    },
   ]);
 });
 

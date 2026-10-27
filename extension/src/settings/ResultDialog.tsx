@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { CachedResultSummary } from "../github/cache";
 import { Details, OversizedFiles, Sizes, Totals } from "../popup/ResultParts";
 import { resultView } from "../popup/view";
+import { ExternalLink } from "../ui/ExternalLink";
 import { IconButton } from "../ui/IconButton";
 import { X } from "lucide-preact";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -45,7 +46,12 @@ export function ResultDialog({
             id="result-dialog-title"
             className="m-0 min-w-0 text-base font-semibold break-words"
           >
-            {entry.owner}/{entry.name}
+            <ExternalLink
+              href={result.url}
+              className="text-inherit no-underline hover:underline"
+            >
+              {entry.owner}/{entry.name}
+            </ExternalLink>
           </h2>
           <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">
             <StatusBadge

@@ -9,6 +9,7 @@ import { BrandIcon } from "../ui/BrandIcon";
 import { Button } from "../ui/Button";
 import { Callout } from "../ui/Callout";
 import { DotLoader } from "../ui/DotLoader";
+import { ExternalLink } from "../ui/ExternalLink";
 import { IconButton } from "../ui/IconButton";
 import { tip } from "../ui/tooltip";
 import { Settings } from "lucide-preact";
@@ -79,6 +80,7 @@ export function App() {
   }, [analyzing]);
 
   const result = view.result;
+  const repositoryUrl = result?.url ?? view.repositoryUrl;
   return (
     <main>
       <Header view={view} />
@@ -87,11 +89,29 @@ export function App() {
           className={`flex items-start justify-between gap-3 ${view.pending ? "invisible" : ""}`}
         >
           {view.repository ? (
-            <p
-              id="repository"
-              className="m-0 min-w-0 text-base font-semibold break-words"
-            >
-              {view.repository}
+            <p className="m-0 min-w-0 text-base font-semibold break-words">
+              <ExternalLink
+                id="repository"
+                href={repositoryUrl}
+                className="text-inherit no-underline hover:underline"
+                onClick={(event) => {
+                  if (
+                    !repositoryUrl ||
+                    event.button !== 0 ||
+                    event.ctrlKey ||
+                    event.metaKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
+                  event.preventDefault();
+                  void controller.open(repositoryUrl).then((opened) => {
+                    if (opened) window.close();
+                  });
+                }}
+              >
+                {view.repository}
+              </ExternalLink>
             </p>
           ) : (
             <p

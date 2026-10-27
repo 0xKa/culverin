@@ -4,6 +4,7 @@ import type { ApiLimitView, ResultView } from "./view";
 export type PopupView = {
   pending: boolean;
   repository?: string;
+  repositoryUrl?: string;
   status: PopupStatus;
   analysisVisible: boolean;
   analyzeDisabled: boolean;
@@ -39,7 +40,7 @@ export type PopupEvent =
   | { type: "result"; value: ResultView }
   | { type: "ignore"; value?: string }
   | { type: "left" }
-  | { type: "repository"; value: string }
+  | { type: "repository"; value: string; url: string }
   | { type: "details"; open: boolean }
   | { type: "apiLimit"; value?: ApiLimitView }
   | { type: "connect"; label?: string }
@@ -90,7 +91,12 @@ export function reduce(view: PopupView, event: PopupEvent): PopupView {
         apiLimit: view.apiLimit,
       };
     case "repository":
-      return { ...view, repository: event.value, analysisVisible: true };
+      return {
+        ...view,
+        repository: event.value,
+        repositoryUrl: event.url,
+        analysisVisible: true,
+      };
     case "details":
       return { ...view, detailsOpen: event.open };
     case "apiLimit":

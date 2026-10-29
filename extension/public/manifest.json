@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Culverin",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "GitHub code stats: lines of code per language, file counts, and repository size, counted locally. Works with private repos too.",
   "minimum_chrome_version": "127",
   "permissions": ["storage", "offscreen"],

@@ -40,28 +40,34 @@ export async function runAccentIcons(
   });
 
   async function checkHeader(target: typeof settings, forced = false) {
-    const colors = await target
+    const icons = await target
       .locator("header .culverin-icon")
-      .evaluate((element, forced) => {
+      .evaluateAll((elements, forced) => {
         const probe = document.createElement("span");
         probe.style.backgroundColor = forced
           ? "CanvasText"
           : "var(--color-accent)";
         probe.style.forcedColorAdjust = "none";
         document.body.append(probe);
-        const style = getComputedStyle(element);
-        const colors = {
-          actual: style.backgroundColor,
-          expected: getComputedStyle(probe).backgroundColor,
-          mask: style.maskImage,
-          hidden: element.getAttribute("aria-hidden"),
-        };
+        const expected = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return colors;
+        return elements.map((element) => {
+          const style = getComputedStyle(element);
+          return {
+            actual: style.backgroundColor,
+            expected,
+            mask: style.maskImage,
+            line: element.classList.contains("brand-line"),
+            hidden: element.closest('[aria-hidden="true"]') !== null,
+          };
+        });
       }, forced);
-    assert.equal(colors.actual, colors.expected);
-    assert.notEqual(colors.mask, "none");
-    assert.equal(colors.hidden, "true");
+    assert.equal(icons.filter((icon) => !icon.line).length, 1);
+    for (const colors of icons) {
+      assert.equal(colors.actual, colors.expected);
+      if (!colors.line) assert.notEqual(colors.mask, "none");
+      assert.equal(colors.hidden, true);
+    }
   }
 
   async function watchToolbarUpdate() {

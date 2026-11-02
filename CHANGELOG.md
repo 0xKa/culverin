@@ -4,7 +4,7 @@ User-facing changes for each Culverin release. Newest first.
 
 ## Unreleased
 
-None
+- Shows the counting rules in Settings → About as one counting version, such as 2.4.2, instead of the rules profile, rules version, and wrapper version.
 
 ## 1.4.0 - 2026-10-29
 

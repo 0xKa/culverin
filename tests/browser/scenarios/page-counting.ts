@@ -955,6 +955,11 @@ export async function runPageCounting(
 
   assert.match((await aboutDetails.textContent()) ?? "", /Tokei 15\.0\.0/);
 
+  assert.match(
+    (await aboutDetails.textContent()) ?? "",
+    /Counting version\d+\.\d+\.\d+ \(rules\.counter\.coverage\)/,
+  );
+
   assert.equal(
     await countingSettings
       .getByRole("link", { name: "Source code" })

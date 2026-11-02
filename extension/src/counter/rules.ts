@@ -3,6 +3,7 @@ export const rulesVersion = "2";
 export const coveragePolicyVersion = "2";
 export const wrapperVersion = "4";
 export const engineVersion = "15.0.0";
+export const countingVersion = `${rulesVersion}.${wrapperVersion}.${coveragePolicyVersion}`;
 
 export type IgnoreGroup =
   "dependencies" | "build" | "environments" | "lockfiles" | "minified";

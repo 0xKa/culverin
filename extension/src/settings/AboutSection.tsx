@@ -1,10 +1,5 @@
 import { ExternalLink as ExternalLinkComponent } from "../ui/ExternalLink";
-import {
-  engineVersion,
-  rulesProfile,
-  rulesVersion,
-  wrapperVersion,
-} from "../counter/rules";
+import { countingVersion, engineVersion } from "../counter/rules";
 import { Button } from "../ui/Button";
 import {
   Bug,
@@ -44,10 +39,7 @@ export function AboutSection({ hidden }: { hidden: boolean }) {
   const rows: [string, string][] = [
     ["Version", manifest.version],
     ["Counting engine", `Tokei ${engineVersion}, run locally as WebAssembly`],
-    [
-      "Counting rules",
-      `${rulesProfile} profile, rules ${rulesVersion}, wrapper ${wrapperVersion}`,
-    ],
+    ["Counting version", `${countingVersion} (rules.counter.coverage)`],
     ["Browser", browserVersion(navigator.userAgent)],
     ["Extension ID", chrome.runtime.id],
   ];

@@ -28,8 +28,12 @@ import {
   type Subscriber,
 } from "../../extension/src/github/coordinator";
 import {
+  coveragePolicyVersion,
   defaultIgnore,
   effectiveRulesHash,
+  engineVersion,
+  rulesVersion,
+  wrapperVersion,
 } from "../../extension/src/counter/rules";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
 import type { ResolutionEnvelope } from "../../extension/src/protocol/public";
@@ -368,6 +372,20 @@ describe("public result cache", () => {
     ).toBeUndefined();
     expect(resultIdentity(value)).toBe(
       resolutionIdentity(resolution(), await effectiveRulesHash(defaultIgnore)),
+    );
+    expect(resultIdentity(value)).toBe(
+      JSON.stringify([
+        "42",
+        sha,
+        "tokei",
+        engineVersion,
+        wrapperVersion,
+        "source-v1",
+        rulesVersion,
+        await effectiveRulesHash(defaultIgnore),
+        coveragePolicyVersion,
+        2,
+      ]),
     );
     for (const field of [
       "version",

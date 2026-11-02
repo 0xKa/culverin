@@ -99,37 +99,53 @@ export function countTiming(value: {
     : { durationMs };
 }
 
-export function resultIdentity(result: AnalysisResultV2): string {
+function identity(
+  repositoryId: string,
+  commitSha: string,
+  engine: AnalysisResultV2["engine"],
+  schemaVersion: number,
+): string {
   return JSON.stringify([
+    repositoryId,
+    commitSha,
+    engine.name,
+    engine.version,
+    engine.wrapperVersion,
+    engine.rulesProfile,
+    engine.rulesVersion,
+    engine.rulesHash,
+    engine.coveragePolicyVersion,
+    schemaVersion,
+  ]);
+}
+
+export function resultIdentity(result: AnalysisResultV2): string {
+  return identity(
     result.repository.id,
     result.revision.commitSha,
-    result.engine.name,
-    result.engine.version,
-    result.engine.wrapperVersion,
-    result.engine.rulesProfile,
-    result.engine.rulesVersion,
-    result.engine.rulesHash,
-    result.engine.coveragePolicyVersion,
+    result.engine,
     result.schemaVersion,
-  ]);
+  );
 }
 
 export function resolutionIdentity(
   resolution: ResolutionEnvelope,
   rulesHash: string,
 ): string {
-  return JSON.stringify([
+  return identity(
     resolution.repositoryId,
     resolution.sha,
-    "tokei",
-    engineVersion,
-    wrapperVersion,
-    rulesProfile,
-    rulesVersion,
-    rulesHash,
-    coveragePolicyVersion,
+    {
+      name: "tokei",
+      version: engineVersion,
+      wrapperVersion,
+      rulesProfile,
+      rulesVersion,
+      rulesHash,
+      coveragePolicyVersion,
+    },
     2,
-  ]);
+  );
 }
 
 function validEntry(value: unknown, visibility: Visibility): value is Entry {

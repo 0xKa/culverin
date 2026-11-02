@@ -179,19 +179,3 @@ export async function effectiveRulesHash(
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
 }
-
-export function coverageIdentity(
-  engineVersion: string,
-  wrapperVersion: string,
-  rulesHash: string,
-): string {
-  return JSON.stringify([
-    1,
-    "tokei",
-    engineVersion,
-    wrapperVersion,
-    rulesVersion,
-    rulesHash,
-    coveragePolicyVersion,
-  ]);
-}

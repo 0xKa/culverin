@@ -7,7 +7,6 @@ import {
   validateResult,
 } from "../../extension/src/counter/result";
 import {
-  coverageIdentity,
   effectiveRulesHash,
   normalizeExclusions,
 } from "../../extension/src/counter/rules";
@@ -32,9 +31,6 @@ describe("analysis result contract", () => {
         disabledGroups: [],
         exclusions: ["custom", "custom"],
       }),
-    );
-    expect(coverageIdentity("15.0.0", "1", result.engine.rulesHash)).toContain(
-      result.engine.rulesHash,
     );
   });
   test("schema keys match Rust output", () => {

@@ -15,7 +15,7 @@ import {
   validPublicReply,
   validPublicRequest,
   validSummaryUpdate,
-} from "../../extension/src/github/public-protocol";
+} from "../../extension/src/protocol/public";
 
 const requestId = "123e4567-e89b-42d3-a456-426614174000";
 const navigationId = "123e4567-e89b-42d3-a456-426614174001";

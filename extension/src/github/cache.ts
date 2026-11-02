@@ -6,7 +6,7 @@ import {
   rulesVersion,
   wrapperVersion,
 } from "../counter/rules";
-import { validEnvelope, type ResolutionEnvelope } from "./public-protocol";
+import { validEnvelope, type ResolutionEnvelope } from "../protocol/public";
 
 export const PUBLIC_CACHE_KEY = "culverin.public-results.v1";
 export const PUBLIC_CACHE_ENTRIES = 200;

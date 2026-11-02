@@ -4,8 +4,8 @@ import {
   validShownItems,
   type AboutItem,
 } from "../repository-page/about-items";
-import type { Resolution } from "./client";
-import { validRef, validRepository } from "./repository";
+import type { Resolution } from "../github/client";
+import { validRef, validRepository } from "../github/repository";
 import { validNumberFormats, type NumberFormats } from "../ui/format";
 import {
   validAboutVisibility,

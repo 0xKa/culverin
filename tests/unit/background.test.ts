@@ -16,7 +16,7 @@ import {
 import type {
   PublicPayload,
   PublicRequest,
-} from "../../extension/src/github/public-protocol";
+} from "../../extension/src/protocol/public";
 import type { SettingsRequest } from "../../extension/src/protocol/settings";
 import { event } from "./support/events";
 import { result } from "./support/result";

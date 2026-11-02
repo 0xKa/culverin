@@ -18,7 +18,7 @@ import {
   type PublicReply,
   type PublicRequest,
   type ResolutionEnvelope,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import type { AnalysisResultV2 } from "../counter/result";
 import { subscribeRateLimit } from "../github/rate-limit-observer";
 import { apiLimitView, resultView } from "./view";

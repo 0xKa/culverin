@@ -8,7 +8,7 @@ import {
 } from "../repository-page/format";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";
 import { failureDetail } from "../github/failure-messages";
-import type { PublicErrorCode, PublicReply } from "../github/public-protocol";
+import type { PublicErrorCode, PublicReply } from "../protocol/public";
 
 export type AnalysisPhase = Extract<
   PublicReply,

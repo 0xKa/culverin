@@ -2,7 +2,7 @@ import {
   type PublicPayload,
   type PublicReply,
   type PublicRequest,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import { pageRoute, type PageRepository } from "../github/repository";
 import { isPageUrl } from "./page-url";
 

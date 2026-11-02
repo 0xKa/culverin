@@ -1,6 +1,6 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import { ARCHIVE_LIMITS } from "../archive/limits";
-import type { ResolutionEnvelope } from "../github/public-protocol";
+import type { ResolutionEnvelope } from "../protocol/public";
 import { currentRemaining, type RateLimit } from "../github/rate-limit";
 import {
   defaultNumberFormats,

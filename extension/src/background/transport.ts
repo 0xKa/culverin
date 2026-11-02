@@ -4,7 +4,7 @@ import {
   validPublicRequest,
   type PublicReply,
   type PublicRequest,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import { aboutLayout, shownItems } from "../repository-page/about-items";
 import { aboutVisibility } from "../repository-page/visibility";
 import { readNumberFormats } from "../appearance/numbers";

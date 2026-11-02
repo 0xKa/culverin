@@ -32,7 +32,7 @@ import {
   effectiveRulesHash,
 } from "../../extension/src/counter/rules";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
-import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
+import type { ResolutionEnvelope } from "../../extension/src/protocol/public";
 
 const sha = "a".repeat(40);
 const resolution = (id = "42", name = "repo"): ResolutionEnvelope => ({

@@ -35,7 +35,7 @@ import {
   withRef,
   type PublicPayload,
   type PublicRequest,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import { refPrefixes, type RefTarget } from "../github/repository";
 
 export function createPublicAnalysis(

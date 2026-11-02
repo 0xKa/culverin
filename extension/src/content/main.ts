@@ -7,7 +7,7 @@ import {
   type PublicReply,
   type PublicRequest,
   type SummaryProgress,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import { failureMessages } from "../github/failure-messages";
 import { pageContext, privateRepository } from "./repository";
 import { ABOUT_ITEMS, type AboutItem } from "../repository-page/about-items";

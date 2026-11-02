@@ -6,7 +6,7 @@ import {
   validFailureDetails,
   type PublicErrorCode,
   type ResolutionEnvelope,
-} from "../github/public-protocol";
+} from "./public";
 import { validLogin, validRepository } from "../github/repository";
 
 export type SettingsEnvelope = {

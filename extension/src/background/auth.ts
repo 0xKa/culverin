@@ -15,7 +15,7 @@ import {
   type Fetcher,
   type RefResolution,
 } from "../github/client";
-import { type PublicErrorCode } from "../github/public-protocol";
+import { type PublicErrorCode } from "../protocol/public";
 import type { RefTarget } from "../github/repository";
 import {
   RATE_LIMIT_KEY,

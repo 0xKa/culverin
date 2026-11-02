@@ -18,8 +18,8 @@ import {
 } from "../github/cache";
 import { safeFailure, type Fetcher } from "../github/client";
 import { AnalysisCoordinator, type Marker } from "../github/coordinator";
-import type { ResolutionEnvelope } from "../github/public-protocol";
-import { validId } from "../github/public-protocol";
+import type { ResolutionEnvelope } from "../protocol/public";
+import { validId } from "../protocol/public";
 import { readIgnore } from "../counting/ignore";
 import { createRateLimitTracker } from "./rate-limits";
 

@@ -1,7 +1,4 @@
-import type {
-  PublicErrorCode,
-  ResolutionEnvelope,
-} from "../github/public-protocol";
+import type { PublicErrorCode, ResolutionEnvelope } from "../protocol/public";
 import type { StatusMark, StatusTone } from "../ui/badge";
 import { refView } from "../ui/ref";
 

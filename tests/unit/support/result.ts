@@ -1,5 +1,5 @@
 import type { AnalysisResultV2 } from "../../../extension/src/counter/result";
-import type { PublicPayload } from "../../../extension/src/github/public-protocol";
+import type { PublicPayload } from "../../../extension/src/protocol/public";
 import {
   defaultIgnore,
   effectiveRulesHash,

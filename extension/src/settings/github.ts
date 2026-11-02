@@ -1,5 +1,5 @@
 import { failureMessages } from "../github/failure-messages";
-import type { PublicErrorCode } from "../github/public-protocol";
+import type { PublicErrorCode } from "../protocol/public";
 
 export type DeviceView = {
   userCode: string;

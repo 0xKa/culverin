@@ -6,7 +6,7 @@ import {
   type ResolutionEnvelope,
   type SummaryProgress,
   type SummaryUpdate,
-} from "../github/public-protocol";
+} from "../protocol/public";
 import { sameRepository, tabRepository, tabRoute } from "../github/repository";
 import type { createPublicAnalysis } from "./analysis";
 import type { BackgroundResources } from "./resources";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { AnalysisResultV2 } from "../../extension/src/counter/result";
-import type { ResolutionEnvelope } from "../../extension/src/github/public-protocol";
+import type { ResolutionEnvelope } from "../../extension/src/protocol/public";
 import { resultView } from "../../extension/src/popup/view";
 import { readyStatus } from "../../extension/src/popup/status";
 import { refUrl, refView } from "../../extension/src/ui/ref";

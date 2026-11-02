@@ -1,6 +1,6 @@
 import { ARCHIVE_LIMITS, DOWNLOAD_LIMITS } from "../archive/limits";
 import { limitSize } from "../ui/format";
-import type { PublicErrorCode } from "./public-protocol";
+import type { PublicErrorCode } from "../protocol/public";
 
 const count = (value: number) => value.toLocaleString("en");
 

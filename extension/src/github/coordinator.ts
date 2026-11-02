@@ -1,6 +1,6 @@
 import type { AnalysisResultV2 } from "../counter/result";
 import { defaultIgnore, type IgnoreSettings } from "../counter/rules";
-import type { ResolutionEnvelope } from "./public-protocol";
+import type { ResolutionEnvelope } from "../protocol/public";
 import {
   ARCHIVE_TIMEOUTS,
   DOWNLOAD_LIMITS,

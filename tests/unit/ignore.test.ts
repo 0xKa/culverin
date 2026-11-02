@@ -14,10 +14,10 @@ import {
   IGNORE_KEY,
   readIgnore,
   writeIgnore,
-  type IgnoreStorage,
-} from "../../extension/src/ignore/settings";
+} from "../../extension/src/counting/ignore";
+import type { PreferenceStorage } from "../../extension/src/preferences/define";
 
-class MemoryStorage implements IgnoreStorage {
+class MemoryStorage implements PreferenceStorage {
   values: Record<string, unknown> = {};
   async get(key: string) {
     return key in this.values ? { [key]: this.values[key] } : {};

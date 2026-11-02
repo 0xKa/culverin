@@ -5,17 +5,12 @@ import {
   normalizeIgnore,
   type IgnoreSettings,
 } from "../counter/rules";
+import type { PreferenceStorage } from "../preferences/define";
 
 export const IGNORE_KEY = "culverin.ignore";
 
-export type IgnoreStorage = {
-  get(key: string): Promise<Record<string, unknown>>;
-  set(items: Record<string, unknown>): Promise<void>;
-  remove(key: string): Promise<void>;
-};
-
 export async function readIgnore(
-  storage: IgnoreStorage = chrome.storage.sync,
+  storage: PreferenceStorage = chrome.storage.sync,
 ): Promise<IgnoreSettings> {
   try {
     const value = (await storage.get(IGNORE_KEY))[IGNORE_KEY];
@@ -27,7 +22,7 @@ export async function readIgnore(
 
 export async function writeIgnore(
   settings: IgnoreSettings,
-  storage: IgnoreStorage = chrome.storage.sync,
+  storage: PreferenceStorage = chrome.storage.sync,
 ): Promise<IgnoreSettings> {
   const normalized = normalizeIgnore(settings);
   if (isDefaultIgnore(normalized)) await storage.remove(IGNORE_KEY);

@@ -1,10 +1,9 @@
 import { expect, test } from "bun:test";
 import {
   COUNT_TRIGGER_KEY,
-  readCountTrigger,
-  writeCountTrigger,
-  type CountTriggerStorage,
+  countTrigger,
 } from "../../extension/src/counting/trigger";
+import type { PreferenceStorage } from "../../extension/src/preferences/define";
 import {
   DOWNLOAD_LIMIT_KEY,
   downloadLimit,
@@ -16,7 +15,7 @@ import {
   autoCountClaims,
 } from "../../extension/src/counting/claims";
 
-function memory(values: Record<string, unknown> = {}): CountTriggerStorage & {
+function memory(values: Record<string, unknown> = {}): PreferenceStorage & {
   values: Record<string, unknown>;
 } {
   return {
@@ -34,15 +33,15 @@ function memory(values: Record<string, unknown> = {}): CountTriggerStorage & {
 }
 
 test("counts manually unless the page trigger is stored", async () => {
-  expect(await readCountTrigger(memory())).toBe("manual");
-  expect(await readCountTrigger(memory({ [COUNT_TRIGGER_KEY]: "open" }))).toBe(
+  expect(await countTrigger.read(memory())).toBe("manual");
+  expect(await countTrigger.read(memory({ [COUNT_TRIGGER_KEY]: "open" }))).toBe(
     "open",
   );
   expect(
-    await readCountTrigger(memory({ [COUNT_TRIGGER_KEY]: "always" })),
+    await countTrigger.read(memory({ [COUNT_TRIGGER_KEY]: "always" })),
   ).toBe("manual");
   expect(
-    await readCountTrigger({
+    await countTrigger.read({
       ...memory(),
       get: () => Promise.reject(new Error("unavailable")),
     }),
@@ -51,9 +50,9 @@ test("counts manually unless the page trigger is stored", async () => {
 
 test("stores only the non-default trigger", async () => {
   const storage = memory();
-  await writeCountTrigger("open", storage);
+  await countTrigger.write("open", storage);
   expect(storage.values).toEqual({ [COUNT_TRIGGER_KEY]: "open" });
-  await writeCountTrigger("manual", storage);
+  await countTrigger.write("manual", storage);
   expect(storage.values).toEqual({});
 });
 

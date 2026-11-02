@@ -1,13 +1,10 @@
+import type { PreferenceStorage } from "../preferences/define";
+
 export const AUTO_COUNT_KEY = "github.autoCount";
 export const AUTO_COUNT_ENTRIES = 200;
 
-export type ClaimStorage = {
-  get(key: string): Promise<Record<string, unknown>>;
-  set(items: Record<string, unknown>): Promise<void>;
-};
-
 export function autoCountClaims(
-  storage: ClaimStorage,
+  storage: Pick<PreferenceStorage, "get" | "set">,
 ): (identity: string) => Promise<boolean> {
   let tail: Promise<unknown> = Promise.resolve();
   return (identity) => {

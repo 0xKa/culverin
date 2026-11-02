@@ -1,10 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import {
-  defaultCountTrigger,
-  readCountTrigger,
-  writeCountTrigger,
-  type CountTrigger,
-} from "../counting/trigger";
+import { countTrigger, type CountTrigger } from "../counting/trigger";
 import { Panel, SectionHeader } from "./layout";
 import { useAction } from "./ActionStatus";
 import { optionText } from "./reset";
@@ -30,13 +25,13 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
   const { state, run } = useAction();
 
   useEffect(() => {
-    void readCountTrigger().then(setTrigger);
+    void countTrigger.read().then(setTrigger);
   }, []);
 
   function change(next: CountTrigger): void {
     setTrigger(next);
-    void run(() => writeCountTrigger(next), {
-      restore: () => void readCountTrigger().then(setTrigger),
+    void run(() => countTrigger.write(next), {
+      restore: () => void countTrigger.read().then(setTrigger),
     });
   }
 
@@ -52,9 +47,10 @@ export function CountingSection({ hidden }: { hidden: boolean }) {
           state={state}
           stacked
           reset={{
-            to: optionText(options, defaultCountTrigger),
-            modified: trigger !== undefined && trigger !== defaultCountTrigger,
-            onReset: () => change(defaultCountTrigger),
+            to: optionText(options, countTrigger.fallback),
+            modified:
+              trigger !== undefined && trigger !== countTrigger.fallback,
+            onReset: () => change(countTrigger.fallback),
           }}
         >
           {options.map((option) => (

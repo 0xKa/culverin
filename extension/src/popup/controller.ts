@@ -1,5 +1,5 @@
 import { effectiveRulesHash, isDefaultIgnore } from "../counter/rules";
-import { describeIgnore, readIgnore } from "../ignore/settings";
+import { describeIgnore, readIgnore } from "../counting/ignore";
 import {
   sameRepository,
   tabRepository,

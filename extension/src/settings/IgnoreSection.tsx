@@ -5,7 +5,7 @@ import {
   type IgnoreGroup,
   type IgnoreSettings,
 } from "../counter/rules";
-import { readIgnore, writeIgnore } from "../ignore/settings";
+import { readIgnore, writeIgnore } from "../counting/ignore";
 import { CircleQuestionMark, Info } from "lucide-preact";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";

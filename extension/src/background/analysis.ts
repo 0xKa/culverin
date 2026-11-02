@@ -21,7 +21,7 @@ export type PublicClient = {
 
 import { ARCHIVE_TIMEOUTS, DOWNLOAD_LIMITS } from "../archive/limits";
 import { readDownloadLimit } from "../counting/download-limit";
-import { readCountTrigger } from "../counting/trigger";
+import { countTrigger } from "../counting/trigger";
 import {
   countTiming,
   resolutionIdentity,
@@ -121,7 +121,7 @@ export function createPublicAnalysis(
       }
       const pageLookup = client.page && request.type === "repository.lookup";
       const trigger = pageLookup
-        ? await readCountTrigger(resources.chrome.storage.sync)
+        ? await countTrigger.read(resources.chrome.storage.sync)
         : "manual";
       const auth = await connection.auth();
       const limit = bucket(auth);

@@ -20,7 +20,7 @@ import { safeFailure, type Fetcher } from "../github/client";
 import { AnalysisCoordinator, type Marker } from "../github/coordinator";
 import type { ResolutionEnvelope } from "../github/public-protocol";
 import { validId } from "../github/public-protocol";
-import { readIgnore } from "../ignore/settings";
+import { readIgnore } from "../counting/ignore";
 import { createRateLimitTracker } from "./rate-limits";
 
 const AUTO_GRANTS = 64;

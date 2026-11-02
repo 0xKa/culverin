@@ -7,8 +7,13 @@ import {
   validateResult,
 } from "../../extension/src/counter/result";
 import {
+  coveragePolicyVersion,
   effectiveRulesHash,
+  engineVersion,
   normalizeExclusions,
+  rulesProfile,
+  rulesVersion,
+  wrapperVersion,
 } from "../../extension/src/counter/rules";
 
 const fixture = JSON.parse(readFileSync("tests/fixtures/core.json", "utf8"));
@@ -32,6 +37,16 @@ describe("analysis result contract", () => {
         exclusions: ["custom", "custom"],
       }),
     );
+  });
+  test("native counter reports the extension's version constants", () => {
+    expect(result.engine).toMatchObject({
+      name: "tokei",
+      version: engineVersion,
+      wrapperVersion,
+      rulesProfile,
+      rulesVersion,
+      coveragePolicyVersion,
+    });
   });
   test("schema keys match Rust output", () => {
     expect(schema.required.sort()).toEqual(Object.keys(result).sort());

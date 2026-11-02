@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import { engineVersion, wrapperVersion } from "../extension/src/counter/rules";
 
 const wasm = readFileSync(
   "extension/src/wasm/generated/culverin_counter_bg.wasm",
@@ -25,8 +26,8 @@ const initialPages = instance.memory.buffer.byteLength;
 const initMs = performance.now() - started;
 assert.deepEqual(JSON.parse(counter_metadata()), {
   name: "tokei",
-  version: "15.0.0",
-  wrapperVersion: "4",
+  version: engineVersion,
+  wrapperVersion,
 });
 const cases = ["core", "embedded", "encodings", "shebangs"];
 for (const name of cases) {

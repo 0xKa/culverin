@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BrandIcon } from "../ui/BrandIcon";
+import { hexColor } from "../ui/hex-color";
 import TechText from "../ui/tech-text/TechText";
 
 const NAME = "Culverin";
@@ -31,17 +32,6 @@ function measure(fontFamily: string): number | undefined {
   );
 }
 
-function toHex(color: string): string {
-  const context = canvas();
-  if (!context) return "#000000";
-  context.fillStyle = color;
-  context.fillRect(0, 0, 1, 1);
-  const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
-  return `#${[red, green, blue]
-    .map((channel) => (channel ?? 0).toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
 export function BrandHeader({ onHome }: { onHome: () => void }) {
   const header = useRef<HTMLElement>(null);
   const highlight = useRef<HTMLSpanElement>(null);
@@ -68,8 +58,8 @@ export function BrandHeader({ onHome }: { onHome: () => void }) {
     const swatch = highlight.current;
     if (!element || !swatch) return;
     const read = () => {
-      const ink = toHex(getComputedStyle(element).color);
-      const accent = toHex(getComputedStyle(swatch).color);
+      const ink = hexColor(getComputedStyle(element).color);
+      const accent = hexColor(getComputedStyle(swatch).color);
       setColors((current) =>
         current?.ink === ink && current.accent === accent
           ? current

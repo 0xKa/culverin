@@ -295,6 +295,13 @@
   --accent-c: 1;
 }
 
+:root {
+  --tab-icon-light: oklch(0.4 calc(0.1 * var(--accent-c)) var(--accent-h));
+  --tab-icon-dark: oklch(
+    0.81 calc(0.075 * var(--accent-c)) calc(var(--accent-h) - 5)
+  );
+}
+
 [data-accent="copper"] {
   --accent-h: 55;
   --accent-c: 1;

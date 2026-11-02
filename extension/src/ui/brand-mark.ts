@@ -73,6 +73,7 @@ export function brandMarkLayout(pixels: number): Rect[] {
 export function brandMarkSvg(
   pixels: number,
   layout: readonly Rect[] = brandMarkLayout(pixels),
+  fill = "currentColor",
 ): string {
   const rects = layout
     .map(
@@ -80,5 +81,5 @@ export function brandMarkSvg(
         `<rect x="${x}" y="${y}" width="${width}" height="${height}"/>`,
     )
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pixels} ${pixels}" fill="currentColor" shape-rendering="crispEdges">${rects}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pixels} ${pixels}" fill="${fill}" shape-rendering="crispEdges">${rects}</svg>`;
 }

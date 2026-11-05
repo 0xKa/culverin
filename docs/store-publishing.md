@@ -28,10 +28,12 @@ This is a one-time setup in a Google Cloud project used only for publishing. It 
 On the `culverin-store` service account, grant the **Workload Identity User** and **Service Account Token Creator** roles to this principal:
 
 ```text
-principal://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/github/subject/repo:0xKa/culverin:environment:chrome-web-store
+principal://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/github/subject/repo:0xKa@<owner-id>/culverin@<repository-id>:environment:chrome-web-store
 ```
 
 Only jobs in this repository's `chrome-web-store` environment match that principal.
+
+This repository uses GitHub's immutable subject format, so the subject includes numeric owner and repository IDs. `gh api repos/0xKa/culverin/actions/oidc/customization/sub` prints the current prefix.
 
 ## Developer Dashboard setup
 

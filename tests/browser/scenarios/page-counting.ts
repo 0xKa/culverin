@@ -583,6 +583,19 @@ export async function runPageCounting(
       ),
     ["256 MiB", "512 MiB", "1 GiB", "2 GiB", "4 GiB"],
   );
+  await largeSettings.locator("#show-limits-info").click();
+  await largeSettings
+    .locator("#limits-info-dialog")
+    .getByText(/built to overwhelm a browser/)
+    .waitFor();
+  await largeSettings.keyboard.press("Escape");
+  await largeSettings
+    .locator("#limits-info-dialog")
+    .waitFor({ state: "detached" });
+  assert.equal(
+    await largeSettings.evaluate(() => document.activeElement?.id),
+    "show-limits-info",
+  );
   const limitReset = largeSettings.getByRole("button", {
     name: "Reset to 512 MiB",
   });

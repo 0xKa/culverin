@@ -78,3 +78,4 @@ Import popup and settings interface icons from `lucide-preact` rather than addin
 - [Browser tests](docs/browser-tests.md)
 - [Archive performance](docs/archive-performance.md)
 - [Privacy](docs/privacy.md)
+- [Chrome Web Store publishing](docs/store-publishing.md)

@@ -1,0 +1,120 @@
+name: Publish to Chrome Web Store
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-store
+
+env:
+  STORE_API: https://chromewebstore.googleapis.com
+  EXTENSION_ID: hpcpmjmklfpfaddiheiobggojdhcoopn
+
+jobs:
+  publish:
+    name: publish
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: chrome-web-store
+    steps:
+      - name: Download and verify the release ZIP
+        id: package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected release tag: $TAG" >&2
+            exit 1
+          fi
+          version="${TAG#v}"
+          zip="culverin-$version.zip"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$zip" --pattern "$zip.sha256"
+          sha256sum --check "$zip.sha256"
+          manifest_version="$(unzip -p "$zip" manifest.json | jq -r .version)"
+          if [[ "$manifest_version" != "$version" ]]; then
+            echo "ZIP manifest version is $manifest_version, expected $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.CWS_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+
+      - name: Upload the ZIP
+        shell: bash
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          VERSION: ${{ steps.package.outputs.version }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          item="publishers/$PUBLISHER_ID/items/$EXTENSION_ID"
+          if ! curl --fail-with-body --silent --show-error --max-time 300 \
+            -X POST -H "Authorization: Bearer $TOKEN" -T "$ZIP" \
+            --output upload.json "$STORE_API/upload/v2/$item:upload"; then
+            cat upload.json >&2
+            exit 1
+          fi
+          state="$(jq -r '.uploadState // ""' upload.json)"
+          uploaded_version="$(jq -r '.crxVersion // ""' upload.json)"
+          if [[ -n "$uploaded_version" && "$uploaded_version" != "$VERSION" ]]; then
+            echo "The store received version $uploaded_version, expected $VERSION" >&2
+            exit 1
+          fi
+          for _ in {1..30}; do
+            case "$state" in
+              IN_PROGRESS | UPLOAD_IN_PROGRESS) ;;
+              *) break ;;
+            esac
+            sleep 10
+            if ! curl --fail-with-body --silent --show-error --max-time 60 \
+              -H "Authorization: Bearer $TOKEN" \
+              --output status.json "$STORE_API/v2/$item:fetchStatus"; then
+              cat status.json >&2
+              exit 1
+            fi
+            state="$(jq -r '.lastAsyncUploadState // ""' status.json)"
+          done
+          echo "Upload state: ${state:-missing}"
+          case "$state" in
+            SUCCEEDED | UPLOAD_SUCCEEDED) ;;
+            *) exit 1 ;;
+          esac
+
+      - name: Submit for review
+        shell: bash
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: |
+          item="publishers/$PUBLISHER_ID/items/$EXTENSION_ID"
+          if ! curl --fail-with-body --silent --show-error --max-time 60 \
+            -X POST -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" -d '{}' \
+            --output publish.json "$STORE_API/v2/$item:publish"; then
+            cat publish.json >&2
+            exit 1
+          fi
+          state="$(jq -r '.state // ""' publish.json)"
+          echo "Submission state: ${state:-missing}"
+          jq -c '.warningInfo // empty' publish.json
+          case "$state" in
+            PENDING_REVIEW | STAGED | PUBLISHED | PUBLISHED_TO_TESTERS) ;;
+            *) exit 1 ;;
+          esac

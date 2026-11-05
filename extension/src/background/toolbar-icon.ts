@@ -6,10 +6,9 @@ import {
   type ColorScheme,
 } from "../appearance/color-scheme";
 import { toolbarIconPaths } from "../appearance/icons";
-import { parseTheme, theme, type Theme } from "../appearance/theme";
 import { offscreen } from "./offscreen";
 
-type Appearance = { accent: Accent; theme: Theme; scheme: ColorScheme };
+type Appearance = { accent: Accent; scheme: ColorScheme };
 
 export function handleColorSchemeReport(
   message: unknown,
@@ -76,10 +75,7 @@ export function followToolbarIcon(
 
   function show(): void {
     if (!state) return;
-    next = toolbarIconPaths(
-      state.accent,
-      state.theme === "system" ? state.scheme : state.theme,
-    );
+    next = toolbarIconPaths(state.accent, state.scheme);
     void update();
   }
 
@@ -88,13 +84,9 @@ export function followToolbarIcon(
     area: string,
   ): void => {
     const update: Partial<Appearance> = {};
-    if (area === "sync") {
-      if (accent.key in changes)
-        update.accent =
-          accent.parse(changes[accent.key]?.newValue) ?? accent.fallback;
-      if (theme.key in changes)
-        update.theme =
-          parseTheme(changes[theme.key]?.newValue) ?? theme.fallback;
+    if (area === "sync" && accent.key in changes) {
+      update.accent =
+        accent.parse(changes[accent.key]?.newValue) ?? accent.fallback;
     } else if (area === "local" && colorScheme.key in changes) {
       update.scheme =
         parseColorScheme(changes[colorScheme.key]?.newValue) ??
@@ -113,14 +105,12 @@ export function followToolbarIcon(
     pending = overrides;
     void Promise.all([
       accent.read(browser.storage.sync),
-      theme.read(browser.storage.sync),
       colorScheme.read(browser.storage.local),
-    ]).then(([savedAccent, savedTheme, savedScheme]) => {
+    ]).then(([savedAccent, savedScheme]) => {
       if (disposed || pending !== overrides) return;
       pending = undefined;
       state = {
         accent: savedAccent,
-        theme: savedTheme,
         scheme: savedScheme,
         ...overrides,
       };

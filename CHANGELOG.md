@@ -5,7 +5,7 @@ User-facing changes for each Culverin release. Newest first.
 ## Unreleased
 
 - Shows the Culverin mark in your accent color on the Settings tab, in a lighter shade when Chrome is in dark mode.
-- Shows the Culverin icon without a background. The toolbar icon uses your accent color and switches to a lighter shade with a dark theme, or with the System theme when Chrome is in dark mode.
+- Shows the Culverin icon without a background. The toolbar icon uses your accent color and switches to a lighter shade when Chrome is in dark mode.
 - Shows the counting rules in Settings → About as one counting version, such as 2.4.2, instead of the rules profile, rules version, and wrapper version.
 
 ## 1.4.0 - 2026-10-29

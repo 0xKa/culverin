@@ -181,18 +181,6 @@ export async function runAccentIcons(
 
     const toolbarIcon = () =>
       worker.evaluate(() => (globalThis as IconScope).nextIcon);
-    for (const theme of ["light", "dark"] as const) {
-      await watchToolbarUpdate();
-      await settings.locator(`input[name="theme"][value="${theme}"]`).check();
-      assert.deepEqual(await toolbarIcon(), {
-        path: toolbarIconPaths("teal", theme),
-      });
-    }
-    await watchToolbarUpdate();
-    await settings.locator('input[name="theme"][value="system"]').check();
-    assert.deepEqual(await toolbarIcon(), {
-      path: toolbarIconPaths("teal", "light"),
-    });
     for (const colorScheme of ["dark", "light"] as const) {
       await watchToolbarUpdate();
       await popup.emulateMedia({ colorScheme });

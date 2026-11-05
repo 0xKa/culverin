@@ -183,18 +183,27 @@ test("replacing a startup subscription discards its old read", async () => {
   stop();
 });
 
-test("a chosen theme selects the icon shade and System follows the browser", async () => {
+test("the icon shade follows the browser and ignores the Culverin theme", async () => {
+  for (const [saved, shade] of [
+    ["light", "dark"],
+    ["dark", "light"],
+  ] as const) {
+    const api = fixture(
+      { [theme.key]: saved, [accent.key]: "teal" },
+      shade === "dark" ? { [colorScheme.key]: "dark" } : {},
+    );
+    const stop = followToolbarIcon(api.browser, api.probe);
+    await settle();
+    expect(api.calls).toEqual([{ path: toolbarIconPaths("teal", shade) }]);
+    api.changes.emit({ [theme.key]: { newValue: shade } }, "sync");
+    await settle();
+    expect(api.calls).toHaveLength(1);
+    stop();
+  }
   const api = fixture({ [theme.key]: "dark", [accent.key]: "teal" });
   const stop = followToolbarIcon(api.browser, api.probe);
   await settle();
-  expect(api.calls).toEqual([{ path: toolbarIconPaths("teal", "dark") }]);
-  api.changes.emit({ [theme.key]: { newValue: "light" } }, "sync");
-  await settle();
-  expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("teal", "light") });
   api.changes.emit({ [colorScheme.key]: { newValue: "dark" } }, "local");
-  await settle();
-  expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("teal", "light") });
-  api.changes.emit({ [theme.key]: {} }, "sync");
   await settle();
   expect(api.calls.at(-1)).toEqual({ path: toolbarIconPaths("teal", "dark") });
   api.changes.emit({ [colorScheme.key]: {} }, "local");

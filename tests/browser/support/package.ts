@@ -28,6 +28,7 @@ export function inspectPackage(directory: string, diagnostic = false): void {
     diagnostic
       ? [
           "archive-HASH.js",
+          "color-HASH.js",
           "culverin_counter_bg-HASH.wasm",
           "numbers-HASH.js",
           "preact-HASH.js",
@@ -35,11 +36,11 @@ export function inspectPackage(directory: string, diagnostic = false): void {
           "result-HASH.js",
           "styles-HASH.css",
           "styles-HASH.js",
-          "theme-HASH.js",
           "worker-HASH.js",
           "worker-HASH.js",
         ]
       : [
+          "accent-HASH.js",
           "color-HASH.js",
           "culverin_counter_bg-HASH.wasm",
           "numbers-HASH.js",
@@ -47,7 +48,6 @@ export function inspectPackage(directory: string, diagnostic = false): void {
           "styles-HASH.css",
           "styles-HASH.js",
           "tar-HASH.js",
-          "theme-HASH.js",
           "worker-HASH.js",
         ],
   );

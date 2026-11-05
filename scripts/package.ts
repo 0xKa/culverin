@@ -30,7 +30,7 @@ const ROOT_FILES = [
   "settings.html",
   "settings.js",
 ];
-const ASSET = /^[A-Za-z0-9_]+-[A-Za-z0-9_-]{8}\.(js|css|wasm)$/;
+const ASSET = /^[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.(js|css|wasm)$/;
 const ORIGINS = new Set([
   "https://github.com",
   "https://api.github.com",

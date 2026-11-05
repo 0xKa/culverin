@@ -101,9 +101,9 @@ export function LargeRepositoriesSection({ hidden }: { hidden: boolean }) {
           <div className="mt-3 grid gap-3">
             <p className="m-0">
               Your code stays in your browser, but counting still uses your
-              data, memory and time. GitHub usually doesn't share a repository's
-              size in advance, so limits stop a count before it downloads far
-              more than you expected.
+              bandwidth, memory and time. GitHub usually doesn't share a
+              repository's size in advance, so limits stop a count before it
+              downloads far more than you expected.
             </p>
             <p className="m-0">
               Anyone can publish a repository, including one built to overwhelm
@@ -112,7 +112,7 @@ export function LargeRepositoriesSection({ hidden }: { hidden: boolean }) {
             </p>
             <p className="m-0">
               Most large projects fit within the default. If one doesn't,
-              raising the limit mainly costs more data and time.
+              raising the limit mainly costs more bandwidth and time.
             </p>
           </div>
         </InfoDialog>

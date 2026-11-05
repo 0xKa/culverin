@@ -10,6 +10,7 @@ SOURCE = Path("assets/culverin-icon.svg")
 OUTPUT = Path("extension/public/icons")
 STYLES = Path("extension/src/ui/styles.css")
 SIZES = (16, 32, 48, 128)
+SCHEMES = ("light", "dark")
 GRID = 128 // 16
 NAMESPACE = "{http://www.w3.org/2000/svg}"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -93,38 +94,47 @@ def png(size, layers):
     return PNG_SIGNATURE + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b"")
 
 
-def accent_colors(styles):
-    css = " ".join(styles.read_text().split())
-    token = re.search(
-        r"--color-accent: oklch\(([\d.]+) calc\(([\d.]+) \* var\(--accent-c\)\) var\(--accent-h\)\)",
-        css,
+def oklch(lightness, chroma, hue):
+    angle = math.radians(hue)
+    a, b = chroma * math.cos(angle), chroma * math.sin(angle)
+    l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+    m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+    s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3
+    linear = (
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
     )
-    if token is None:
-        raise ValueError("Missing light accent color")
-    lightness, chroma = map(float, token.groups())
+    channels = []
+    for channel in linear:
+        channel = min(1, max(0, channel))
+        encoded = 12.92 * channel if channel <= 0.0031308 else 1.055 * channel ** (1 / 2.4) - 0.055
+        channels.append(math.floor(encoded * 255 + 0.5))
+    return tuple(channels) + (255,)
+
+
+def scheme_colors(styles):
+    css = " ".join(styles.read_text().split())
+    tokens = {}
+    for scheme in SCHEMES:
+        token = re.search(
+            rf"--tab-icon-{scheme}: oklch\( ?([\d.]+) calc\(([\d.]+) \* var\(--accent-c\)\) "
+            r"(?:var\(--accent-h\)|calc\(var\(--accent-h\) - ([\d.]+)\)) ?\)",
+            css,
+        )
+        if token is None:
+            raise ValueError(f"Missing {scheme} icon color")
+        tokens[scheme] = (float(token.group(1)), float(token.group(2)), float(token.group(3) or 0))
     colors = {}
     for name, rule in re.findall(r'\[data-accent="([a-z]+)"\] \{([^}]+)\}', css):
         hue = re.search(r"--accent-h: ([\d.]+);", rule)
         scale = re.search(r"--accent-c: ([\d.]+);", rule)
         if hue is None or scale is None or name in colors:
             raise ValueError(f"Invalid accent preset: {name}")
-        angle = math.radians(float(hue.group(1)))
-        saturation = chroma * float(scale.group(1))
-        a, b = saturation * math.cos(angle), saturation * math.sin(angle)
-        l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
-        m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
-        s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3
-        linear = (
-            4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-            -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
-        )
-        channels = []
-        for channel in linear:
-            channel = min(1, max(0, channel))
-            encoded = 12.92 * channel if channel <= 0.0031308 else 1.055 * channel ** (1 / 2.4) - 0.055
-            channels.append(math.floor(encoded * 255 + 0.5))
-        colors[name] = tuple(channels) + (255,)
+        colors[name] = {
+            scheme: oklch(lightness, chroma * float(scale.group(1)), float(hue.group(1)) - shift)
+            for scheme, (lightness, chroma, shift) in tokens.items()
+        }
     if "blue" not in colors or len(colors) < 2:
         raise ValueError("Missing accent presets")
     return colors
@@ -138,21 +148,12 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     layers = rectangles(args.source)
-    backgrounds = [index for index, layer in enumerate(layers) if layer[:4] == (0, 0, 128, 128)]
-    if len(backgrounds) != 1 or any(
-        layer[4] != (255, 255, 255, 255)
-        for index, layer in enumerate(layers)
-        if index != backgrounds[0]
-    ):
-        raise ValueError("Expected one icon background and a white symbol")
+    if len({layer[4] for layer in layers}) != 1 or any(layer[:4] == (0, 0, 128, 128) for layer in layers):
+        raise ValueError("Expected one symbol color and no background")
     variants = {"icon": layers}
-    for name, fill in accent_colors(args.styles).items():
-        if name == "blue":
-            continue
-        variant = layers.copy()
-        index = backgrounds[0]
-        variant[index] = (*variant[index][:4], fill)
-        variants[f"accent-{name}"] = variant
+    for name, schemes in scheme_colors(args.styles).items():
+        for scheme, fill in schemes.items():
+            variants[f"{scheme}-{name}"] = [(*layer[:4], fill) for layer in layers]
     if not args.check:
         args.output_dir.mkdir(parents=True, exist_ok=True)
     for name, variant in variants.items():

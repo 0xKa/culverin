@@ -5,7 +5,8 @@ import { inflateSync } from "node:zlib";
 import { accent } from "../../extension/src/appearance/accent";
 import {
   iconSizes,
-  toolbarIconFiles,
+  installationIconPaths,
+  packagedIconFiles,
   toolbarIconPaths,
 } from "../../extension/src/appearance/icons";
 
@@ -36,46 +37,74 @@ function pixels(path: string, size: number): number[][] {
   return output;
 }
 
-test("packaged accent icons preserve the white artwork, stay readable, and keep the installation icon blue", () => {
+function luminance(pixel: number[]): number {
+  const [red, green, blue] = pixel.slice(0, 3).map((channel) => {
+    const encoded = channel / 255;
+    return encoded <= 0.04045
+      ? encoded / 12.92
+      : ((encoded + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+}
+
+function contrast(pixel: number[], background: number[]): number {
+  const values = [luminance(pixel), luminance(background)];
+  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+}
+
+const white = [255, 255, 255];
+const darkSurface = [41, 42, 45];
+
+function mark(path: string, size: number): number[] {
+  const image = pixels(path, size);
+  const colors = new Set(
+    image.filter((pixel) => pixel[3] !== 0).map((pixel) => pixel.join(",")),
+  );
+  expect(image.every((pixel) => pixel[3] === 0 || pixel[3] === 255)).toBe(true);
+  expect(image[0]![3]).toBe(0);
+  expect(colors.size).toBe(1);
+  return [...colors][0]!.split(",").map(Number);
+}
+
+test("the packaged icons match the manifest and the expected files", () => {
   const manifest = JSON.parse(
     readFileSync(resolve(directory, "manifest.json"), "utf8"),
   );
-  expect(manifest.icons).toEqual(toolbarIconPaths("blue"));
-  expect(manifest.action.default_icon).toEqual(toolbarIconPaths("blue"));
+  expect(manifest.icons).toEqual(installationIconPaths);
+  expect(manifest.action.default_icon).toEqual(installationIconPaths);
   expect(readdirSync(resolve(directory, "icons")).sort()).toEqual(
-    toolbarIconFiles,
+    packagedIconFiles,
   );
-  const backgrounds = new Set<string>();
-  for (const value of accent.values) {
-    let background: number[] | undefined;
-    for (const size of iconSizes) {
-      const source = pixels(toolbarIconPaths("blue")[size]!, size);
-      const variant = pixels(toolbarIconPaths(value)[size]!, size);
-      background ??= variant[0]!;
-      expect(variant[0]).toEqual(background);
-      const white = [255, 255, 255, 255];
-      expect(variant.every((pixel) => pixel[3] === 255)).toBe(true);
-      expect(
-        variant.map((pixel) =>
-          pixel.every((channel, i) => channel === white[i]),
-        ),
-      ).toEqual(
-        source.map((pixel) =>
-          pixel.every((channel, i) => channel === white[i]),
-        ),
-      );
-      expect(new Set(variant.map((pixel) => pixel.join(","))).size).toBe(2);
-    }
-    if (value === "blue") expect(background).toEqual([29, 56, 92, 255]);
-    const [red, green, blue] = background!.slice(0, 3).map((channel) => {
-      const encoded = channel / 255;
-      return encoded <= 0.04045
-        ? encoded / 12.92
-        : ((encoded + 0.055) / 1.055) ** 2.4;
-    });
-    const luminance = 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
-    expect(1.05 / (luminance + 0.05)).toBeGreaterThanOrEqual(4.5);
-    backgrounds.add(background!.join(","));
+});
+
+test("the installation icon has no background and reads on light and dark surfaces", () => {
+  for (const size of iconSizes) {
+    const color = mark(installationIconPaths[size]!, size);
+    expect(contrast(color, white)).toBeGreaterThanOrEqual(3);
+    expect(contrast(color, darkSurface)).toBeGreaterThanOrEqual(3);
   }
-  expect(backgrounds.size).toBe(accent.values.length);
+});
+
+test("toolbar icons keep the same shape without a background, in one readable color per accent and scheme", () => {
+  const colors = new Set<string>();
+  for (const value of accent.values) {
+    for (const [scheme, surface] of [
+      ["light", white],
+      ["dark", darkSurface],
+    ] as const) {
+      let expected: number[] | undefined;
+      for (const size of iconSizes) {
+        const path = toolbarIconPaths(value, scheme)[size]!;
+        const color = mark(path, size);
+        expected ??= color;
+        expect(color).toEqual(expected);
+        expect(pixels(path, size).map((pixel) => pixel[3])).toEqual(
+          pixels(installationIconPaths[size]!, size).map((pixel) => pixel[3]),
+        );
+      }
+      expect(contrast(expected!, surface)).toBeGreaterThanOrEqual(4.5);
+      colors.add(expected!.join(","));
+    }
+  }
+  expect(colors.size).toBe(accent.values.length * 2);
 });

@@ -1,3 +1,4 @@
+import { followColorScheme } from "../appearance/color-scheme";
 import { defaultIgnore, effectiveRulesHash } from "../counter/rules";
 import {
   PUBLIC_PORT,
@@ -482,4 +483,5 @@ window.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", () => {
   if (view && currentView(view)) refreshDisplay(view);
 });
+followColorScheme({ immediately: false });
 mount();

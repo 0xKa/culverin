@@ -10,7 +10,7 @@ import {
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { crc32, deflateRawSync } from "node:zlib";
-import { toolbarIconFiles } from "../extension/src/appearance/icons";
+import { packagedIconFiles } from "../extension/src/appearance/icons";
 
 const root = resolve(import.meta.dirname, "..");
 const source = resolve(root, "extension/dist");
@@ -81,7 +81,7 @@ check(
   `unexpected top-level files: ${readdirSync(source).sort().join(", ")}`,
 );
 check(
-  same(readdirSync(resolve(source, "icons")).sort(), toolbarIconFiles),
+  same(readdirSync(resolve(source, "icons")).sort(), packagedIconFiles),
   "unexpected icon files",
 );
 const assets = readdirSync(resolve(source, "assets"));

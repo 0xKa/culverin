@@ -134,6 +134,7 @@ function pageHarness({
     "location",
     "document",
     "window",
+    "matchMedia",
     "MutationObserver",
     source,
   );
@@ -142,6 +143,7 @@ function pageHarness({
     location,
     document,
     window,
+    () => ({ matches: false, addEventListener: () => undefined }),
     class {
       constructor(callback: () => undefined) {
         mutation = callback;

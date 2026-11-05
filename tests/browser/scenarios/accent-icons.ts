@@ -93,7 +93,7 @@ export async function runAccentIcons(
       const applied = await worker.evaluate(
         () => (globalThis as IconScope).nextIcon,
       );
-      assert.deepEqual(applied, { path: toolbarIconPaths("purple") });
+      assert.deepEqual(applied, { path: toolbarIconPaths("purple", "light") });
       await settings.evaluate(
         (oldValue) => localStorage.setItem("culverin.accent", oldValue),
         oldValue,
@@ -126,7 +126,7 @@ export async function runAccentIcons(
       const applied = await worker.evaluate(
         () => (globalThis as IconScope).nextIcon,
       );
-      assert.deepEqual(applied, { path: toolbarIconPaths(value) });
+      assert.deepEqual(applied, { path: toolbarIconPaths(value, "light") });
       assert.equal(
         await settings.getByRole("button", { name: "Reset to Blue" }).count(),
         value === accent.fallback ? 0 : 1,
@@ -177,6 +177,28 @@ export async function runAccentIcons(
       await target.emulateMedia({ forcedColors: "active" });
       await checkHeader(target, true);
       await target.emulateMedia({ forcedColors: "none" });
+    }
+
+    const toolbarIcon = () =>
+      worker.evaluate(() => (globalThis as IconScope).nextIcon);
+    for (const theme of ["light", "dark"] as const) {
+      await watchToolbarUpdate();
+      await settings.locator(`input[name="theme"][value="${theme}"]`).check();
+      assert.deepEqual(await toolbarIcon(), {
+        path: toolbarIconPaths("teal", theme),
+      });
+    }
+    await watchToolbarUpdate();
+    await settings.locator('input[name="theme"][value="system"]').check();
+    assert.deepEqual(await toolbarIcon(), {
+      path: toolbarIconPaths("teal", "light"),
+    });
+    for (const colorScheme of ["dark", "light"] as const) {
+      await watchToolbarUpdate();
+      await popup.emulateMedia({ colorScheme });
+      assert.deepEqual(await toolbarIcon(), {
+        path: toolbarIconPaths("teal", colorScheme),
+      });
     }
 
     await settings.reload();

@@ -81,9 +81,9 @@ export const offscreen = createOffscreenManager({
   create: () =>
     chrome.offscreen.createDocument({
       url: "offscreen.html",
-      reasons: ["WORKERS"],
+      reasons: ["WORKERS", "MATCH_MEDIA"],
       justification:
-        "Analyze bounded local inputs in packaged terminable workers",
+        "Analyze bounded local inputs in packaged terminable workers and read the browser color scheme for the toolbar icon",
     }),
   close: () => chrome.offscreen.closeDocument(),
   idle: async () =>

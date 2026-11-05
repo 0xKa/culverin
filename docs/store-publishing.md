@@ -65,6 +65,7 @@ A re-run uses the workflow file from the tagged commit, so a fix to the workflow
 
 - The Chrome Web Store rejects an upload unless the manifest version has increased.
 - If visibility was changed manually in the dashboard, publish manually once before using the API again.
+- This repository allows only selected Actions. The workflow pins `google-github-actions/auth` to a commit, so change the pin and the entry in **Settings > Actions > General** together.
 
 ## Revoking access
 
